@@ -34,4 +34,14 @@ class User extends Authenticatable
             'is_admin'          => 'boolean',
         ];
     }
+
+public function clubs()
+{
+    return $this->hasMany(ClubMember::class);
+}
+
+public function createdClubs()
+{
+    return $this->hasMany(Club::class, 'created_by');
+}
 }
