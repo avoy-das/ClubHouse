@@ -1,32 +1,40 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
+import AdminRoute from './routes/AdminRoute';
+
 import Login from './pages/Login/Login';
 import Register from './pages/Register/Register';
-
-const Dashboard = () => (
-    <div className="p-8">
-        <h1 className="text-2xl font-bold">Welcome to ClubHouse</h1>
-        <p className="mt-2 text-gray-600">You are logged in.</p>
-    </div>
-);
+import Dashboard from './pages/Dashboard/Dashboard';
+import ClubList from './pages/Clubs/ClubList';
+import ClubDetail from './pages/Clubs/ClubDetail';
+import CreateClub from './pages/Clubs/CreateClub';
+import AdminClubList from './pages/Admin/AdminClubList';
 
 const App = () => {
     return (
         <BrowserRouter>
             <AuthProvider>
                 <Routes>
+                    {/* Public */}
                     <Route path="/login"    element={<Login />} />
                     <Route path="/register" element={<Register />} />
-                    <Route
-                        path="/dashboard"
-                        element={
-                            <ProtectedRoute>
-                                <Dashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route path="*" element={<Navigate to="/login" replace />} />
+
+                    {/* Protected */}
+                    <Route element={<ProtectedRoute />}>
+                        <Route path="/dashboard"      element={<Dashboard />} />
+                        <Route path="/clubs"           element={<ClubList />} />
+                        <Route path="/clubs/:id"       element={<ClubDetail />} />
+                        <Route path="/clubs/create"    element={<CreateClub />} />
+                    </Route>
+
+                    {/* Admin only */}
+                    <Route element={<AdminRoute />}>
+                        <Route path="/admin/clubs" element={<AdminClubList />} />
+                    </Route>
+
+                    {/* Fallback */}
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
             </AuthProvider>
         </BrowserRouter>
