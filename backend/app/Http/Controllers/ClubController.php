@@ -8,6 +8,7 @@ use App\Models\Club;
 use App\Models\ClubMember;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
+use App\Notifications\ClubMembershipDecided;
 
 class ClubController extends Controller
 {
@@ -87,6 +88,8 @@ class ClubController extends Controller
             'approved_at' => now(),
         ]);
 
+        
+
         // Founder becomes president automatically
         ClubMember::create([
             'club_id'   => $club->id,
@@ -98,6 +101,11 @@ class ClubController extends Controller
         AuditService::log('club.approved', $club, [
             'previous_status' => 'pending',
         ]);
+
+        $founder = \App\Models\User::find($club->created_by);
+$founder->notify(new ClubMembershipDecided($club, 'approved'));
+
+        
 
         return response()->json([
             'message' => 'Club approved successfully.',
@@ -125,6 +133,9 @@ class ClubController extends Controller
             'previous_status'  => 'pending',
             'rejection_reason' => $request->rejection_reason,
         ]);
+
+        $founder = \App\Models\User::find($club->created_by);
+$founder->notify(new ClubMembershipDecided($club, 'rejected'));
 
         return response()->json([
             'message' => 'Club rejected.',

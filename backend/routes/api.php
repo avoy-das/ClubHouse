@@ -5,6 +5,12 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ClubController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\NotificationController;
+
+// Notifications
+Route::get('/notifications', [NotificationController::class, 'index']);
+Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+Route::put('/notifications/{id}/read', [NotificationController::class, 'markRead']);
 
 // Public
 Route::post('/register', [AuthController::class, 'register']);
@@ -29,6 +35,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/events/{event}',          [EventController::class, 'update']);
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus']);
     Route::delete('/events/{event}',       [EventController::class, 'destroy']);
+
+    // Notifications
+Route::get('/notifications', [NotificationController::class, 'index']);
+Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+Route::put('/notifications/{id}/read', [NotificationController::class, 'markRead']);
 
     // Admin only
     Route::middleware('is_admin')->group(function () {

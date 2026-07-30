@@ -12,6 +12,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Notifications\EventStatusChanged;
+
 
 class EventController extends Controller
 {
@@ -187,7 +189,19 @@ class EventController extends Controller
             }
         }
 
+        $oldStatus = $event->status;
+
         $event->update($data);
+
+        if ($oldStatus !== $event->status) {
+    $registrants = $event->registrations()->with('user')->get();
+
+    foreach ($registrants as $registration) {
+        $registration->user->notify(
+            new EventStatusChanged($event, $oldStatus)
+        );
+    }
+}
 
         AuditService::log('event.updated', $event, ['changed_fields' => array_keys($data)]);
 
