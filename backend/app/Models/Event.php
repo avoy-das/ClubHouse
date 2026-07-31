@@ -17,6 +17,7 @@ class Event extends Model
         'description',
         'venue',
         'capacity',
+        'is_members_only',
         'start_at',
         'end_at',
         'registration_deadline',
@@ -27,6 +28,7 @@ class Event extends Model
     protected function casts(): array
     {
         return [
+            'is_members_only'       => 'boolean',
             'start_at'              => 'datetime',
             'end_at'                => 'datetime',
             'registration_deadline' => 'datetime',

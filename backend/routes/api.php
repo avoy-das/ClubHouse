@@ -62,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('clubs.announcements', AnnouncementController::class)->shallow();
 
     // Events
+    Route::get('/events', [EventController::class, 'index']);
     Route::apiResource('clubs.events', EventController::class)->shallow();
 
     // Event registration & attendance

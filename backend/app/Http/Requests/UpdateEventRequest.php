@@ -18,10 +18,11 @@ class UpdateEventRequest extends FormRequest
             'description'           => 'nullable|string',
             'venue'                 => 'nullable|string|max:255',
             'capacity'              => 'nullable|integer|min:1',
+            'is_members_only'       => 'nullable|boolean',
             'start_at'              => 'sometimes|required|date',
             'end_at'                => 'nullable|date',
             'registration_deadline' => 'nullable|date',
-            'status'                => 'sometimes|in:draft,published,cancelled,completed',
+            'status'                => 'sometimes|in:draft,published,ongoing,cancelled,completed',
         ];
     }
 }

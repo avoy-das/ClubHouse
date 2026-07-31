@@ -18,10 +18,11 @@ class StoreEventRequest extends FormRequest
             'description'           => 'nullable|string',
             'venue'                 => 'nullable|string|max:255',
             'capacity'              => 'nullable|integer|min:1',
+            'is_members_only'       => 'nullable|boolean',
             'start_at'              => 'required|date',
             'end_at'                => 'nullable|date|after:start_at',
             'registration_deadline' => 'nullable|date|before:start_at',
-            'status'                => 'nullable|in:draft,published,cancelled,completed',
+            'status'                => 'nullable|in:draft,published,ongoing,cancelled,completed',
         ];
     }
 }

@@ -11,28 +11,45 @@ use Illuminate\Http\Request;
 
 class EventController extends Controller
 {
+    protected array $validTransitions = [
+        'draft'     => ['published', 'cancelled'],
+        'published' => ['ongoing', 'cancelled'],
+        'ongoing'   => ['completed', 'cancelled'],
+        'completed' => [],
+        'cancelled' => [],
+    ];
+
+    protected function getOverlappingEvents(string $startAt, string $endAt, ?int $excludeId = null): array
+    {
+        $query = Event::where(function ($q) use ($startAt, $endAt) {
+            $q->where('start_at', '<', $endAt)
+              ->where('end_at', '>', $startAt);
+        });
+
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        return $query->get(['id', 'title', 'start_at', 'end_at', 'venue'])->toArray();
+    }
+
     public function index(Request $request, ?Club $club = null): JsonResponse
     {
         $query = Event::query();
 
-        if ($club) {
-            $query->where('club_id', $club->id);
+        $clubId = $club?->id ?? $request->query('club_id');
+        if ($clubId) {
+            $query->where('club_id', $clubId);
         }
 
-        $user = $request->user();
-        if ($club) {
-            $isExec = $user && ($user->is_admin || $user->hasClubPermission($club, 'can_manage_events'));
-            if (!$isExec) {
-                $query->where('status', 'published');
-            }
-        } else {
-            if (!$user || !$user->is_admin) {
-                $query->where('status', 'published');
-            }
-        }
+        $user = $request->user('sanctum') ?? $request->user();
 
-        if ($request->filled('status') && ($user && $user->is_admin)) {
-            $query->where('status', $request->query('status'));
+        if (!$user || !$user->is_admin) {
+            $userClubIds = $user ? $user->clubMemberships()->where('status', 'active')->pluck('club_id')->toArray() : [];
+            $query->where(function ($q) use ($userClubIds) {
+                $q->where('is_members_only', false)
+                  ->orWhereIn('club_id', $userClubIds);
+            });
         }
 
         if ($request->filled('search')) {
@@ -49,7 +66,7 @@ class EventController extends Controller
                 $q->where('status', 'registered');
             }])
             ->latest('start_at')
-            ->get();
+            ->paginate(15);
 
         return response()->json($events);
     }
@@ -63,17 +80,36 @@ class EventController extends Controller
         $data['created_by'] = $request->user()->id;
         $data['status'] = $data['status'] ?? 'draft';
 
+        $startAt = $data['start_at'];
+        $endAt = $data['end_at'] ?? date('Y-m-d H:i:s', strtotime($startAt . ' +2 hours'));
+        $data['end_at'] = $endAt;
+
+        $conflicts = $this->getOverlappingEvents($startAt, $endAt);
+
         $event = Event::create($data);
 
-        return response()->json($event->load('club'), 201);
+        $responsePayload = $event->load('club')->toArray();
+
+        if (!empty($conflicts)) {
+            $responsePayload['warning'] = 'Event overlaps with existing event(s).';
+            $responsePayload['conflicts'] = $conflicts;
+        }
+
+        return response()->json($responsePayload, 201);
     }
 
     public function show(Request $request, Event $event): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->user('sanctum') ?? $request->user();
+
+        if ($event->is_members_only && (!$user || (!$user->is_admin && !$user->isMemberOf($event->club_id)))) {
+            return response()->json(['message' => 'This event is restricted to club members.'], 403);
+        }
 
         $event->load(['club', 'creator']);
-        $event->registered_count = $event->registrations()->where('status', 'registered')->count();
+        $registeredCount = $event->registrations()->where('status', 'registered')->count();
+
+        $spotsRemaining = $event->capacity !== null ? max(0, $event->capacity - $registeredCount) : null;
 
         $myRegistration = null;
         if ($user) {
@@ -83,6 +119,8 @@ class EventController extends Controller
         }
 
         $data = $event->toArray();
+        $data['registered_count'] = $registeredCount;
+        $data['spots_remaining'] = $spotsRemaining;
         $data['my_registration'] = $myRegistration;
 
         return response()->json($data);
@@ -92,14 +130,49 @@ class EventController extends Controller
     {
         $this->authorize('update', $event);
 
-        $event->update($request->validated());
+        if (in_array($event->status, ['completed', 'cancelled'])) {
+            return response()->json(['message' => 'Cannot edit a completed or cancelled event.'], 422);
+        }
 
-        return response()->json($event->load('club'));
+        $data = $request->validated();
+
+        if (array_key_exists('status', $data) && $data['status'] !== $event->status) {
+            $newStatus = $data['status'];
+            $allowed = $this->validTransitions[$event->status] ?? [];
+            if (!in_array($newStatus, $allowed)) {
+                return response()->json([
+                    'message'           => "Invalid status transition from '{$event->status}' to '{$newStatus}'.",
+                    'valid_transitions' => $allowed,
+                ], 422);
+            }
+        }
+
+        $startAt = $data['start_at'] ?? $event->start_at?->format('Y-m-d H:i:s');
+        $endAt = $data['end_at'] ?? $event->end_at?->format('Y-m-d H:i:s');
+
+        $conflicts = [];
+        if ($startAt && $endAt && ($request->has('start_at') || $request->has('end_at'))) {
+            $conflicts = $this->getOverlappingEvents($startAt, $endAt, $event->id);
+        }
+
+        $event->update($data);
+
+        $responsePayload = $event->load('club')->toArray();
+        if (!empty($conflicts)) {
+            $responsePayload['warning'] = 'Event overlaps with existing event(s).';
+            $responsePayload['conflicts'] = $conflicts;
+        }
+
+        return response()->json($responsePayload);
     }
 
     public function destroy(Request $request, Event $event): JsonResponse
     {
         $this->authorize('delete', $event);
+
+        if ($event->status !== 'draft') {
+            return response()->json(['message' => 'Only draft events can be deleted.'], 422);
+        }
 
         $event->delete();
 
