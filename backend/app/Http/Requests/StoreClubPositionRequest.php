@@ -15,6 +15,7 @@ class StoreClubPositionRequest extends FormRequest
     {
         return [
             'title'                     => 'required|string|max:255',
+            'is_executive'              => 'boolean',
             'can_manage_members'       => 'boolean',
             'can_manage_events'        => 'boolean',
             'can_manage_announcements' => 'boolean',

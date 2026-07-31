@@ -15,6 +15,7 @@ class UpdateClubPositionRequest extends FormRequest
     {
         return [
             'title'                     => 'sometimes|required|string|max:255',
+            'is_executive'              => 'boolean',
             'can_manage_members'       => 'boolean',
             'can_manage_events'        => 'boolean',
             'can_manage_announcements' => 'boolean',

@@ -75,6 +75,7 @@ class ClubSeeder extends Seeder
             $presPos = $club->positions()->firstOrCreate(
                 ['title' => 'President'],
                 [
+                    'is_executive'             => true,
                     'can_manage_members'       => true,
                     'can_manage_events'        => true,
                     'can_manage_announcements' => true,
