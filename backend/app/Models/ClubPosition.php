@@ -13,6 +13,7 @@ class ClubPosition extends Model
     protected $fillable = [
         'club_id',
         'title',
+        'is_executive',
         'can_manage_members',
         'can_manage_events',
         'can_manage_announcements',
@@ -24,6 +25,7 @@ class ClubPosition extends Model
     protected function casts(): array
     {
         return [
+            'is_executive'             => 'boolean',
             'can_manage_members'       => 'boolean',
             'can_manage_events'        => 'boolean',
             'can_manage_announcements' => 'boolean',
