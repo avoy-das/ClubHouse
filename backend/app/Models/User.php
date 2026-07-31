@@ -55,6 +55,16 @@ class User extends Authenticatable
         return $this->hasMany(Notification::class);
     }
 
+    public function clubs(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            Club::class,
+            'club_members',
+            'user_id',
+            'club_id'
+        );
+    }
+
     /**
      * True if the user holds a position with the given permission flag
      * in an active membership of the given club.
@@ -68,8 +78,9 @@ class User extends Authenticatable
             ->where('status', 'active')
             ->whereHas('positions', function ($q) use ($permission) {
                 $q->where(function ($q2) {
-                    $q2->whereNull('ends_at')->orWhere('ends_at', '>', now());
-                })->whereHas('position', fn ($q3) => $q3->where($permission, true));
+                    $q2->whereNull('ends_at')
+                        ->orWhere('ends_at', '>', now());
+                })->whereHas('position', fn($q3) => $q3->where($permission, true));
             })
             ->exists();
     }
@@ -77,6 +88,10 @@ class User extends Authenticatable
     public function isMemberOf(int|Club $club): bool
     {
         $clubId = $club instanceof Club ? $club->id : $club;
-        return $this->clubMemberships()->where('club_id', $clubId)->where('status', 'active')->exists();
+
+        return $this->clubMemberships()
+            ->where('club_id', $clubId)
+            ->where('status', 'active')
+            ->exists();
     }
 }
