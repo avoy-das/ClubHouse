@@ -168,4 +168,34 @@ class ClubController extends Controller
 
         return response()->json(['message' => 'Club suspended.']);
     }
+
+    // Contextual search and listing for club members
+    public function members(Request $request, Club $club)
+    {
+        $user = $request->user();
+        $q = trim($request->input('q', ''));
+
+        $membersQuery = ClubMember::with(['user:id,name,student_id,email,department', 'club:id,name,slug']);
+
+        if ($q !== '') {
+            $escaped = '%' . addcslashes($q, '%_\\') . '%';
+
+            $membersQuery->whereHas('user', function ($query) use ($escaped) {
+                $query->where('name', 'LIKE', $escaped)
+                      ->orWhere('student_id', 'LIKE', $escaped);
+            });
+
+            // Club Exec/Student searches only members of their own club
+            // Admin searches all members platform-wide
+            if (!$user || !$user->is_admin) {
+                $membersQuery->where('club_id', $club->id);
+            }
+        } else {
+            $membersQuery->where('club_id', $club->id);
+        }
+
+        $members = $membersQuery->get();
+
+        return response()->json($members);
+    }
 }

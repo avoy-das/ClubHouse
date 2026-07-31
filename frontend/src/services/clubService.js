@@ -13,6 +13,12 @@ const clubService = {
             headers: { 'Content-Type': 'multipart/form-data' },
         }),
 
+    listMembers: (clubId, query = '') =>
+        api.get(`/clubs/${clubId}/members`, { params: query ? { q: query } : {} }),
+
+    removeMember: (clubId, memberId) =>
+        api.delete(`/clubs/${clubId}/members/${memberId}`),
+
     // Admin only
     adminGetClubs: () =>
         api.get('/admin/clubs'),

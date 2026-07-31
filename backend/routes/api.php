@@ -5,22 +5,24 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ClubController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\SearchController;
 
 // Public
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
 
 // Authenticated
-// Authenticated
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me',      [AuthController::class, 'me']);
+    Route::get('/search',  SearchController::class);
 
     // Clubs — any authenticated user
-    Route::get('/clubs',        [ClubController::class, 'index']);
-    Route::get('/clubs/{club}', [ClubController::class, 'show']);
-    Route::post('/clubs',       [ClubController::class, 'store']);
+    Route::get('/clubs',               [ClubController::class, 'index']);
+    Route::get('/clubs/{club}',        [ClubController::class, 'show']);
+    Route::get('/clubs/{club}/members', [ClubController::class, 'members']);
+    Route::post('/clubs',              [ClubController::class, 'store']);
 
     // Events — any authenticated user (visibility filtered in controller)
     Route::get('/events',                  [EventController::class, 'index']);

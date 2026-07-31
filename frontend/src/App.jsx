@@ -10,6 +10,7 @@ import ClubList from './pages/Clubs/ClubList';
 import ClubDetail from './pages/Clubs/ClubDetail';
 import CreateClub from './pages/Clubs/CreateClub';
 import AdminClubList from './pages/Admin/AdminClubList';
+import SearchPage from './pages/Search/SearchPage';
 
 const App = () => {
     return (
@@ -23,6 +24,7 @@ const App = () => {
                     {/* Protected */}
                     <Route element={<ProtectedRoute />}>
                         <Route path="/dashboard"      element={<Dashboard />} />
+                        <Route path="/search"         element={<SearchPage />} />
                         <Route path="/clubs"           element={<ClubList />} />
                         <Route path="/clubs/:id"       element={<ClubDetail />} />
                         <Route path="/clubs/create"    element={<CreateClub />} />
