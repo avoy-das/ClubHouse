@@ -30,7 +30,6 @@ class SearchController extends Controller
                 $q->where('name', 'LIKE', $escaped)
                   ->orWhere('description', 'LIKE', $escaped);
             })
-            ->select(['id', 'name', 'slug', 'category', 'description', 'logo_path', 'status'])
             ->get();
 
         // 2. Events (title, description)
@@ -40,7 +39,6 @@ class SearchController extends Controller
                 $q->where('title', 'LIKE', $escaped)
                   ->orWhere('description', 'LIKE', $escaped);
             })
-            ->select(['id', 'club_id', 'title', 'description', 'starts_at', 'ends_at', 'status', 'location_type', 'location_value', 'visibility'])
             ->get();
 
         // 3. Recruitment Notices (title, description)
@@ -57,7 +55,6 @@ class SearchController extends Controller
                 $q->where('title', 'LIKE', $escaped)
                   ->orWhere('description', 'LIKE', $escaped);
             })
-            ->select(['id', 'club_id', 'title', 'description', 'requirements', 'opens_at', 'closes_at', 'status'])
             ->get();
 
         $results = [
@@ -73,8 +70,8 @@ class SearchController extends Controller
                     $q->where('name', 'LIKE', $escaped)
                       ->orWhere('student_id', 'LIKE', $escaped);
                 })
-                ->select(['id', 'name', 'student_id', 'email', 'department', 'phone'])
-                ->get();
+                ->get()
+                ->makeHidden(['password', 'remember_token']);
 
             $results['members'] = $members;
         }
