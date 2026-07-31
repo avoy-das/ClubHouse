@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RecruitmentNotice extends Model
 {
@@ -22,13 +21,10 @@ class RecruitmentNotice extends Model
         'created_by',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'opens_at'  => 'datetime',
-            'closes_at' => 'datetime',
-        ];
-    }
+    protected $casts = [
+        'opens_at'  => 'datetime',
+        'closes_at' => 'datetime',
+    ];
 
     public function club(): BelongsTo
     {
@@ -38,10 +34,5 @@ class RecruitmentNotice extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
-    }
-
-    public function applications(): HasMany
-    {
-        return $this->hasMany(RecruitmentApplication::class);
     }
 }

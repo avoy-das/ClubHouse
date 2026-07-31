@@ -2,38 +2,35 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Event extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'club_id',
+        'created_by',
         'title',
         'description',
-        'venue',
-        'capacity',
-        'is_members_only',
-        'start_at',
-        'end_at',
-        'registration_deadline',
         'status',
-        'created_by',
+        'visibility',
+        'location_type',
+        'location_value',
+        'starts_at',
+        'ends_at',
+        'capacity',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'is_members_only'       => 'boolean',
-            'start_at'              => 'datetime',
-            'end_at'                => 'datetime',
-            'registration_deadline' => 'datetime',
-        ];
-    }
+    protected $casts = [
+        'starts_at' => 'datetime',
+        'ends_at'   => 'datetime',
+        'capacity'  => 'integer',
+    ];
+
+    // -------------------------------------------------------
+    // Relationships
+    // -------------------------------------------------------
 
     public function club(): BelongsTo
     {
@@ -48,5 +45,40 @@ class Event extends Model
     public function registrations(): HasMany
     {
         return $this->hasMany(EventRegistration::class);
+    }
+
+    public function feedback(): HasMany
+    {
+        return $this->hasMany(EventFeedback::class);
+    }
+
+    // -------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------
+
+    /**
+     * How many spots are still available.
+     * Returns 0 if at or over capacity (never negative).
+     */
+    public function spotsRemaining(): int
+    {
+        return max(0, $this->capacity - $this->registrations()->count());
+    }
+
+    /**
+     * Whether the event is accepting new registrations.
+     * Only published events with open spots qualify.
+     */
+    public function isRegistrationOpen(): bool
+    {
+        return $this->status === 'published' && $this->spotsRemaining() > 0;
+    }
+
+    /**
+     * Exec roles that can manage events within a club.
+     */
+    public static function execRoles(): array
+    {
+        return ['president', 'vice_president', 'secretary', 'treasurer'];
     }
 }

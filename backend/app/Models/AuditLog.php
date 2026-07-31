@@ -2,42 +2,27 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AuditLog extends Model
 {
-    use HasFactory;
+    public $timestamps = false;
 
     protected $fillable = [
-        'actor_id',
+        'user_id',
         'action',
-        'subject_type',
-        'subject_id',
-        'meta',
+        'target_type',
+        'target_id',
+        'metadata',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'meta' => 'array',
-        ];
-    }
+    protected $casts = [
+        'metadata'   => 'array',
+        'created_at' => 'datetime',
+    ];
 
-    public function actor(): BelongsTo
+    public function user()
     {
-        return $this->belongsTo(User::class, 'actor_id');
-    }
-
-    public static function record(?User $actor, string $action, ?Model $subject = null, array $meta = []): void
-    {
-        static::create([
-            'actor_id'     => $actor?->id,
-            'action'       => $action,
-            'subject_type' => $subject ? get_class($subject) : null,
-            'subject_id'   => $subject?->id,
-            'meta'         => $meta,
-        ]);
+        return $this->belongsTo(User::class);
     }
 }

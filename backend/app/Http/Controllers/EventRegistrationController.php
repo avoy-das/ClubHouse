@@ -2,145 +2,126 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\MarkAttendanceRequest;
-use App\Models\Certificate;
 use App\Models\Event;
 use App\Models\EventRegistration;
-use App\Models\Notification;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class EventRegistrationController extends Controller
 {
-    public function store(Request $request, Event $event): JsonResponse
+    /**
+     * POST /api/events/{event}/register
+     *
+     * Registers the authenticated user for an event.
+     */
+    public function register(Request $request, Event $event): JsonResponse
     {
-        $user = $request->user();
+        $user = Auth::user();
 
-        if ($event->status !== 'published') {
-            return response()->json(['message' => 'Registration is not open for this event.'], 422);
+        // 1. Guard against duplicate registration (409 Conflict)
+        $alreadyRegistered = EventRegistration::where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if ($alreadyRegistered) {
+            return response()->json([
+                'message' => 'You are already registered for this event.',
+            ], 409);
         }
 
-        if ($event->registration_deadline && now()->gt($event->registration_deadline)) {
-            return response()->json(['message' => 'Registration deadline has passed.'], 422);
+        // 2. Guard against registering for closed/completed/cancelled/past events
+        if (in_array($event->status, ['completed', 'cancelled']) || $event->ends_at->isPast()) {
+            return response()->json([
+                'message' => 'Registration is closed because this event has ended or is cancelled.',
+            ], 422);
         }
 
-        return DB::transaction(function () use ($event, $user) {
-            $lockedEvent = Event::where('id', $event->id)->lockForUpdate()->first();
+        // 3. Perform capacity check and registration inside a DB transaction with pessimistic locking
+        try {
+            DB::transaction(function () use ($event, $user) {
+                // Lock the event row for update to prevent concurrent overbooking
+                $lockedEvent = Event::where('id', $event->id)->lockForUpdate()->first();
 
-            if ($lockedEvent->capacity !== null) {
-                $registeredCount = EventRegistration::where('event_id', $lockedEvent->id)
-                    ->where('status', 'registered')
-                    ->count();
-
-                if ($registeredCount >= $lockedEvent->capacity) {
-                    return response()->json(['message' => 'Event capacity is full.'], 422);
+                if (!$lockedEvent) {
+                    throw new \RuntimeException('Event no longer exists.', 404);
                 }
-            }
 
-            $existing = EventRegistration::where('event_id', $lockedEvent->id)
-                ->where('user_id', $user->id)
-                ->first();
-
-            if ($existing) {
-                if ($existing->status === 'registered') {
-                    return response()->json(['message' => 'You are already registered for this event.'], 422);
+                // Capacity check if set (capacity null means unlimited)
+                if (!is_null($lockedEvent->capacity)) {
+                    $currentCount = $lockedEvent->registrations()->count();
+                    if ($currentCount >= $lockedEvent->capacity) {
+                        throw new \RuntimeException('This event is fully booked.', 422);
+                    }
                 }
-                $existing->update([
-                    'status'        => 'registered',
-                    'registered_at' => now(),
+
+                // Create registration record
+                EventRegistration::create([
+                    'event_id' => $lockedEvent->id,
+                    'user_id'  => $user->id,
                 ]);
-                return response()->json($existing->load('event'));
-            }
+            });
+        } catch (\RuntimeException $e) {
+            $code = $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 422;
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], $code);
+        }
 
-            $registration = EventRegistration::create([
-                'event_id'      => $lockedEvent->id,
-                'user_id'       => $user->id,
-                'status'        => 'registered',
-                'registered_at' => now(),
-            ]);
+        AuditService::log('event.registered', $event, [
+            'user_id'  => $user->id,
+            'event_id' => $event->id,
+        ]);
 
-            return response()->json($registration->load('event'), 201);
-        });
+        return response()->json([
+            'message'             => 'Successfully registered for event.',
+            'is_registered'       => true,
+            'registrations_count' => $event->registrations()->count(),
+            'spots_remaining'     => $event->spotsRemaining(),
+        ], 201);
     }
 
-    public function destroy(Request $request, Event $event): JsonResponse
+    /**
+     * DELETE /api/events/{event}/register
+     *
+     * Cancels the authenticated user's registration.
+     */
+    public function cancel(Request $request, Event $event): JsonResponse
     {
-        $user = $request->user();
+        $user = Auth::user();
 
-        if (now()->gte($event->start_at)) {
-            return response()->json(['message' => 'Cannot cancel registration after event has started.'], 422);
-        }
-
+        // 1. Guard against non-registered user
         $registration = EventRegistration::where('event_id', $event->id)
             ->where('user_id', $user->id)
             ->first();
 
-        if (!$registration || $registration->status === 'cancelled') {
-            return response()->json(['message' => 'Active registration not found.'], 404);
+        if (!$registration) {
+            return response()->json([
+                'message' => 'You are not registered for this event.',
+            ], 422);
         }
 
-        $registration->update(['status' => 'cancelled']);
-
-        return response()->json(['message' => 'Registration cancelled successfully.']);
-    }
-
-    public function index(Request $request, Event $event): JsonResponse
-    {
-        $user = $request->user();
-        $canView = $user->is_admin
-            || $user->hasClubPermission($event->club_id, 'can_manage_events')
-            || $user->hasClubPermission($event->club_id, 'can_track_attendance');
-
-        if (!$canView) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+        // 2. Guard against cancelling after event has started or completed
+        if ($event->status === 'ongoing' || $event->status === 'completed' || $event->starts_at->isPast()) {
+            return response()->json([
+                'message' => 'Registration changes are not allowed after the event has started.',
+            ], 403);
         }
 
-        $registrations = EventRegistration::where('event_id', $event->id)
-            ->with(['user', 'certificate', 'feedback'])
-            ->latest('registered_at')
-            ->get();
+        $registration->delete();
 
-        return response()->json($registrations);
-    }
-
-    public function markAttendance(MarkAttendanceRequest $request, Event $event, EventRegistration $registration): JsonResponse
-    {
-        if ($registration->event_id !== $event->id) {
-            return response()->json(['message' => 'Registration does not belong to this event.'], 404);
-        }
-
-        $this->authorize('markAttendance', $registration);
-
-        $attended = $request->boolean('attended');
-
-        $registration->update([
-            'attended'    => $attended,
-            'attended_at' => $attended ? now() : null,
+        AuditService::log('event.registration_cancelled', $event, [
+            'user_id'  => $user->id,
+            'event_id' => $event->id,
         ]);
 
-        if ($attended && !$registration->certificate) {
-            $certNum = 'CH-' . $event->id . '-' . $registration->id . '-' . strtoupper(Str::random(6));
-            $certPath = 'certificates/' . $certNum . '.pdf';
-
-            $certificate = Certificate::create([
-                'event_registration_id' => $registration->id,
-                'certificate_number'    => $certNum,
-                'file_path'             => $certPath,
-                'issued_at'             => now(),
-            ]);
-
-            Notification::create([
-                'user_id'      => $registration->user_id,
-                'type'         => 'certificate_issued',
-                'title'        => 'Certificate Issued',
-                'message'      => "Congratulations! Your certificate for '{$event->title}' is ready for download.",
-                'related_type' => Certificate::class,
-                'related_id'   => $certificate->id,
-            ]);
-        }
-
-        return response()->json($registration->load(['user', 'certificate']));
+        return response()->json([
+            'message'             => 'Registration successfully cancelled.',
+            'is_registered'       => false,
+            'registrations_count' => $event->registrations()->count(),
+            'spots_remaining'     => $event->spotsRemaining(),
+        ]);
     }
 }

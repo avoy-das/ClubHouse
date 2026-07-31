@@ -2,41 +2,30 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ClubMember extends Model
 {
-    use HasFactory;
+    public $timestamps = false;
 
     protected $fillable = [
         'club_id',
         'user_id',
-        'status',
+        'role',
         'joined_at',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'joined_at' => 'datetime',
-        ];
-    }
+    protected $casts = [
+        'joined_at' => 'datetime',
+    ];
 
-    public function club(): BelongsTo
+    public function club()
     {
         return $this->belongsTo(Club::class);
     }
 
-    public function user(): BelongsTo
+    public function user()
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function positions(): HasMany
-    {
-        return $this->hasMany(ClubMemberPosition::class);
     }
 }

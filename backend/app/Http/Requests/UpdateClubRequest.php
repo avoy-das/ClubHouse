@@ -14,11 +14,14 @@ class UpdateClubRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'        => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-            'category'    => 'nullable|string|max:255',
-            'logo_path'   => 'nullable|string|max:255',
-            'status'      => 'sometimes|in:pending,approved,rejected,suspended',
+            'name'          => 'sometimes|string|max:255|unique:clubs,name,' . $this->route('club'),
+            'category'      => 'sometimes|in:Academic,Technology,Cultural,Sports,Arts & Media,Business & Entrepreneurship,Community Service,Environment,Health & Wellness,Recreation & Hobby,Other',
+            'description'   => 'sometimes|string',
+            'department'    => 'sometimes|string|max:255',
+            'contact_email' => 'sometimes|email',
+            'contact_phone' => 'nullable|string|max:20',
+            'logo'          => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'reason'        => 'sometimes|string',
         ];
     }
 }

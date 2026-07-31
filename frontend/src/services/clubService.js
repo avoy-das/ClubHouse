@@ -1,29 +1,41 @@
 import api from './api';
 
 const clubService = {
-    list: async (params = {}) => (await api.get('/clubs', { params })).data,
-    get: async (clubId) => (await api.get(`/clubs/${clubId}`)).data,
-    create: async (data) => (await api.post('/clubs', data)).data,
-    update: async (clubId, data) => (await api.put(`/clubs/${clubId}`, data)).data,
-    remove: async (clubId) => (await api.delete(`/clubs/${clubId}`)).data,
-    approve: async (clubId) => (await api.post(`/clubs/${clubId}/approve`)).data,
-    suspend: async (clubId) => (await api.post(`/clubs/${clubId}/suspend`)).data,
+    // Any authenticated user
+    getClubs: () =>
+        api.get('/clubs'),
 
-    listPositions: async (clubId) => (await api.get(`/clubs/${clubId}/positions`)).data,
-    createPosition: async (clubId, data) => (await api.post(`/clubs/${clubId}/positions`, data)).data,
-    updatePosition: async (positionId, data) => (await api.put(`/positions/${positionId}`, data)).data,
-    removePosition: async (positionId) => (await api.delete(`/positions/${positionId}`)).data,
+    getClub: (id) =>
+        api.get(`/clubs/${id}`),
 
-    listMembers: async (clubId) => (await api.get(`/clubs/${clubId}/members`)).data,
-    removeMember: async (clubId, memberId) => (await api.delete(`/clubs/${clubId}/members/${memberId}`)).data,
-    assignPosition: async (memberId, positionId) =>
-        (await api.post(`/club-members/${memberId}/positions`, { position_id: positionId })).data,
-    revokePosition: async (memberId, positionId) =>
-        (await api.delete(`/club-members/${memberId}/positions/${positionId}`)).data,
+    createClub: (formData) =>
+        api.post('/clubs', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }),
 
-    listGalleries: async (clubId) => (await api.get(`/clubs/${clubId}/galleries`)).data,
-    addGallery: async (clubId, data) => (await api.post(`/clubs/${clubId}/galleries`, data)).data,
-    removeGallery: async (galleryId) => (await api.delete(`/galleries/${galleryId}`)).data,
+    listMembers: (clubId, query = '') =>
+        api.get(`/clubs/${clubId}/members`, { params: query ? { q: query } : {} }),
+
+    removeMember: (clubId, memberId) =>
+        api.delete(`/clubs/${clubId}/members/${memberId}`),
+
+    // Admin only
+    adminGetClubs: () =>
+        api.get('/admin/clubs'),
+
+    adminApprove: (id) =>
+        api.post(`/admin/clubs/${id}/approve`),
+
+    adminReject: (id, reason) =>
+        api.post(`/admin/clubs/${id}/reject`, { rejection_reason: reason }),
+
+    adminSuspend: (id) =>
+        api.post(`/admin/clubs/${id}/suspend`),
+
+    adminUpdate: (id, formData) =>
+        api.put(`/admin/clubs/${id}`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }),
 };
 
 export default clubService;

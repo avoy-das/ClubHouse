@@ -1,43 +1,25 @@
 import api from './api';
 
 const eventService = {
-    // Temporary fix: Backend doesn't have GET /api/events or /api/clubs/events
-    listAll: async () => [],
+    // Get list of events with query filters
+    getEvents: (params = {}) =>
+        api.get('/events', { params }),
 
-    listForClub: async (clubId, params = {}) =>
-        (await api.get(`/clubs/${clubId}/events`, { params })).data,
+    // Get single event details
+    getEvent: (id) =>
+        api.get(`/events/${id}`),
 
-    get: async (eventId) =>
-        (await api.get(`/events/${eventId}`)).data,
+    // Register authenticated user for an event
+    registerEvent: (id) =>
+        api.post(`/events/${id}/register`),
 
-    create: async (clubId, data) =>
-        (await api.post(`/clubs/${clubId}/events`, data)).data,
+    // Cancel registration for an event
+    cancelRegistration: (id) =>
+        api.delete(`/events/${id}/register`),
 
-    update: async (eventId, data) =>
-        (await api.put(`/events/${eventId}`, data)).data,
-
-    remove: async (eventId) =>
-        (await api.delete(`/events/${eventId}`)).data,
-
-    register: async (eventId) =>
-        (await api.post(`/events/${eventId}/register`)).data,
-
-    cancelRegistration: async (eventId) =>
-        (await api.delete(`/events/${eventId}/register`)).data,
-
-    listRegistrations: async (eventId) =>
-        (await api.get(`/events/${eventId}/registrations`)).data,
-
-    markAttendance: async (eventId, registrationId, attended) =>
-        (
-            await api.patch(
-                `/events/${eventId}/registrations/${registrationId}/attendance`,
-                { attended }
-            )
-        ).data,
-
-    submitFeedback: async (eventId, data) =>
-        (await api.post(`/events/${eventId}/feedback`, data)).data,
+    // Get events user is registered for
+    getMyEvents: (status = 'upcoming') =>
+        api.get('/events', { params: { registered: 'true', status } }),
 };
 
 export default eventService;

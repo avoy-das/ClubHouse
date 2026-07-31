@@ -2,184 +2,114 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreClubRequest;
+use App\Http\Requests\CreateClubRequest;
 use App\Http\Requests\UpdateClubRequest;
-use App\Models\AuditLog;
 use App\Models\Club;
-use App\Models\Notification;
-use Illuminate\Http\JsonResponse;
+use App\Models\ClubMember;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class ClubController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    // Any authenticated user can submit a club creation request
+    public function store(CreateClubRequest $request)
     {
-        $query = Club::query();
+        $logoPath = null;
 
-        $user = $request->user();
-        if (!$user || !$user->is_admin) {
-            $query->where('status', 'approved');
-        } elseif ($request->has('status')) {
-            $query->where('status', $request->query('status'));
+        if ($request->hasFile('logo')) {
+            $logoPath = $request->file('logo')->store('logos', 'public');
         }
 
-        if ($request->filled('category')) {
-            $query->where('category', $request->query('category'));
-        }
+        $club = Club::create([
+            'name'          => $request->name,
+            'category'      => $request->category,
+            'description'   => $request->description,
+            'department'    => $request->department,
+            'contact_email' => $request->contact_email,
+            'contact_phone' => $request->contact_phone,
+            'logo_path'     => $logoPath,
+            'reason'        => $request->reason,
+            'status'        => 'pending',
+            'created_by'    => $request->user()->id,
+        ]);
 
-        if ($request->filled('search')) {
-            $search = $request->query('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
+        AuditService::log('club.created', $club);
 
-        $clubs = $query->with('creator')->latest()->get();
+        return response()->json([
+            'message' => 'Club creation request submitted successfully.',
+            'club'    => $club,
+        ], 201);
+    }
+
+    // Any authenticated user can view approved clubs
+    public function index()
+    {
+        $clubs = Club::where('status', 'approved')
+            ->with('creator:id,name')
+            ->latest()
+            ->get();
 
         return response()->json($clubs);
     }
 
-    public function store(StoreClubRequest $request): JsonResponse
+    // Any authenticated user can view a single approved club
+    public function show(Club $club)
     {
-        $data = $request->validated();
-
-        $baseSlug = Str::slug($data['name']);
-        $slug = $baseSlug;
-        $count = 1;
-        while (Club::where('slug', $slug)->exists()) {
-            $slug = "{$baseSlug}-{$count}";
-            $count++;
-        }
-
-        $club = Club::create([
-            'name'        => $data['name'],
-            'slug'        => $slug,
-            'description' => $data['description'] ?? null,
-            'category'    => $data['category'] ?? null,
-            'logo_path'   => $data['logo_path'] ?? null,
-            'status'      => 'pending',
-            'created_by'  => $request->user()->id,
-        ]);
-
-        // Auto-create default position for the club
-        $club->positions()->create([
-            'title'      => 'Member',
-            'is_default' => true,
-        ]);
-
-        // Auto-create President/Executive position for creator
-        $presPosition = $club->positions()->create([
-            'title'                     => 'President',
-            'can_manage_members'       => true,
-            'can_manage_events'        => true,
-            'can_manage_announcements' => true,
-            'can_manage_recruitment'   => true,
-            'can_track_attendance'     => true,
-            'is_default'               => false,
-        ]);
-
-        // Creator becomes active member with President position
-        $member = $club->members()->create([
-            'user_id'   => $request->user()->id,
-            'status'    => 'active',
-            'joined_at' => now(),
-        ]);
-
-        $member->positions()->create([
-            'club_position_id' => $presPosition->id,
-            'assigned_at'      => now(),
-        ]);
-
-        return response()->json($club->load('positions'), 201);
-    }
-
-    public function show(Request $request, Club $club): JsonResponse
-    {
-        $user = $request->user('sanctum') ?? $request->user();
-
-        if ($club->status !== 'approved' && (!$user || !$user->is_admin)) {
+        if ($club->status !== 'approved') {
             return response()->json(['message' => 'Club not found.'], 404);
         }
 
-        $myMembership = null;
-
-        if ($user) {
-            $myMembership = $club->members()
-                ->where('user_id', $user->id)
-                ->where('status', 'active')
-                ->with(['positions' => function ($q) {
-                    $q->where(function ($q2) {
-                        $q2->whereNull('ends_at')->orWhere('ends_at', '>', now());
-                    })->with('position');
-                }])
-                ->first();
-        }
-
-        $response = $club->load(['creator', 'positions']);
-        $data = $response->toArray();
-
-        if ($myMembership) {
-            $positionsList = $myMembership->positions->map(fn ($p) => $p->position)->filter()->values();
-            $data['my_membership'] = [
-                'status'    => $myMembership->status,
-                'joined_at' => $myMembership->joined_at,
-                'positions' => $positionsList,
-            ];
-        } else {
-            $data['my_membership'] = null;
-        }
-
-        return response()->json($data);
-    }
-
-    public function update(UpdateClubRequest $request, Club $club): JsonResponse
-    {
-        $this->authorize('update', $club);
-
-        $club->update($request->validated());
+        $club->load('creator:id,name', 'members.user:id,name');
 
         return response()->json($club);
     }
 
-    public function destroy(Request $request, Club $club): JsonResponse
+    // Admin only — view all clubs regardless of status
+    public function adminIndex(Request $request)
     {
-        $this->authorize('delete', $club);
+        $clubs = Club::with('creator:id,name')
+            ->latest()
+            ->get();
 
-        AuditLog::record($request->user(), 'delete_club', $club, ['name' => $club->name]);
-
-        $club->delete();
-
-        return response()->json(['message' => 'Club deleted successfully.']);
+        return response()->json($clubs);
     }
 
-    public function approve(Request $request, Club $club): JsonResponse
+    // Admin only — approve a club
+    public function approve(Request $request, Club $club)
     {
-        if ($club->status === 'approved') {
-            return response()->json(['message' => 'Club is already approved.'], 422);
+        if ($club->status !== 'pending') {
+            return response()->json(['message' => 'Only pending clubs can be approved.'], 422);
         }
 
-        $club->update(['status' => 'approved']);
-
-        AuditLog::record($request->user(), 'approve_club', $club);
-
-        Notification::create([
-            'user_id'      => $club->created_by,
-            'type'         => 'club_approved',
-            'title'        => 'Club Approved',
-            'message'      => "Your club '{$club->name}' has been approved by an administrator.",
-            'related_type' => Club::class,
-            'related_id'   => $club->id,
+        $club->update([
+            'status'      => 'approved',
+            'approved_by' => $request->user()->id,
+            'approved_at' => now(),
         ]);
 
-        return response()->json(['message' => 'Club approved successfully.', 'club' => $club]);
+        // Founder becomes president automatically
+        ClubMember::create([
+            'club_id'   => $club->id,
+            'user_id'   => $club->created_by,
+            'role'      => 'president',
+            'joined_at' => now(),
+        ]);
+
+        AuditService::log('club.approved', $club, [
+            'previous_status' => 'pending',
+        ]);
+
+        return response()->json([
+            'message' => 'Club approved successfully.',
+            'club'    => $club,
+        ]);
     }
 
-    public function reject(Request $request, Club $club): JsonResponse
+    // Admin only — reject a club
+    public function reject(Request $request, Club $club)
     {
-        $validated = $request->validate([
-            'reason' => ['required', 'string', 'max:500'],
+        $request->validate([
+            'rejection_reason' => 'required|string',
         ]);
 
         if ($club->status !== 'pending') {
@@ -188,24 +118,43 @@ class ClubController extends Controller
 
         $club->update([
             'status'           => 'rejected',
-            'rejection_reason' => $validated['reason'],
+            'rejection_reason' => $request->rejection_reason,
         ]);
 
-        AuditLog::record($request->user(), 'reject_club', $club, ['reason' => $validated['reason']]);
-
-        Notification::create([
-            'user_id'      => $club->created_by,
-            'type'         => 'club_rejected',
-            'title'        => 'Club Rejected',
-            'message'      => "Your club '{$club->name}' has been rejected. Reason: {$validated['reason']}",
-            'related_type' => Club::class,
-            'related_id'   => $club->id,
+        AuditService::log('club.rejected', $club, [
+            'previous_status'  => 'pending',
+            'rejection_reason' => $request->rejection_reason,
         ]);
 
-        return response()->json(['message' => 'Club rejected successfully.', 'club' => $club]);
+        return response()->json([
+            'message' => 'Club rejected.',
+            'club'    => $club,
+        ]);
     }
 
-    public function suspend(Request $request, Club $club): JsonResponse
+    // Admin only — update club details
+    public function update(UpdateClubRequest $request, Club $club)
+    {
+        $data = $request->validated();
+
+        if ($request->hasFile('logo')) {
+            $data['logo_path'] = $request->file('logo')->store('logos', 'public');
+        }
+
+        unset($data['logo']);
+
+        $club->update($data);
+
+        AuditService::log('club.updated', $club);
+
+        return response()->json([
+            'message' => 'Club updated successfully.',
+            'club'    => $club,
+        ]);
+    }
+
+    // Admin only — suspend a club
+    public function suspend(Club $club)
     {
         if ($club->status !== 'approved') {
             return response()->json(['message' => 'Only approved clubs can be suspended.'], 422);
@@ -213,17 +162,40 @@ class ClubController extends Controller
 
         $club->update(['status' => 'suspended']);
 
-        AuditLog::record($request->user(), 'suspend_club', $club);
-
-        Notification::create([
-            'user_id'      => $club->created_by,
-            'type'         => 'club_suspended',
-            'title'        => 'Club Suspended',
-            'message'      => "Your club '{$club->name}' has been suspended.",
-            'related_type' => Club::class,
-            'related_id'   => $club->id,
+        AuditService::log('club.suspended', $club, [
+            'previous_status' => 'approved',
         ]);
 
-        return response()->json(['message' => 'Club suspended successfully.', 'club' => $club]);
+        return response()->json(['message' => 'Club suspended.']);
+    }
+
+    // Contextual search and listing for club members
+    public function members(Request $request, Club $club)
+    {
+        $user = $request->user();
+        $q = trim($request->input('q', ''));
+
+        $membersQuery = ClubMember::with(['user:id,name,student_id,email,department', 'club:id,name,slug']);
+
+        if ($q !== '') {
+            $escaped = '%' . addcslashes($q, '%_\\') . '%';
+
+            $membersQuery->whereHas('user', function ($query) use ($escaped) {
+                $query->where('name', 'LIKE', $escaped)
+                      ->orWhere('student_id', 'LIKE', $escaped);
+            });
+
+            // Club Exec/Student searches only members of their own club
+            // Admin searches all members platform-wide
+            if (!$user || !$user->is_admin) {
+                $membersQuery->where('club_id', $club->id);
+            }
+        } else {
+            $membersQuery->where('club_id', $club->id);
+        }
+
+        $members = $membersQuery->get();
+
+        return response()->json($members);
     }
 }

@@ -14,15 +14,23 @@ class UpdateEventRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title'                 => 'sometimes|required|string|max:255',
-            'description'           => 'nullable|string',
-            'venue'                 => 'nullable|string|max:255',
-            'capacity'              => 'nullable|integer|min:1',
-            'is_members_only'       => 'nullable|boolean',
-            'start_at'              => 'sometimes|required|date',
-            'end_at'                => 'nullable|date',
-            'registration_deadline' => 'nullable|date',
-            'status'                => 'sometimes|in:draft,published,ongoing,cancelled,completed',
+            'title'          => ['sometimes', 'string', 'max:255'],
+            'description'    => ['sometimes', 'nullable', 'string'],
+            'visibility'     => ['sometimes', 'in:public,members_only'],
+            'location_type'  => ['sometimes', 'in:physical,online'],
+            'location_value' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'starts_at'      => ['sometimes', 'date', 'after:now'],
+            'ends_at'        => ['sometimes', 'date', 'after:starts_at'],
+            'capacity'       => ['sometimes', 'integer', 'min:1'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'starts_at.after' => 'Event start time must be in the future.',
+            'ends_at.after'   => 'Event end time must be after the start time.',
+            'capacity.min'    => 'Capacity must be at least 1.',
         ];
     }
 }

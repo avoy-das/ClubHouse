@@ -2,63 +2,42 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Club extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'name',
-        'slug',
-        'description',
         'category',
+        'description',
+        'department',
+        'contact_email',
+        'contact_phone',
         'logo_path',
+        'reason',
         'status',
-        'rejection_reason',
         'created_by',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
     ];
 
-    public function creator(): BelongsTo
+    protected $casts = [
+        'approved_at' => 'datetime',
+    ];
+
+    public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function positions(): HasMany
+    public function approver()
     {
-        return $this->hasMany(ClubPosition::class);
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function members(): HasMany
+    public function members()
     {
         return $this->hasMany(ClubMember::class);
-    }
-
-    public function events(): HasMany
-    {
-        return $this->hasMany(Event::class);
-    }
-
-    public function announcements(): HasMany
-    {
-        return $this->hasMany(Announcement::class);
-    }
-
-    public function membershipRequests(): HasMany
-    {
-        return $this->hasMany(MembershipRequest::class);
-    }
-
-    public function recruitmentNotices(): HasMany
-    {
-        return $this->hasMany(RecruitmentNotice::class);
-    }
-
-    public function galleries(): HasMany
-    {
-        return $this->hasMany(ClubGallery::class);
     }
 }

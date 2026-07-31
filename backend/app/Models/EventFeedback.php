@@ -2,33 +2,29 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EventFeedback extends Model
 {
-    use HasFactory;
-
-    protected $table = 'event_feedback';
-
     protected $fillable = [
-        'event_registration_id',
+        'event_id',
+        'user_id',
         'rating',
-        'comments',
-        'submitted_at',
+        'comment',
     ];
 
-    protected function casts(): array
+    protected $casts = [
+        'rating' => 'integer',
+    ];
+
+    public function event(): BelongsTo
     {
-        return [
-            'submitted_at' => 'datetime',
-            'rating'       => 'integer',
-        ];
+        return $this->belongsTo(Event::class);
     }
 
-    public function registration(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(EventRegistration::class, 'event_registration_id');
+        return $this->belongsTo(User::class);
     }
 }
