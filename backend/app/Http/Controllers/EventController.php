@@ -24,42 +24,81 @@ class EventController extends Controller
     // -------------------------------------------------------
     public function index(Request $request): JsonResponse
     {
-        $user     = Auth::user();
-        $clubId   = $request->query('club_id');
-        $status   = $request->query('status');
+        $user       = Auth::user();
+        $clubId     = $request->query('club_id');
+        $status     = strtolower($request->query('status', ''));
+        $search     = $request->query('search');
+        $datePreset = strtolower($request->query('date_preset', $request->query('date', '')));
 
         $query = Event::with(['club:id,name', 'creator:id,name'])
             ->withCount('registrations');
 
-        // Scope to a specific club if requested
+        // Text search by title
+        if ($search) {
+            $query->where('title', 'like', '%' . $search . '%');
+        }
+
+        // Scope to specific club if requested
         if ($clubId) {
             $query->where('club_id', $clubId);
         }
 
-        // Scope by status if requested
+        // Scope by status
         if ($status) {
-            $query->where('status', $status);
+            if ($status === 'upcoming') {
+                $query->where('starts_at', '>=', now())
+                      ->whereNotIn('status', ['draft', 'cancelled', 'completed']);
+            } elseif ($status === 'ongoing') {
+                $query->where(function ($q) {
+                    $q->where('status', 'ongoing')
+                      ->orWhere(function ($sub) {
+                          $sub->where('starts_at', '<=', now())
+                              ->where('ends_at', '>=', now());
+                      });
+                })->whereNotIn('status', ['draft', 'cancelled']);
+            } elseif ($status === 'completed') {
+                $query->where(function ($q) {
+                    $q->where('status', 'completed')
+                      ->orWhere('ends_at', '<', now());
+                });
+            } else {
+                $query->where('status', $status);
+            }
         }
 
-        // Filter visibility: members_only events only shown to club members
-        $query->where(function ($q) use ($user) {
-            $q->where('visibility', 'public')
-              ->orWhereHas('club', function ($clubQuery) use ($user) {
-                  $clubQuery->whereHas('members', function ($memberQuery) use ($user) {
-                      $memberQuery->where('user_id', $user->id);
+        // Scope by date preset
+        if ($datePreset) {
+            if ($datePreset === 'upcoming') {
+                $query->where('starts_at', '>=', now());
+            } elseif ($datePreset === 'this_week') {
+                $query->whereBetween('starts_at', [now(), now()->endOfWeek()]);
+            } elseif ($datePreset === 'this_month') {
+                $query->whereBetween('starts_at', [now(), now()->endOfMonth()]);
+            } elseif ($datePreset === 'past') {
+                $query->where('starts_at', '<', now());
+            }
+        }
+
+        // Filter by current user registration
+        if ($request->boolean('registered') || $request->query('registered') === 'true' || $request->query('registered') === '1') {
+            $query->whereHas('registrations', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            });
+        }
+
+        // Visibility check: non-admins only see public events or events in clubs they are members of
+        if (!$user->is_admin) {
+            $query->where(function ($q) use ($user) {
+                $q->where('visibility', 'public')
+                  ->orWhereHas('club', function ($clubQuery) use ($user) {
+                      $clubQuery->whereHas('members', function ($memberQuery) use ($user) {
+                          $memberQuery->where('user_id', $user->id);
+                      });
                   });
-              });
-        });
-
-        // Admins bypass visibility filter
-        if ($user->is_admin) {
-            $query = Event::with(['club:id,name', 'creator:id,name'])
-                ->withCount('registrations');
-            if ($clubId) $query->where('club_id', $clubId);
-            if ($status)  $query->where('status', $status);
+            });
         }
 
-        $events = $query->orderBy('starts_at')->paginate(15);
+        $events = $query->orderBy('starts_at', 'asc')->paginate(12)->appends($request->query());
 
         return response()->json($events);
     }
@@ -132,9 +171,17 @@ class EventController extends Controller
         $event->load(['club:id,name', 'creator:id,name'])
               ->loadCount('registrations');
 
+        $isRegistered = \App\Models\EventRegistration::where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        $canManage = $user->is_admin || $event->created_by === $user->id || $this->isExec($user->id, $event->club_id);
+
         return response()->json([
             'event'           => $event,
             'spots_remaining' => $event->spotsRemaining(),
+            'is_registered'   => $isRegistered,
+            'can_manage'      => $canManage,
         ]);
     }
 

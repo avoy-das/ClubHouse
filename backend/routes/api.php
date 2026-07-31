@@ -5,6 +5,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ClubController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventRegistrationController;
 use App\Http\Controllers\SearchController;
 
 // Public
@@ -31,6 +32,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/events/{event}',          [EventController::class, 'update']);
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus']);
     Route::delete('/events/{event}',       [EventController::class, 'destroy']);
+
+    // Event Registrations
+    Route::post('/events/{event}/register',   [EventRegistrationController::class, 'register']);
+    Route::delete('/events/{event}/register', [EventRegistrationController::class, 'cancel']);
 
     // Admin only
     Route::middleware('is_admin')->group(function () {

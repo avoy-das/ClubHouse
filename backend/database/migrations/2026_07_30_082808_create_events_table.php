@@ -46,7 +46,7 @@ return new class extends Migration
             $table->dateTime('starts_at');
             $table->dateTime('ends_at');
 
-            $table->unsignedInteger('capacity');
+            $table->unsignedInteger('capacity')->nullable();
 
             // Soft conflict detection — no hard block, just data for the warning
             // Checked at the service layer, not enforced by DB constraint.

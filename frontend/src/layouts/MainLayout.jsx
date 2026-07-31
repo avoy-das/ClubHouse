@@ -50,6 +50,7 @@ const MainLayout = ({ children }) => {
                             <div className="flex items-center gap-1">
                                 {navLink('/dashboard', 'Dashboard')}
                                 {navLink('/clubs', 'Clubs')}
+                                {navLink('/events', 'Events')}
                                 {isAdmin() && navLink('/admin/clubs', 'Admin')}
                             </div>
                         </div>

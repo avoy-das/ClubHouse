@@ -11,6 +11,8 @@ import ClubDetail from './pages/Clubs/ClubDetail';
 import CreateClub from './pages/Clubs/CreateClub';
 import AdminClubList from './pages/Admin/AdminClubList';
 import SearchPage from './pages/Search/SearchPage';
+import EventsPage from './pages/Events/EventsPage';
+import EventDetailPage from './pages/Events/EventDetailPage';
 
 const App = () => {
     return (
@@ -28,6 +30,8 @@ const App = () => {
                         <Route path="/clubs"           element={<ClubList />} />
                         <Route path="/clubs/:id"       element={<ClubDetail />} />
                         <Route path="/clubs/create"    element={<CreateClub />} />
+                        <Route path="/events"          element={<EventsPage />} />
+                        <Route path="/events/:id"      element={<EventDetailPage />} />
                     </Route>
 
                     {/* Admin only */}
