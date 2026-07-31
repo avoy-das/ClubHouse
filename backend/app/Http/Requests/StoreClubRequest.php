@@ -14,9 +14,9 @@ class StoreClubRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'        => 'required|string|max:255',
+            'name'        => 'required|string|max:255|unique:clubs,name',
             'description' => 'nullable|string',
-            'category'    => 'nullable|string|max:255',
+            'category'    => 'nullable|string|in:Academic & Technology,Engineering,Cultural & Arts,Sports & Athletics,Social Services',
             'logo_path'   => 'nullable|string|max:255',
         ];
     }

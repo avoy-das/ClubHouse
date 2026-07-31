@@ -97,7 +97,12 @@ class ClubController extends Controller
 
     public function show(Request $request, Club $club): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->user('sanctum') ?? $request->user();
+
+        if ($club->status !== 'approved' && (!$user || !$user->is_admin)) {
+            return response()->json(['message' => 'Club not found.'], 404);
+        }
+
         $myMembership = null;
 
         if ($user) {
@@ -151,6 +156,10 @@ class ClubController extends Controller
 
     public function approve(Request $request, Club $club): JsonResponse
     {
+        if ($club->status === 'approved') {
+            return response()->json(['message' => 'Club is already approved.'], 422);
+        }
+
         $club->update(['status' => 'approved']);
 
         AuditLog::record($request->user(), 'approve_club', $club);
@@ -167,8 +176,41 @@ class ClubController extends Controller
         return response()->json(['message' => 'Club approved successfully.', 'club' => $club]);
     }
 
+    public function reject(Request $request, Club $club): JsonResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        if ($club->status !== 'pending') {
+            return response()->json(['message' => 'Only pending clubs can be rejected.'], 422);
+        }
+
+        $club->update([
+            'status'           => 'rejected',
+            'rejection_reason' => $validated['reason'],
+        ]);
+
+        AuditLog::record($request->user(), 'reject_club', $club, ['reason' => $validated['reason']]);
+
+        Notification::create([
+            'user_id'      => $club->created_by,
+            'type'         => 'club_rejected',
+            'title'        => 'Club Rejected',
+            'message'      => "Your club '{$club->name}' has been rejected. Reason: {$validated['reason']}",
+            'related_type' => Club::class,
+            'related_id'   => $club->id,
+        ]);
+
+        return response()->json(['message' => 'Club rejected successfully.', 'club' => $club]);
+    }
+
     public function suspend(Request $request, Club $club): JsonResponse
     {
+        if ($club->status !== 'approved') {
+            return response()->json(['message' => 'Only approved clubs can be suspended.'], 422);
+        }
+
         $club->update(['status' => 'suspended']);
 
         AuditLog::record($request->user(), 'suspend_club', $club);

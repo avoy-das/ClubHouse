@@ -18,6 +18,7 @@ class Club extends Model
         'category',
         'logo_path',
         'status',
+        'rejection_reason',
         'created_by',
     ];
 

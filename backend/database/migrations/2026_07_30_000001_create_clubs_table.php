@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('category')->nullable();
             $table->string('logo_path')->nullable();
             $table->enum('status', ['pending', 'approved', 'rejected', 'suspended'])->default('pending');
+            $table->text('rejection_reason')->nullable();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
         });

@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
+Route::get('/clubs',     [ClubController::class, 'index']);
+Route::get('/clubs/{club}', [ClubController::class, 'show']);
 
 // Authenticated routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -37,8 +39,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Clubs
-    Route::apiResource('clubs', ClubController::class);
+    Route::apiResource('clubs', ClubController::class)->except(['index', 'show']);
     Route::post('/clubs/{club}/approve', [ClubController::class, 'approve'])->middleware('is_admin');
+    Route::post('/clubs/{club}/reject',  [ClubController::class, 'reject'])->middleware('is_admin');
     Route::post('/clubs/{club}/suspend', [ClubController::class, 'suspend'])->middleware('is_admin');
 
     // Club positions (executive role catalogue per club)
