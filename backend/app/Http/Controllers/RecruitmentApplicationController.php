@@ -1,0 +1,89 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\StoreRecruitmentApplicationRequest;
+use App\Models\Club;
+use App\Models\Notification;
+use App\Models\RecruitmentApplication;
+use App\Models\RecruitmentNotice;
+use App\Services\ClubMembershipService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class RecruitmentApplicationController extends Controller
+{
+    public function store(StoreRecruitmentApplicationRequest $request, RecruitmentNotice $recruitmentNotice): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($recruitmentNotice->status !== 'open' || now()->lt($recruitmentNotice->opens_at) || now()->gt($recruitmentNotice->closes_at)) {
+            return response()->json(['message' => 'Recruitment is currently closed for this notice.'], 422);
+        }
+
+        $existing = RecruitmentApplication::where('recruitment_notice_id', $recruitmentNotice->id)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if ($existing) {
+            return response()->json(['message' => 'You have already submitted an application for this recruitment notice.'], 422);
+        }
+
+        $application = RecruitmentApplication::create([
+            'recruitment_notice_id' => $recruitmentNotice->id,
+            'user_id'               => $user->id,
+            'answers'               => $request->validated()['answers'] ?? null,
+            'status'                => 'pending',
+        ]);
+
+        return response()->json($application, 201);
+    }
+
+    public function index(Request $request, RecruitmentNotice $recruitmentNotice): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user->is_admin && !$user->hasClubPermission($recruitmentNotice->club_id, 'can_manage_recruitment')) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $applications = RecruitmentApplication::where('recruitment_notice_id', $recruitmentNotice->id)
+            ->with('user')
+            ->latest()
+            ->get();
+
+        return response()->json($applications);
+    }
+
+    public function review(Request $request, RecruitmentApplication $application, ClubMembershipService $membershipService): JsonResponse
+    {
+        $this->authorize('review', $application);
+
+        $request->validate([
+            'status' => 'required|in:accepted,rejected',
+        ]);
+
+        $status = $request->input('status');
+        $user = $request->user();
+
+        $application->update([
+            'status'      => $status,
+            'reviewed_by' => $user->id,
+            'reviewed_at' => now(),
+        ]);
+
+        if ($status === 'accepted') {
+            $membershipService->admitUser($application->recruitmentNotice->club, $application->user);
+        }
+
+        Notification::create([
+            'user_id'      => $application->user_id,
+            'type'         => 'recruitment_application_' . $status,
+            'title'        => 'Recruitment Application ' . ucfirst($status),
+            'message'      => "Your recruitment application for '{$application->recruitmentNotice->club->name}' has been {$status}.",
+            'related_type' => Club::class,
+            'related_id'   => $application->recruitmentNotice->club_id,
+        ]);
+
+        return response()->json($application->load(['user', 'reviewer']));
+    }
+}
