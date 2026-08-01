@@ -26,4 +26,25 @@ class ReportController extends Controller
             'total_certificates'  => Certificate::count(),
         ]);
     }
+
+    public function clubReport(Club $club): JsonResponse
+    {
+        $eventIds = Event::where('club_id', $club->id)->pluck('id');
+        $totalRegistrations = EventRegistration::whereIn('event_id', $eventIds)->count();
+        $attendedCount = EventRegistration::whereIn('event_id', $eventIds)
+            ->where(function ($q) {
+                $q->where('attended', true)->orWhere('status', 'attended');
+            })->count();
+
+        $avgAttendanceRate = $totalRegistrations > 0 ? round(($attendedCount / $totalRegistrations) * 100, 2) : 0;
+
+        return response()->json([
+            'club'                => $club->load('creator:id,name'),
+            'total_members'       => ClubMember::where('club_id', $club->id)->count(),
+            'total_events'        => Event::where('club_id', $club->id)->count(),
+            'upcoming_events'     => Event::where('club_id', $club->id)->where('starts_at', '>', now())->count(),
+            'total_registrations' => $totalRegistrations,
+            'avg_attendance_rate' => $avgAttendanceRate,
+        ]);
+    }
 }

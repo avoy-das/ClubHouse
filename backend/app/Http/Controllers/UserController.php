@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,5 +32,18 @@ class UserController extends Controller
         $user->update($validated);
 
         return response()->json($user);
+    }
+
+    public function destroy(Request $request, User $user): JsonResponse
+    {
+        $user->tokens()->delete();
+
+        AuditService::log('admin.user_deactivated', $user, [
+            'deactivated_by' => $request->user()->id,
+        ]);
+
+        $user->delete();
+
+        return response()->json(['message' => 'User deactivated successfully.']);
     }
 }

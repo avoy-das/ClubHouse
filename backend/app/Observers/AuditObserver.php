@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\AuditLog;
+use App\Services\AuditService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
@@ -76,11 +77,11 @@ class AuditObserver
 
     public function created(Model $model): void
     {
-        AuditLog::record(
-            $this->resolveActor(),
+        AuditService::log(
             $this->action($model, 'create'),
             $model,
-            $this->meta($model, 'created')
+            $this->meta($model, 'created'),
+            $this->resolveActor()?->id
         );
     }
 
@@ -93,21 +94,21 @@ class AuditObserver
             return;
         }
 
-        AuditLog::record(
-            $this->resolveActor(),
+        AuditService::log(
             $this->action($model, 'update'),
             $model,
-            $this->meta($model, 'updated')
+            $this->meta($model, 'updated'),
+            $this->resolveActor()?->id
         );
     }
 
     public function deleted(Model $model): void
     {
-        AuditLog::record(
-            $this->resolveActor(),
+        AuditService::log(
             $this->action($model, 'delete'),
             $model,
-            $this->meta($model, 'deleted')
+            $this->meta($model, 'deleted'),
+            $this->resolveActor()?->id
         );
     }
 }

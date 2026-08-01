@@ -381,4 +381,32 @@ class ClubController extends Controller
             ->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer'])
             ->exists();
     }
+
+    /**
+     * DELETE /api/admin/clubs/{club}
+     *
+     * Admin-only hard delete of club with cascade cleanups.
+     */
+    public function destroyAdmin(Request $request, Club $club): JsonResponse
+    {
+        ClubMember::where('club_id', $club->id)->delete();
+
+        $events = \App\Models\Event::where('club_id', $club->id)->get();
+        foreach ($events as $event) {
+            \App\Models\EventRegistration::where('event_id', $event->id)->delete();
+            $event->delete();
+        }
+
+        \App\Models\Announcement::where('club_id', $club->id)->delete();
+        \App\Models\RecruitmentNotice::where('club_id', $club->id)->delete();
+
+        AuditService::log('admin.club_deleted', $club, [
+            'deleted_by' => $request->user()->id,
+            'club_name'  => $club->name,
+        ]);
+
+        $club->delete();
+
+        return response()->json(['message' => 'Club deleted successfully.']);
+    }
 }
