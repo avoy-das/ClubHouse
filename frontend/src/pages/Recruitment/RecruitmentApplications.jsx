@@ -8,6 +8,7 @@ import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
+import { Check, X, ArrowLeft, Users, FileText } from 'lucide-react';
 
 const ApplicationPhaseStepper = ({ status }) => {
     // Determine active phase step index: 0 = Application, 1 = Interview, 2 = Result
@@ -25,7 +26,7 @@ const ApplicationPhaseStepper = ({ status }) => {
     ];
 
     return (
-        <div className="w-full my-4 p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div className="w-full my-4 p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
             <div className="flex items-center justify-between relative">
                 {steps.map((step, idx) => {
                     const isCompleted = idx < currentStep || (idx === 2 && (status === 'accepted' || status === 'rejected'));
@@ -41,20 +42,20 @@ const ApplicationPhaseStepper = ({ status }) => {
                                         : isCompleted
                                         ? 'bg-emerald-600 text-white'
                                         : isCurrent
-                                        ? 'bg-blue-600 text-white ring-4 ring-blue-100'
+                                        ? 'bg-[#2563eb] text-white ring-4 ring-blue-100'
                                         : 'bg-slate-100 text-slate-400 border border-slate-300'
                                 }`}
                             >
                                 {isFailed ? (
-                                    '✕'
+                                    <X className="w-4 h-4" />
                                 ) : isCompleted ? (
-                                    '✓'
+                                    <Check className="w-4 h-4" />
                                 ) : (
                                     idx + 1
                                 )}
                             </div>
                             <span className={`text-xs font-semibold mt-1.5 ${
-                                isCurrent || isCompleted ? 'text-slate-900' : 'text-slate-400'
+                                isCurrent || isCompleted ? 'text-[#0b1c30]' : 'text-slate-400'
                             }`}>
                                 {step.label}
                             </span>
@@ -126,38 +127,44 @@ const RecruitmentApplicationsContent = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-xl shadow-xs border border-slate-200">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Review Recruitment Applications</h1>
-                    <p className="text-gray-500 text-sm">Track applicant progress across phases (Application → Interview → Result) and manage memberships.</p>
+                    <h1 className="text-2xl font-bold text-[#0b1c30] flex items-center gap-2">
+                        <Users className="w-6 h-6 text-blue-600" /> Review Recruitment Applications
+                    </h1>
+                    <p className="text-slate-500 text-sm mt-0.5">Track applicant progress across phases (Application → Interview → Result) and manage memberships.</p>
                 </div>
                 <Link to="/recruitment">
-                    <Button variant="secondary">← Back to Drives</Button>
+                    <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-semibold rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5">
+                        <ArrowLeft className="w-4 h-4" /> Back to Drives
+                    </button>
                 </Link>
             </div>
 
             {error && <ErrorBanner message={error} />}
             {success && <SuccessBanner message={success} />}
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="font-bold text-gray-800 text-lg mb-4">Submitted Applications ({applications.length})</h3>
+            <div className="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+                <h3 className="font-bold text-[#0b1c30] text-lg mb-4 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-600" /> Submitted Applications ({applications.length})
+                </h3>
 
                 {applications.length === 0 ? (
-                    <p className="text-gray-500 text-sm py-4">No applications submitted for this drive yet.</p>
+                    <p className="text-slate-500 text-sm py-4">No applications submitted for this drive yet.</p>
                 ) : (
                     <div className="space-y-6">
                         {applications.map((app) => (
-                            <div key={app.id} className="border p-6 rounded-lg bg-gray-50 space-y-4">
-                                <div className="flex items-center justify-between border-b pb-2">
+                            <div key={app.id} className="border border-slate-200 p-6 rounded-xl bg-[#f8f9ff] space-y-4">
+                                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                                     <div>
-                                        <h4 className="font-bold text-gray-900 text-base">
+                                        <h4 className="font-bold text-[#0b1c30] text-base">
                                             {app.user?.name || `Applicant #${app.user_id}`}
                                         </h4>
-                                        <span className="text-xs text-gray-500">{app.user?.email}</span>
+                                        <span className="text-xs text-slate-500">{app.user?.email}</span>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         {app.status && <Badge status={app.status} />}
-                                        <span className="text-xs text-gray-400">
+                                        <span className="text-xs text-slate-400">
                                             {new Date(app.created_at).toLocaleDateString()}
                                         </span>
                                     </div>
@@ -167,27 +174,27 @@ const RecruitmentApplicationsContent = () => {
                                 <ApplicationPhaseStepper status={app.status} />
 
                                 {/* Answers breakdown */}
-                                <div className="space-y-2 text-sm text-gray-700">
+                                <div className="space-y-3 text-sm text-slate-700">
                                     {app.answers?.motivation && (
                                         <div>
-                                            <span className="font-semibold text-gray-900 block">Motivation:</span>
-                                            <p className="bg-white p-3 rounded border text-xs">{app.answers.motivation}</p>
+                                            <span className="font-semibold text-[#0b1c30] block mb-1">Motivation:</span>
+                                            <p className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-700">{app.answers.motivation}</p>
                                         </div>
                                     )}
                                     {app.answers?.experience && (
                                         <div>
-                                            <span className="font-semibold text-gray-900 block">Experience:</span>
-                                            <p className="bg-white p-3 rounded border text-xs">{app.answers.experience}</p>
+                                            <span className="font-semibold text-[#0b1c30] block mb-1">Experience:</span>
+                                            <p className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-700">{app.answers.experience}</p>
                                         </div>
                                     )}
                                     {app.answers?.portfolio_url && (
                                         <div>
-                                            <span className="font-semibold text-gray-900 block">Portfolio:</span>
+                                            <span className="font-semibold text-[#0b1c30] block mb-1">Portfolio:</span>
                                             <a
                                                 href={app.answers.portfolio_url}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="text-blue-600 underline text-xs"
+                                                className="text-[#2563eb] hover:underline text-xs"
                                             >
                                                 {app.answers.portfolio_url}
                                             </a>
@@ -197,33 +204,30 @@ const RecruitmentApplicationsContent = () => {
 
                                 {/* Action Buttons depending on phase */}
                                 {(app.status === 'pending' || app.status === 'interview') && (
-                                    <div className="pt-3 border-t flex flex-wrap justify-end gap-2">
+                                    <div className="pt-3 border-t border-slate-200 flex flex-wrap justify-end gap-2">
                                         {app.status === 'pending' && (
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
+                                            <button
                                                 disabled={reviewingId === app.id}
                                                 onClick={() => handleReview(app.id, 'interview')}
+                                                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold rounded-lg transition-colors"
                                             >
                                                 Advance to Interview
-                                            </Button>
+                                            </button>
                                         )}
-                                        <Button
-                                            variant="primary"
-                                            size="sm"
+                                        <button
                                             disabled={reviewingId === app.id}
                                             onClick={() => handleReview(app.id, 'accepted')}
+                                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-xs"
                                         >
                                             Accept & Admit Member
-                                        </Button>
-                                        <Button
-                                            variant="danger"
-                                            size="sm"
+                                        </button>
+                                        <button
                                             disabled={reviewingId === app.id}
                                             onClick={() => handleReview(app.id, 'rejected')}
+                                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-xs"
                                         >
                                             Reject
-                                        </Button>
+                                        </button>
                                     </div>
                                 )}
                             </div>

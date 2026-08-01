@@ -5,6 +5,7 @@ import clubService from '../../services/clubService';
 import { useAuth } from '../../context/AuthContext';
 import EditClubModal from '../../components/Clubs/EditClubModal';
 import ClubAuditLogModal from '../../components/Clubs/ClubAuditLogModal';
+import { ArrowLeft, Edit, FileText, Search, Shield, Building2 } from 'lucide-react';
 
 const roleLabels = {
     president:      'President',
@@ -175,13 +176,13 @@ const ClubDetail = () => {
 
     if (loading) return (
         <MainLayout>
-            <p className="text-slate-400 text-sm">Loading...</p>
+            <p className="text-slate-400 text-sm animate-pulse py-12 text-center">Loading club details...</p>
         </MainLayout>
     );
 
     if (error) return (
         <MainLayout>
-            <p className="text-red-500 text-sm">{error}</p>
+            <p className="text-red-500 text-sm py-6">{error}</p>
         </MainLayout>
     );
 
@@ -189,9 +190,9 @@ const ClubDetail = () => {
         <MainLayout>
             <button
                 onClick={() => navigate('/clubs')}
-                className="text-sm text-slate-500 hover:text-slate-800 mb-6 flex items-center gap-1"
+                className="text-sm font-medium text-slate-500 hover:text-[#0b1c30] mb-6 flex items-center gap-1.5 transition-colors"
             >
-                ← Back to Clubs
+                <ArrowLeft className="w-4 h-4" /> Back to Clubs
             </button>
 
             {/* Notification Toast */}
@@ -215,10 +216,10 @@ const ClubDetail = () => {
 
             {/* Executive Management Control Suite Toolbar */}
             {isExec && (
-                <div className="mb-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 shadow-sm border border-indigo-800/30">
+                <div className="mb-6 bg-[#0f172a] text-white rounded-2xl p-5 shadow-xs border border-slate-800">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-300">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-[#eab308]">
                                 Club Executive Control Suite
                             </span>
                             <h3 className="text-lg font-bold text-white mt-0.5">
@@ -231,22 +232,22 @@ const ClubDetail = () => {
                                 onClick={() => setIsEditOpen(true)}
                                 className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
                             >
-                                ✏️ Edit Club Details
+                                <Edit className="w-4 h-4" /> Edit Club Details
                             </button>
 
                             <button
                                 onClick={() => setIsLogsOpen(true)}
-                                className="px-3.5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm flex items-center gap-1.5"
+                                className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                             >
-                                📜 Club Audit Logs
+                                <FileText className="w-4 h-4" /> Club Audit Logs
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="bg-white border border-slate-200 rounded-xl p-6 mb-6">
-                <div className="flex items-start justify-between mb-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6 shadow-xs">
+                <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
                     <div className="flex items-center gap-4">
                         {club.logo_path ? (
                             <img
@@ -255,25 +256,25 @@ const ClubDetail = () => {
                                 className="w-14 h-14 rounded-2xl object-cover border border-slate-200"
                             />
                         ) : (
-                            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-extrabold text-xl border border-indigo-100">
+                            <div className="w-14 h-14 rounded-2xl bg-[#eff4ff] text-[#2563eb] flex items-center justify-center font-extrabold text-xl border border-blue-200/60">
                                 {club.name.charAt(0)}
                             </div>
                         )}
                         <div>
-                            <h1 className="text-2xl font-bold text-slate-900">{club.name}</h1>
+                            <h1 className="text-2xl font-bold text-[#0b1c30]">{club.name}</h1>
                             {club.department && <p className="text-slate-500 text-sm mt-0.5">{club.department}</p>}
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <span className="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-full">
+                        <span className="px-3 py-1 bg-[#f8f9ff] text-[#0b1c30] text-xs font-semibold rounded-full border border-slate-200">
                             {club.category}
                         </span>
                         {myMembership && (
                             <button
                                 onClick={handleLeaveClub}
                                 disabled={leaving}
-                                className="px-3 py-1.5 text-xs font-medium bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors disabled:opacity-50"
+                                className="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors disabled:opacity-50"
                             >
                                 {leaving ? 'Leaving...' : 'Leave Club'}
                             </button>
@@ -282,7 +283,7 @@ const ClubDetail = () => {
                             <button
                                 onClick={handleSuspend}
                                 disabled={suspending}
-                                className="px-3 py-1.5 text-xs font-medium bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                                className="px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
                             >
                                 {suspending ? 'Suspending...' : 'Suspend Club'}
                             </button>
@@ -294,32 +295,32 @@ const ClubDetail = () => {
                     {club.description}
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm p-4 bg-[#f8f9ff] rounded-xl border border-slate-200/80">
                     <div>
-                        <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Contact Email</p>
-                        <p className="text-slate-700">{club.contact_email}</p>
+                        <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Contact Email</p>
+                        <p className="text-[#0b1c30] font-medium">{club.contact_email}</p>
                     </div>
                     {club.contact_phone && (
                         <div>
-                            <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Contact Phone</p>
-                            <p className="text-slate-700">{club.contact_phone}</p>
+                            <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Contact Phone</p>
+                            <p className="text-[#0b1c30] font-medium">{club.contact_phone}</p>
                         </div>
                     )}
                     <div>
-                        <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Founded by</p>
-                        <p className="text-slate-700">{club.creator?.name}</p>
+                        <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Founded by</p>
+                        <p className="text-[#0b1c30] font-medium">{club.creator?.name}</p>
                     </div>
                 </div>
             </div>
 
             {/* Contextual Member Search Roster */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-xs">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-base font-semibold text-slate-800">
+                        <h2 className="text-base font-semibold text-[#0b1c30]">
                             Members Directory ({membersList.length})
                         </h2>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 mt-0.5">
                             {isAdmin()
                                 ? 'Admin mode: Platform-wide roster & role actions'
                                 : isExec
@@ -334,26 +335,14 @@ const ClubDetail = () => {
                             placeholder="Filter by name or student ID..."
                             value={memberQuery}
                             onChange={(e) => setMemberQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] bg-white"
                         />
-                        <svg
-                            className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                            />
-                        </svg>
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                     </div>
                 </div>
 
                 {searchingMembers ? (
-                    <div className="py-6 text-center text-slate-400 text-sm">Searching members...</div>
+                    <div className="py-6 text-center text-slate-400 text-sm animate-pulse">Searching members...</div>
                 ) : membersList.length > 0 ? (
                     <div className="divide-y divide-slate-100">
                         {membersList.map(member => {
@@ -363,7 +352,7 @@ const ClubDetail = () => {
                             return (
                                 <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3">
                                     <div>
-                                        <span className="text-sm font-semibold text-slate-800 block">
+                                        <span className="text-sm font-semibold text-[#0b1c30] block">
                                             {memberName}
                                         </span>
                                         <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
@@ -388,7 +377,7 @@ const ClubDetail = () => {
                                                     value={member.role}
                                                     onChange={(e) => handleRoleChange(member.user_id, e.target.value)}
                                                     disabled={isUpdating}
-                                                    className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 bg-slate-50 focus:ring-2 focus:ring-slate-900"
+                                                    className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 bg-[#f8f9ff] text-[#0b1c30] focus:border-[#2563eb]"
                                                 >
                                                     <option value="president">President</option>
                                                     <option value="vice_president">Vice President</option>
@@ -408,7 +397,7 @@ const ClubDetail = () => {
                                                 </button>
                                             </>
                                         ) : (
-                                            <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full font-medium capitalize">
+                                            <span className="text-xs text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full font-medium capitalize">
                                                 {roleLabels[member.role] || member.role || 'Member'}
                                             </span>
                                         )}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import clubService from '../../services/clubService';
+import { Building2, Users, Search, Plus } from 'lucide-react';
 
 const categoryColors = {
     'Academic':                    'bg-blue-100 text-blue-700',
@@ -49,24 +50,29 @@ const ClubList = () => {
         <MainLayout>
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Clubs</h1>
-                    <p className="text-slate-500 mt-1">Browse all active clubs on ClubHouse.</p>
+                    <h1 className="text-2xl font-bold text-[#0b1c30] flex items-center gap-2">
+                        <Building2 className="w-6 h-6 text-blue-600" /> Clubs
+                    </h1>
+                    <p className="text-slate-500 text-sm mt-0.5">Browse all active clubs on ClubHouse.</p>
                 </div>
             </div>
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                <input
-                    type="text"
-                    placeholder="Search clubs..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-                />
+                <div className="relative flex-1">
+                    <input
+                        type="text"
+                        placeholder="Search clubs..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] bg-white"
+                    />
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                </div>
                 <select
                     value={category}
                     onChange={e => setCategory(e.target.value)}
-                    className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                    className="px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] bg-white text-[#0b1c30]"
                 >
                     <option value="">All Categories</option>
                     {categories.map(c => (
@@ -77,42 +83,44 @@ const ClubList = () => {
 
             {/* States */}
             {loading && (
-                <p className="text-slate-400 text-sm">Loading clubs...</p>
+                <p className="text-slate-400 text-sm animate-pulse py-8 text-center">Loading clubs...</p>
             )}
             {error && (
-                <p className="text-red-500 text-sm">{error}</p>
+                <p className="text-red-500 text-sm py-4">{error}</p>
             )}
 
             {/* Club Grid */}
             {!loading && !error && (
                 <>
                     {filtered.length === 0 ? (
-                        <p className="text-slate-400 text-sm">No clubs found.</p>
+                        <div className="bg-white p-12 text-center rounded-xl shadow-xs border border-slate-200 text-slate-500">
+                            No clubs found.
+                        </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                             {filtered.map(club => (
                                 <div
                                     key={club.id}
                                     onClick={() => navigate(`/clubs/${club.id}`)}
-                                    className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all"
+                                    className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-xs hover:border-blue-400 transition-all flex flex-col justify-between"
                                 >
-                                    <div className="flex items-start justify-between mb-3">
-                                        <h3 className="font-semibold text-slate-900 text-base leading-tight">
-                                            {club.name}
-                                        </h3>
-                                        <span className={`text-xs font-medium px-2 py-1 rounded-full ml-2 shrink-0 ${categoryColors[club.category] || 'bg-slate-100 text-slate-700'}`}>
-                                            {club.category}
-                                        </span>
+                                    <div>
+                                        <div className="flex items-start justify-between mb-3">
+                                            <h3 className="font-semibold text-[#0b1c30] text-base leading-tight">
+                                                {club.name}
+                                            </h3>
+                                            <span className={`text-xs font-medium px-2 py-1 rounded-full ml-2 shrink-0 ${categoryColors[club.category] || 'bg-slate-100 text-slate-700'}`}>
+                                                {club.category}
+                                            </span>
+                                        </div>
+                                        <p className="text-slate-600 text-sm line-clamp-2 mb-3">
+                                            {club.description}
+                                        </p>
                                     </div>
-                                    <p className="text-slate-500 text-sm line-clamp-2 mb-3">
-                                        {club.description}
-                                    </p>
-                                    <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-100 mt-2">
+                                    <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 mt-2">
                                         <span>{club.department || 'General'}</span>
-                                        <span className="font-medium text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
-                                            <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                            </svg>
+                                        <span className="font-medium text-slate-700 bg-[#f8f9ff] px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5">
+                                            <Users className="w-3.5 h-3.5 text-blue-600" />
                                             {club.members_count ?? 0} members
                                         </span>
                                     </div>
@@ -125,9 +133,9 @@ const ClubList = () => {
                     <div className="mt-10 pt-6 border-t border-slate-200 flex justify-center">
                         <button
                             onClick={() => navigate('/clubs/create')}
-                            className="px-6 py-3 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors"
+                            className="px-6 py-3 bg-[#0f172a] hover:bg-slate-800 text-white text-sm font-medium rounded-xl transition-colors flex items-center gap-2 shadow-xs"
                         >
-                            + Request a New Club
+                            <Plus className="w-4 h-4 text-[#eab308]" /> Request a New Club
                         </button>
                     </div>
                 </>

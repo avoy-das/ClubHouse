@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import adminService from '../../services/adminService';
-import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
+import { Shield, Users } from 'lucide-react';
 
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
@@ -66,19 +66,21 @@ const AdminUsers = () => {
     return (
         <MainLayout>
             <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-lg shadow-sm border">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-xl shadow-xs border border-slate-200">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Admin — User Directory</h1>
-                        <p className="text-gray-500 text-sm">View registered users and manage admin privileges or access.</p>
+                        <h1 className="text-2xl font-bold text-[#0b1c30] flex items-center gap-2">
+                            <Shield className="w-6 h-6 text-amber-500" /> Admin — User Directory
+                        </h1>
+                        <p className="text-slate-500 text-sm mt-0.5">View registered users and manage admin privileges or access.</p>
                     </div>
-                    <div className="flex space-x-3 text-sm">
-                        <Link to="/admin/clubs" className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded font-medium text-gray-700">
+                    <div className="flex space-x-2 text-xs font-semibold">
+                        <Link to="/admin/clubs" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
                             Club Management
                         </Link>
-                        <Link to="/admin/reports" className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded font-medium text-gray-700">
+                        <Link to="/admin/reports" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
                             Reports & Stats
                         </Link>
-                        <Link to="/admin/audit-logs" className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded font-medium text-gray-700">
+                        <Link to="/admin/audit-logs" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
                             Audit Logs
                         </Link>
                     </div>
@@ -90,53 +92,53 @@ const AdminUsers = () => {
                 {loading ? (
                     <LoadingSpinner />
                 ) : (
-                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                        <div className="p-4 border-b font-bold text-gray-800">System Users ({users.length})</div>
+                    <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+                        <div className="p-4 border-b border-slate-200 font-bold text-[#0b1c30] flex items-center gap-2">
+                            <Users className="w-4 h-4 text-blue-600" /> System Users ({users.length})
+                        </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm text-gray-600">
-                                <thead className="bg-gray-50 text-gray-700 uppercase text-xs">
+                            <table className="w-full text-left text-sm text-slate-600">
+                                <thead className="bg-[#f8f9ff] text-[#0b1c30] uppercase text-xs font-semibold">
                                     <tr>
-                                        <th className="p-3">Name</th>
-                                        <th className="p-3">Email</th>
-                                        <th className="p-3">Role</th>
-                                        <th className="p-3">Registered At</th>
-                                        <th className="p-3 text-right">Actions</th>
+                                        <th className="p-3.5">Name</th>
+                                        <th className="p-3.5">Email</th>
+                                        <th className="p-3.5">Role</th>
+                                        <th className="p-3.5">Registered At</th>
+                                        <th className="p-3.5 text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
+                                <tbody className="divide-y divide-slate-100">
                                     {users.map((u) => (
-                                        <tr key={u.id}>
-                                            <td className="p-3 font-semibold text-gray-900">{u.name}</td>
-                                            <td className="p-3">{u.email}</td>
-                                            <td className="p-3">
+                                        <tr key={u.id} className="hover:bg-[#f8f9ff]/60 transition-colors">
+                                            <td className="p-3.5 font-semibold text-[#0b1c30]">{u.name}</td>
+                                            <td className="p-3.5">{u.email}</td>
+                                            <td className="p-3.5">
                                                 {u.is_admin ? (
-                                                    <span className="bg-purple-100 text-purple-800 text-xs px-2.5 py-1 rounded font-bold">
+                                                    <span className="bg-[#ffdf9a]/40 text-[#5a4300] border border-[#eab308]/40 text-xs px-2.5 py-0.5 rounded-full font-bold">
                                                         System Admin
                                                     </span>
                                                 ) : (
-                                                    <span className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded">
+                                                    <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-0.5 rounded-full font-medium">
                                                         User
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="p-3">{new Date(u.created_at).toLocaleDateString()}</td>
-                                            <td className="p-3 text-right flex justify-end gap-2">
-                                                <Button
-                                                    variant="secondary"
-                                                    size="sm"
+                                            <td className="p-3.5">{new Date(u.created_at).toLocaleDateString()}</td>
+                                            <td className="p-3.5 text-right flex justify-end gap-2">
+                                                <button
                                                     disabled={updatingId === u.id}
                                                     onClick={() => handleToggleAdmin(u.id, u.is_admin)}
+                                                    className="px-3 py-1 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-semibold rounded-lg border border-slate-300 transition-colors disabled:opacity-50"
                                                 >
                                                     {u.is_admin ? 'Revoke Admin' : 'Make Admin'}
-                                                </Button>
-                                                <Button
-                                                    variant="danger"
-                                                    size="sm"
+                                                </button>
+                                                <button
                                                     disabled={updatingId === u.id}
                                                     onClick={() => handleDeactivateUser(u.id)}
+                                                    className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-lg border border-rose-200 transition-colors disabled:opacity-50"
                                                 >
                                                     Deactivate
-                                                </Button>
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}

@@ -7,6 +7,7 @@ import PositionAssignment from '../../components/clubs/PositionAssignment';
 import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
+import { ArrowLeft, Users } from 'lucide-react';
 
 const ClubMembersContent = () => {
     const { clubId } = useParams();
@@ -45,13 +46,17 @@ const ClubMembersContent = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center justify-between bg-white p-6 rounded-xl shadow-xs border border-slate-200">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Club Members Directory</h1>
-                    <p className="text-gray-500 text-sm">Members and executive positions.</p>
+                    <h1 className="text-2xl font-bold text-[#0b1c30] flex items-center gap-2">
+                        <Users className="w-6 h-6 text-blue-600" /> Club Members Directory
+                    </h1>
+                    <p className="text-slate-500 text-sm mt-0.5">Members and executive positions.</p>
                 </div>
                 <Link to={`/clubs/${clubId}`}>
-                    <Button variant="secondary">← Back to Club</Button>
+                    <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-semibold rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5">
+                        <ArrowLeft className="w-4 h-4" /> Back to Club
+                    </button>
                 </Link>
             </div>
 
@@ -60,14 +65,14 @@ const ClubMembersContent = () => {
             {loading ? (
                 <LoadingSpinner />
             ) : (
-                <div className="bg-white p-6 rounded-lg shadow-sm border">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Active Roster ({members.length})</h3>
+                <div className="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+                    <h3 className="text-lg font-bold text-[#0b1c30] mb-4">Active Roster ({members.length})</h3>
                     {members.length === 0 ? (
-                        <p className="text-gray-500 text-sm">No members in this club yet.</p>
+                        <p className="text-slate-500 text-sm">No members in this club yet.</p>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm text-gray-600">
-                                <thead className="bg-gray-50 text-gray-700 uppercase text-xs">
+                            <table className="w-full text-left text-sm text-slate-600">
+                                <thead className="bg-[#f8f9ff] text-[#0b1c30] uppercase text-xs font-semibold">
                                     <tr>
                                         <th className="p-3">Name</th>
                                         <th className="p-3">Email</th>
@@ -76,10 +81,10 @@ const ClubMembersContent = () => {
                                         {can('can_manage_members') && <th className="p-3 text-right">Actions</th>}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
+                                <tbody className="divide-y divide-slate-100">
                                     {members.map((m) => (
-                                        <tr key={m.id}>
-                                            <td className="p-3 font-semibold text-gray-900">
+                                        <tr key={m.id} className="hover:bg-[#f8f9ff]/60 transition-colors">
+                                            <td className="p-3 font-semibold text-[#0b1c30]">
                                                 {m.user?.name || `Member #${m.id}`}
                                             </td>
                                             <td className="p-3">{m.user?.email || 'N/A'}</td>
@@ -96,7 +101,7 @@ const ClubMembersContent = () => {
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <span className="text-gray-400 text-xs">Member</span>
+                                                    <span className="text-slate-400 text-xs">Member</span>
                                                 )}
                                             </td>
                                             <td className="p-3">
@@ -104,9 +109,12 @@ const ClubMembersContent = () => {
                                             </td>
                                             {can('can_manage_members') && (
                                                 <td className="p-3 text-right">
-                                                    <Button variant="danger" size="sm" onClick={() => handleRemoveMember(m.id)}>
+                                                    <button
+                                                        onClick={() => handleRemoveMember(m.id)}
+                                                        className="px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
+                                                    >
                                                         Remove
-                                                    </Button>
+                                                    </button>
                                                 </td>
                                             )}
                                         </tr>

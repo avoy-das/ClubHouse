@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import searchService from '../../services/searchService';
 import { useAuth } from '../../context/AuthContext';
+import { Search, Folder, Building2, Calendar, Megaphone, Users } from 'lucide-react';
 
 const SearchPage = () => {
     const [searchParams] = useSearchParams();
@@ -54,9 +55,9 @@ const SearchPage = () => {
         <MainLayout>
             <div className="max-w-6xl mx-auto space-y-6">
                 {/* Search Header */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                        <span>🔍</span> Search Results
+                <div className="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+                    <h1 className="text-2xl font-bold text-[#0b1c30] flex items-center gap-3">
+                        <Search className="w-6 h-6 text-blue-600" /> Search Results
                     </h1>
                     {query && (
                         <p className="text-slate-500 text-sm mt-1">
@@ -66,25 +67,27 @@ const SearchPage = () => {
                 </div>
 
                 {error && (
-                    <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium">
+                    <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm font-medium">
                         {error}
                     </div>
                 )}
 
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-16 space-y-3">
-                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-8 h-8 border-4 border-[#2563eb] border-t-transparent rounded-full animate-spin"></div>
                         <p className="text-slate-500 text-sm">Searching ClubHouse...</p>
                     </div>
                 ) : !results ? (
-                    <div className="bg-white p-12 text-center rounded-xl shadow-sm border border-slate-200 text-slate-500">
+                    <div className="bg-white p-12 text-center rounded-xl shadow-xs border border-slate-200 text-slate-500">
                         Enter a query with at least 2 characters to search across ClubHouse.
                     </div>
                 ) : totalResults === 0 ? (
                     // Global empty state if ALL tabs come back empty
-                    <div className="bg-white p-12 text-center rounded-xl shadow-sm border border-slate-200 space-y-3">
-                        <div className="text-4xl">📁</div>
-                        <h3 className="text-lg font-bold text-slate-800">No results found for '{query}'</h3>
+                    <div className="bg-white p-12 text-center rounded-xl shadow-xs border border-slate-200 space-y-3">
+                        <div className="w-12 h-12 rounded-full bg-slate-100 mx-auto flex items-center justify-center text-slate-400">
+                            <Folder className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-lg font-bold text-[#0b1c30]">No results found for '{query}'</h3>
                         <p className="text-slate-500 text-sm max-w-md mx-auto">
                             Try checking for typos or searching with different keywords like club name, event title, or department.
                         </p>
@@ -92,16 +95,16 @@ const SearchPage = () => {
                 ) : (
                     <div>
                         {/* Tab Navigation Bar */}
-                        <div className="flex border-b border-slate-200 bg-white px-4 pt-2 rounded-t-xl shadow-sm">
+                        <div className="flex border-b border-slate-200 bg-white px-4 pt-2 rounded-t-xl shadow-xs">
                             <button
                                 onClick={() => setActiveTab('clubs')}
                                 className={`flex items-center gap-2 py-3 px-4 text-sm font-semibold border-b-2 transition-all ${
                                     activeTab === 'clubs'
-                                        ? 'border-blue-600 text-blue-600'
+                                        ? 'border-[#2563eb] text-[#2563eb]'
                                         : 'border-transparent text-slate-500 hover:text-slate-700'
                                 }`}
                             >
-                                🏢 Clubs
+                                <Building2 className="w-4 h-4" /> Clubs
                                 <span
                                     className={`px-2 py-0.5 text-xs rounded-full ${
                                         activeTab === 'clubs'
@@ -117,11 +120,11 @@ const SearchPage = () => {
                                 onClick={() => setActiveTab('events')}
                                 className={`flex items-center gap-2 py-3 px-4 text-sm font-semibold border-b-2 transition-all ${
                                     activeTab === 'events'
-                                        ? 'border-blue-600 text-blue-600'
+                                        ? 'border-[#2563eb] text-[#2563eb]'
                                         : 'border-transparent text-slate-500 hover:text-slate-700'
                                 }`}
                             >
-                                📅 Events
+                                <Calendar className="w-4 h-4" /> Events
                                 <span
                                     className={`px-2 py-0.5 text-xs rounded-full ${
                                         activeTab === 'events'
@@ -137,11 +140,11 @@ const SearchPage = () => {
                                 onClick={() => setActiveTab('recruitment')}
                                 className={`flex items-center gap-2 py-3 px-4 text-sm font-semibold border-b-2 transition-all ${
                                     activeTab === 'recruitment'
-                                        ? 'border-blue-600 text-blue-600'
+                                        ? 'border-[#2563eb] text-[#2563eb]'
                                         : 'border-transparent text-slate-500 hover:text-slate-700'
                                 }`}
                             >
-                                📢 Recruitment
+                                <Megaphone className="w-4 h-4" /> Recruitment
                                 <span
                                     className={`px-2 py-0.5 text-xs rounded-full ${
                                         activeTab === 'recruitment'
@@ -159,15 +162,15 @@ const SearchPage = () => {
                                     onClick={() => setActiveTab('members')}
                                     className={`flex items-center gap-2 py-3 px-4 text-sm font-semibold border-b-2 transition-all ${
                                         activeTab === 'members'
-                                            ? 'border-purple-600 text-purple-700'
+                                            ? 'border-[#eab308] text-[#0b1c30]'
                                             : 'border-transparent text-slate-500 hover:text-slate-700'
                                     }`}
                                 >
-                                    👥 Members
+                                    <Users className="w-4 h-4" /> Members
                                     <span
                                         className={`px-2 py-0.5 text-xs rounded-full ${
                                             activeTab === 'members'
-                                                ? 'bg-purple-100 text-purple-700'
+                                                ? 'bg-[#ffdf9a]/40 text-[#5a4300]'
                                                 : 'bg-slate-100 text-slate-600'
                                         }`}
                                     >
@@ -178,7 +181,7 @@ const SearchPage = () => {
                         </div>
 
                         {/* Tab Content Panels */}
-                        <div className="bg-white p-6 rounded-b-xl shadow-sm border border-t-0 border-slate-200 min-h-[300px]">
+                        <div className="bg-white p-6 rounded-b-xl shadow-xs border border-t-0 border-slate-200 min-h-[300px]">
                             {/* Clubs Tab */}
                             {activeTab === 'clubs' && (
                                 <div>
@@ -192,10 +195,10 @@ const SearchPage = () => {
                                                 <Link
                                                     key={club.id}
                                                     to={`/clubs/${club.id}`}
-                                                    className="p-5 border border-slate-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all block group"
+                                                    className="p-5 border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-xs transition-all block group bg-[#f8f9ff]/50"
                                                 >
                                                     <div className="flex items-start justify-between">
-                                                        <h3 className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors text-lg">
+                                                        <h3 className="font-bold text-[#0b1c30] group-hover:text-[#2563eb] transition-colors text-lg">
                                                             {club.name}
                                                         </h3>
                                                         {club.category && (
@@ -227,10 +230,10 @@ const SearchPage = () => {
                                                 <Link
                                                     key={event.id}
                                                     to={`/clubs/${event.club_id}`}
-                                                    className="p-5 border border-slate-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all block group"
+                                                    className="p-5 border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-xs transition-all block group bg-[#f8f9ff]/50"
                                                 >
                                                     <div className="flex items-start justify-between gap-2">
-                                                        <h3 className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors text-lg">
+                                                        <h3 className="font-bold text-[#0b1c30] group-hover:text-[#2563eb] transition-colors text-lg">
                                                             {event.title}
                                                         </h3>
                                                         {isPastEvent(event.starts_at || event.start_at) && (
@@ -246,7 +249,7 @@ const SearchPage = () => {
 
                                                     <div className="flex items-center justify-between text-xs text-slate-500 mt-4 pt-3 border-t border-slate-100">
                                                         <span>Hosted by: <strong className="text-slate-700">{event.club?.name || 'Club'}</strong></span>
-                                                        <span>📅 {new Date(event.starts_at || event.start_at).toLocaleDateString()}</span>
+                                                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-blue-600" /> {new Date(event.starts_at || event.start_at).toLocaleDateString()}</span>
                                                     </div>
                                                 </Link>
                                             ))}
@@ -268,16 +271,16 @@ const SearchPage = () => {
                                                 <Link
                                                     key={notice.id}
                                                     to={`/clubs/${notice.club_id}`}
-                                                    className="p-5 border border-slate-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all block group"
+                                                    className="p-5 border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-xs transition-all block group bg-[#f8f9ff]/50"
                                                 >
                                                     <div className="flex items-start justify-between">
-                                                        <h3 className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors text-lg">
+                                                        <h3 className="font-bold text-[#0b1c30] group-hover:text-[#2563eb] transition-colors text-lg">
                                                             {notice.title}
                                                         </h3>
                                                         <span
                                                             className={`text-xs px-2.5 py-0.5 rounded-full font-semibold capitalize ${
                                                                 notice.status === 'open'
-                                                                    ? 'bg-green-100 text-green-700'
+                                                                    ? 'bg-emerald-100 text-emerald-700'
                                                                     : notice.status === 'closed'
                                                                     ? 'bg-red-100 text-red-700'
                                                                     : 'bg-amber-100 text-amber-700'
@@ -313,14 +316,14 @@ const SearchPage = () => {
                                             {members.map((member) => (
                                                 <div
                                                     key={member.id}
-                                                    className="p-5 border border-slate-200 rounded-lg bg-slate-50/50 hover:border-purple-300 transition-all"
+                                                    className="p-5 border border-slate-200 rounded-xl bg-[#f8f9ff] hover:border-blue-300 transition-all"
                                                 >
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 bg-purple-100 text-purple-700 font-bold rounded-full flex items-center justify-center text-sm">
+                                                        <div className="w-10 h-10 bg-[#0f172a] text-white font-bold rounded-full flex items-center justify-center text-sm">
                                                             {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
                                                         </div>
                                                         <div>
-                                                            <h4 className="font-bold text-slate-900 text-base">{member.name}</h4>
+                                                            <h4 className="font-bold text-[#0b1c30] text-base">{member.name}</h4>
                                                             <p className="text-slate-500 text-xs">{member.email}</p>
                                                         </div>
                                                     </div>

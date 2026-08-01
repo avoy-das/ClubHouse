@@ -5,14 +5,15 @@ import eventService from '../../services/eventService';
 import EventModal from '../../components/Events/EventModal';
 import MarkAttendanceModal from '../../components/Events/MarkAttendanceModal';
 import AttendanceReportModal from '../../components/Events/AttendanceReportModal';
+import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, Ban, Trash2, ArrowLeft, Building2, CheckCircle } from 'lucide-react';
 
 const statusBadgeStyles = {
-    upcoming: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    ongoing: 'bg-amber-100 text-amber-800 border-amber-200',
+    upcoming: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    ongoing: 'bg-[#ffdf9a]/40 text-[#5a4300] border-[#eab308]/40',
     completed: 'bg-slate-100 text-slate-700 border-slate-200',
-    published: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    draft: 'bg-purple-100 text-purple-700 border-purple-200',
-    cancelled: 'bg-rose-100 text-rose-700 border-rose-200',
+    published: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    draft: 'bg-[#eff4ff] text-[#0051d5] border-[#316bf3]/30',
+    cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
 };
 
 const EventDetailPage = () => {
@@ -197,17 +198,17 @@ const EventDetailPage = () => {
     if (notFound) {
         return (
             <MainLayout>
-                <div className="max-w-2xl mx-auto my-12 p-8 bg-white border border-slate-200 rounded-xl text-center">
+                <div className="max-w-2xl mx-auto my-12 p-8 bg-white border border-slate-200 rounded-xl text-center shadow-xs">
                     <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
                         !
                     </div>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">Event Not Available</h2>
+                    <h2 className="text-xl font-bold text-[#0b1c30] mb-2">Event Not Available</h2>
                     <p className="text-slate-600 text-sm mb-6">
                         The event you are looking for does not exist or has been removed. You will be redirected to the events list shortly.
                     </p>
                     <button
                         onClick={() => navigate('/events')}
-                        className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+                        className="px-4 py-2 bg-[#0f172a] text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
                     >
                         Back to Events
                     </button>
@@ -222,8 +223,8 @@ const EventDetailPage = () => {
                 <div className="max-w-2xl mx-auto my-8 p-6 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                     {error || 'Event could not be found.'}
                     <div className="mt-4">
-                        <Link to="/events" className="text-red-800 font-semibold underline">
-                            &larr; Return to Events
+                        <Link to="/events" className="text-red-800 font-semibold underline flex items-center gap-1">
+                            <ArrowLeft className="w-4 h-4" /> Return to Events
                         </Link>
                     </div>
                 </div>
@@ -240,8 +241,8 @@ const EventDetailPage = () => {
         <MainLayout>
             {/* Back link */}
             <div className="mb-6 flex items-center justify-between">
-                <Link to="/events" className="text-sm text-slate-500 hover:text-slate-800 flex items-center gap-1">
-                    &larr; Back to Events
+                <Link to="/events" className="text-sm font-medium text-slate-500 hover:text-[#0b1c30] flex items-center gap-1.5 transition-colors">
+                    <ArrowLeft className="w-4 h-4" /> Back to Events
                 </Link>
             </div>
 
@@ -266,10 +267,10 @@ const EventDetailPage = () => {
 
             {/* Executive Control Panel Toolbar (Visible only if canManage is true) */}
             {canManage && (
-                <div className="mb-6 bg-gradient-to-r from-purple-900 via-slate-900 to-indigo-900 text-white rounded-2xl p-5 shadow-sm border border-purple-800/30">
+                <div className="mb-6 bg-[#0f172a] text-white rounded-2xl p-5 shadow-xs border border-slate-800">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                            <span className="text-xs font-semibold uppercase tracking-wider text-purple-300">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-[#eab308]">
                                 Club Executive Control Suite
                             </span>
                             <h3 className="text-lg font-bold text-white mt-0.5">
@@ -284,23 +285,23 @@ const EventDetailPage = () => {
                                 onClick={() => setIsEditOpen(true)}
                                 className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
                             >
-                                ✏️ Edit Event
+                                <Edit className="w-4 h-4" /> Edit Event
                             </button>
 
                             {/* Mark Attendance */}
                             <button
                                 onClick={() => setIsAttendanceOpen(true)}
-                                className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm flex items-center gap-1.5"
+                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                             >
-                                📋 Check-in Roster
+                                <ClipboardList className="w-4 h-4" /> Check-in Roster
                             </button>
 
                             {/* Attendance Report */}
                             <button
                                 onClick={() => setIsReportOpen(true)}
-                                className="px-3.5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm flex items-center gap-1.5"
+                                className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                             >
-                                📊 Attendance Report
+                                <BarChart2 className="w-4 h-4" /> Attendance Report
                             </button>
 
                             {/* Status Transitions */}
@@ -308,9 +309,9 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('published')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm"
+                                    className="px-3.5 py-2 bg-[#eab308] text-slate-900 font-bold hover:bg-amber-400 rounded-xl text-xs transition-colors shadow-xs flex items-center gap-1"
                                 >
-                                    🚀 Publish Event
+                                    <Rocket className="w-4 h-4" /> Publish Event
                                 </button>
                             )}
 
@@ -318,9 +319,9 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('ongoing')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm"
+                                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1"
                                 >
-                                    ▶️ Mark Ongoing
+                                    <Play className="w-4 h-4" /> Mark Ongoing
                                 </button>
                             )}
 
@@ -328,9 +329,9 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('completed')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm"
+                                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1"
                                 >
-                                    🏁 Mark Completed
+                                    <CheckSquare className="w-4 h-4" /> Mark Completed
                                 </button>
                             )}
 
@@ -338,9 +339,9 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('cancelled')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-rose-600/80 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold transition-colors border border-rose-500/30"
+                                    className="px-3.5 py-2 bg-rose-600/80 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold transition-colors border border-rose-500/30 flex items-center gap-1"
                                 >
-                                    🚫 Cancel Event
+                                    <Ban className="w-4 h-4" /> Cancel Event
                                 </button>
                             )}
 
@@ -349,9 +350,9 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={handleDeleteEvent}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm"
+                                    className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1"
                                 >
-                                    🗑️ Delete Event
+                                    <Trash2 className="w-4 h-4" /> Delete Event
                                 </button>
                             )}
                         </div>
@@ -360,22 +361,20 @@ const EventDetailPage = () => {
             )}
 
             {/* Detailed Event Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     {/* Club link */}
                     <Link
                         to={`/clubs/${event.club_id}`}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors"
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-[#2563eb] bg-[#eff4ff] px-3 py-1.5 rounded-lg border border-blue-200/60 hover:bg-blue-100 transition-colors"
                     >
-                        <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
+                        <Building2 className="w-4 h-4 text-[#2563eb]" />
                         {event.club?.name || 'Hosting Club'}
                     </Link>
 
                     <div className="flex items-center gap-2">
                         {canManage && (
-                            <span className="text-xs font-semibold px-2.5 py-1 bg-purple-100 text-purple-700 border border-purple-200 rounded-full">
+                            <span className="text-xs font-semibold px-2.5 py-1 bg-[#ffdf9a]/40 text-[#5a4300] border border-[#eab308]/40 rounded-full">
                                 Executive Access
                             </span>
                         )}
@@ -385,16 +384,16 @@ const EventDetailPage = () => {
                     </div>
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-4">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0b1c30] tracking-tight mb-4">
                     {event.title}
                 </h1>
 
                 {/* Info Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-slate-50 border border-slate-100 rounded-xl mb-6 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-[#f8f9ff] border border-slate-200/80 rounded-xl mb-6 text-sm">
                     {/* Date & Time */}
                     <div>
                         <span className="block text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Date & Time</span>
-                        <div className="text-slate-800 font-semibold">{formatDate(event.starts_at)}</div>
+                        <div className="text-[#0b1c30] font-semibold">{formatDate(event.starts_at)}</div>
                         {event.ends_at && (
                             <div className="text-xs text-slate-500 mt-0.5">Until {formatDate(event.ends_at)}</div>
                         )}
@@ -403,14 +402,14 @@ const EventDetailPage = () => {
                     {/* Location */}
                     <div>
                         <span className="block text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Location</span>
-                        <div className="text-slate-800 font-semibold capitalize">{event.location_type || 'Physical'}</div>
+                        <div className="text-[#0b1c30] font-semibold capitalize">{event.location_type || 'Physical'}</div>
                         <div className="text-xs text-slate-500 mt-0.5">{event.location_value || 'Venue info not specified'}</div>
                     </div>
 
                     {/* Capacity & Registrations */}
                     <div>
                         <span className="block text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Capacity</span>
-                        <div className="text-slate-800 font-semibold">
+                        <div className="text-[#0b1c30] font-semibold">
                             {event.capacity !== null ? (
                                 <span>{event.registrations_count} / {event.capacity} registered</span>
                             ) : (
@@ -427,7 +426,7 @@ const EventDetailPage = () => {
 
                 {/* Description */}
                 <div className="prose prose-slate max-w-none mb-8">
-                    <h3 className="text-base font-bold text-slate-900 mb-2">About This Event</h3>
+                    <h3 className="text-base font-bold text-[#0b1c30] mb-2">About This Event</h3>
                     <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
                         {event.description || 'No detailed description provided for this event.'}
                     </p>
@@ -438,9 +437,7 @@ const EventDetailPage = () => {
                     <div className="text-sm text-slate-500">
                         {isRegistered ? (
                             <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
-                                <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <CheckCircle className="w-5 h-5 text-emerald-600" />
                                 You are registered for this event
                             </span>
                         ) : (
@@ -459,7 +456,7 @@ const EventDetailPage = () => {
                         {isCompletedOrPast ? (
                             <button
                                 disabled
-                                className="w-full sm:w-auto px-6 py-3 bg-slate-200 text-slate-500 font-medium rounded-xl text-sm cursor-not-allowed border border-slate-300"
+                                className="w-full sm:w-auto px-6 py-3 bg-slate-100 text-slate-400 font-medium rounded-xl text-sm cursor-not-allowed border border-slate-200"
                             >
                                 This event has ended
                             </button>
@@ -474,7 +471,7 @@ const EventDetailPage = () => {
                         ) : isFull ? (
                             <button
                                 disabled
-                                className="w-full sm:w-auto px-6 py-3 bg-slate-200 text-slate-500 font-medium rounded-xl text-sm cursor-not-allowed border border-slate-300"
+                                className="w-full sm:w-auto px-6 py-3 bg-slate-100 text-slate-400 font-medium rounded-xl text-sm cursor-not-allowed border border-slate-200"
                             >
                                 Fully Booked
                             </button>
@@ -482,7 +479,7 @@ const EventDetailPage = () => {
                             <button
                                 onClick={handleRegister}
                                 disabled={submitting}
-                                className="w-full sm:w-auto px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm shadow-sm transition-colors disabled:opacity-50"
+                                className="w-full sm:w-auto px-6 py-3 bg-[#2563eb] hover:bg-[#0051d5] text-white font-semibold rounded-xl text-sm shadow-xs transition-colors disabled:opacity-50"
                             >
                                 {submitting ? 'Processing...' : 'Register for Event'}
                             </button>

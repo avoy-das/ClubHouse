@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/layout/SearchBar';
 import notificationService from '../services/notificationService';
+import { Bell, Shield, LogOut, User, Building2 } from 'lucide-react';
 
 const MainLayout = ({ children }) => {
     const { user, logout, isAdmin } = useAuth();
@@ -42,10 +43,10 @@ const MainLayout = ({ children }) => {
         return (
             <Link
                 to={to}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     active
-                        ? 'bg-slate-800 text-white'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                        ? 'bg-[#e8e2d9] text-[#1d1b16] shadow-xs font-bold'
+                        : 'text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3]'
                 }`}
             >
                 {label}
@@ -54,25 +55,25 @@ const MainLayout = ({ children }) => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-[#fbf9f4] text-[#1b1c19] font-sans">
             {/* Topbar */}
-            <nav className="bg-slate-900 shadow-lg sticky top-0 z-50">
+            <nav className="bg-[#f5f3ee] border-b border-[#e4e2dd] shadow-xs sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16 gap-4">
 
                         {/* Logo & Primary Nav */}
                         <div className="flex items-center gap-6 shrink-0">
-                            <Link to="/dashboard" className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                                    <span className="text-slate-900 font-black text-sm">CH</span>
+                            <Link to="/dashboard" className="flex items-center gap-2.5 group">
+                                <div className="w-9 h-9 bg-[#1c1b1b] rounded-full flex items-center justify-center text-white font-extrabold text-sm shadow-xs group-hover:bg-[#30312e] transition-colors">
+                                    <Building2 className="w-5 h-5 text-white" />
                                 </div>
-                                <span className="text-white font-bold text-lg tracking-tight hidden sm:inline">
+                                <span className="text-[#1c1b1b] font-extrabold text-xl tracking-tight hidden sm:inline font-heading">
                                     ClubHouse
                                 </span>
                             </Link>
 
-                            {/* Nav Links */}
-                            <div className="hidden lg:flex items-center gap-1">
+                            {/* Nav Links (Pill-shaped as in Stitch) */}
+                            <div className="hidden lg:flex items-center gap-1.5 bg-[#f0eee9] p-1 rounded-full border border-[#e4e2dd]">
                                 {navLink('/dashboard', 'Dashboard')}
                                 {navLink('/clubs', 'Clubs')}
                                 {navLink('/events', 'Events')}
@@ -88,16 +89,16 @@ const MainLayout = ({ children }) => {
                         </div>
 
                         {/* Right side — Bell icon + User info + profile + logout */}
-                        <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-2.5 shrink-0">
                             {/* Notification Bell */}
                             <Link
                                 to="/notifications"
                                 title="Notifications"
-                                className="relative p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                                className="relative p-2 rounded-full text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3] transition-colors"
                             >
-                                <span className="text-lg">🔔</span>
+                                <Bell className="w-5 h-5" />
                                 {unreadCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                                    <span className="absolute -top-0.5 -right-0.5 bg-[#ba1a1a] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                                         {unreadCount > 99 ? '99+' : unreadCount}
                                     </span>
                                 )}
@@ -106,13 +107,15 @@ const MainLayout = ({ children }) => {
                             {/* User details */}
                             <Link
                                 to="/profile"
-                                className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                                className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#e8e2d9] hover:bg-[#dbdad5] text-[#1d1b16] transition-colors border border-[#cbc6bd]/50"
                             >
-                                <span className="text-sm font-medium">
+                                <User className="w-4 h-4 text-[#615e57]" />
+                                <span className="text-xs font-bold">
                                     {user?.name}
                                 </span>
                                 {isAdmin() && (
-                                    <span className="px-2 py-0.5 bg-amber-500 text-white text-xs rounded-full font-medium">
+                                    <span className="px-2 py-0.5 bg-[#3a0a00] text-white text-[10px] rounded-full font-bold flex items-center gap-1">
+                                        <Shield className="w-3 h-3 text-[#ffb59f]" />
                                         Admin
                                     </span>
                                 )}
@@ -121,24 +124,27 @@ const MainLayout = ({ children }) => {
                             {isAdmin() && (
                                 <Link
                                     to="/admin/clubs"
-                                    className="px-2.5 py-1 text-xs font-semibold bg-amber-600/30 text-amber-300 border border-amber-500/50 rounded-md hover:bg-amber-600/50 transition-colors"
+                                    className="px-3 py-1.5 text-xs font-bold bg-[#1c1b1b] text-white rounded-full hover:bg-[#30312e] transition-colors flex items-center gap-1 shadow-xs"
                                 >
+                                    <Shield className="w-3.5 h-3.5 text-[#ffb59f]" />
                                     Admin Suite
                                 </Link>
                             )}
 
                             <button
                                 onClick={handleLogout}
-                                className="px-3 py-1.5 text-sm text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 rounded-md transition-colors"
+                                className="p-2 text-[#444748] hover:text-[#1b1c19] border border-[#e4e2dd] hover:bg-[#eae8e3] rounded-full transition-colors flex items-center gap-1.5 text-xs font-semibold"
+                                title="Logout"
                             >
-                                Logout
+                                <LogOut className="w-4 h-4" />
+                                <span className="hidden sm:inline">Logout</span>
                             </button>
                         </div>
 
                     </div>
 
-                    {/* Secondary bar for mobile / admin nav */}
-                    <div className="flex lg:hidden overflow-x-auto py-2 border-t border-slate-800 gap-2 text-xs">
+                    {/* Secondary bar for mobile nav */}
+                    <div className="flex lg:hidden overflow-x-auto py-2 border-t border-[#e4e2dd] gap-1 text-xs">
                         {navLink('/dashboard', 'Dashboard')}
                         {navLink('/clubs', 'Clubs')}
                         {navLink('/events', 'Events')}
