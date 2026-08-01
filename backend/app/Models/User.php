@@ -72,10 +72,13 @@ class User extends Authenticatable
         return $this->clubMemberships()
             ->where('club_id', $clubId)
             ->where('status', 'active')
-            ->whereHas('positions', function ($q) use ($permission) {
-                $q->where(function ($q2) {
-                    $q2->whereNull('ends_at')->orWhere('ends_at', '>', now());
-                })->whereHas('position', fn ($q3) => $q3->where($permission, true));
+            ->where(function ($query) use ($permission) {
+                $query->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer'])
+                      ->orWhereHas('positions', function ($q) use ($permission) {
+                          $q->where(function ($q2) {
+                              $q2->whereNull('ends_at')->orWhere('ends_at', '>', now());
+                          })->whereHas('position', fn ($q3) => $q3->where($permission, true));
+                      });
             })
             ->exists();
     }

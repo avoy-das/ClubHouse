@@ -5,7 +5,7 @@ import clubService from '../../services/clubService';
 import { useAuth } from '../../context/AuthContext';
 import EditClubModal from '../../components/Clubs/EditClubModal';
 import ClubAuditLogModal from '../../components/Clubs/ClubAuditLogModal';
-import { ArrowLeft, Edit, FileText, Search, Shield, Building2 } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, Search, Shield, Building2, Megaphone, Target } from 'lucide-react';
 
 const roleLabels = {
     president:      'President',
@@ -310,6 +310,22 @@ const ClubDetail = () => {
                         <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Founded by</p>
                         <p className="text-[#0b1c30] font-medium">{club.creator?.name}</p>
                     </div>
+                </div>
+
+                {/* Module Quick Links */}
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                    <button
+                        onClick={() => navigate(`/clubs/${club.id}/announcements`)}
+                        className="px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
+                    >
+                        <Megaphone className="w-4 h-4" /> Announcements
+                    </button>
+                    <button
+                        onClick={() => navigate(`/clubs/${club.id}/recruitment`)}
+                        className="px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
+                    >
+                        <Target className="w-4 h-4" /> Recruitment
+                    </button>
                 </div>
             </div>
 

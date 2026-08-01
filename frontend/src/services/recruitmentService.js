@@ -1,7 +1,7 @@
 import api from './api';
 
 const recruitmentService = {
-    listAll: async (params = {}) => (await api.get('/clubs/recruitment-notices', { params })).data,
+    listAll: async (params = {}) => (await api.get('/recruitment-notices', { params })).data,
     listForClub: async (clubId) => (await api.get(`/clubs/${clubId}/recruitment-notices`)).data,
     get: async (noticeId) => (await api.get(`/recruitment-notices/${noticeId}`)).data,
     create: async (clubId, data) => (await api.post(`/clubs/${clubId}/recruitment-notices`, data)).data,

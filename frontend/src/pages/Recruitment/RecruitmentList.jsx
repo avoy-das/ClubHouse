@@ -8,7 +8,7 @@ import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import Modal from '../../components/ui/Modal';
-import { Target, Calendar, Clock, Plus, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Target, Calendar, Clock, Plus, ArrowLeft, ArrowRight, Pencil, Trash } from 'lucide-react';
 
 const RecruitmentListContent = () => {
     const { clubId } = useParams();
@@ -18,8 +18,10 @@ const RecruitmentListContent = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Modal state for executive creation
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    // Modal state for executive creation/editing
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [editNoticeId, setEditNoticeId] = useState(null);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [requirements, setRequirements] = useState('');
@@ -51,28 +53,78 @@ const RecruitmentListContent = () => {
         loadNotices();
     }, [clubId]);
 
-    const handleCreate = async (e) => {
+    const handleCreateOpen = () => {
+        setIsEditMode(false);
+        setEditNoticeId(null);
+        setTitle('');
+        setDescription('');
+        setRequirements('');
+        setOpensAt('');
+        setClosesAt('');
+        setIsModalOpen(true);
+    };
+
+    const handleEditOpen = (notice) => {
+        setIsEditMode(true);
+        setEditNoticeId(notice.id);
+        setTitle(notice.title);
+        setDescription(notice.description);
+        setRequirements(notice.requirements || '');
+        
+        // Convert to YYYY-MM-DDThh:mm format for datetime-local input
+        const formatForInput = (dateString) => {
+            if (!dateString) return '';
+            const d = new Date(dateString);
+            return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        };
+        
+        setOpensAt(formatForInput(notice.opens_at));
+        setClosesAt(formatForInput(notice.closes_at));
+        setIsModalOpen(true);
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitting(true);
         setError(null);
         try {
-            await recruitmentService.create(clubId, {
+            // Convert local datetime string to UTC ISO string
+            const toUTC = (localDateString) => {
+                if (!localDateString) return null;
+                return new Date(localDateString).toISOString();
+            };
+
+            const payload = {
                 title,
                 description,
                 requirements,
-                opens_at: opensAt,
-                closes_at: closesAt,
+                opens_at: toUTC(opensAt),
+                closes_at: toUTC(closesAt),
                 status,
-            });
-            setIsCreateOpen(false);
-            setTitle('');
-            setDescription('');
-            setRequirements('');
+            };
+            
+            if (isEditMode) {
+                await recruitmentService.update(editNoticeId, payload);
+            } else {
+                await recruitmentService.create(clubId, payload);
+            }
+            
+            setIsModalOpen(false);
             loadNotices();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create recruitment notice.');
+            setError(err.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} recruitment notice.`);
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleDelete = async (noticeId) => {
+        if (!window.confirm('Are you sure you want to delete this recruitment notice?')) return;
+        try {
+            await recruitmentService.remove(noticeId);
+            loadNotices();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to delete recruitment notice.');
         }
     };
 
@@ -97,7 +149,7 @@ const RecruitmentListContent = () => {
                     )}
                     {clubId && can('can_manage_recruitment') && (
                         <button
-                            onClick={() => setIsCreateOpen(true)}
+                            onClick={handleCreateOpen}
                             className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
                         >
                             <Plus className="w-4 h-4" /> Post Recruitment Drive
@@ -119,7 +171,19 @@ const RecruitmentListContent = () => {
                             <div>
                                 <div className="flex items-start justify-between mb-3">
                                     <h3 className="font-bold text-xl text-[#0b1c30] leading-snug">{notice.title}</h3>
-                                    {notice.status && <Badge status={notice.status} />}
+                                    <div className="flex items-center gap-2">
+                                        {notice.status && <Badge status={notice.status} />}
+                                        {can('can_manage_recruitment') && (
+                                            <div className="flex items-center space-x-1">
+                                                <button onClick={() => handleEditOpen(notice)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Edit">
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={() => handleDelete(notice.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete">
+                                                    <Trash className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="text-xs text-slate-600 space-y-1.5 mb-3 bg-[#f8f9ff] p-3 rounded-lg border border-slate-200">
                                     <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-blue-600" /> Opens: {new Date(notice.opens_at).toLocaleString()}</div>
@@ -146,9 +210,9 @@ const RecruitmentListContent = () => {
                 </div>
             )}
 
-            {/* Create Recruitment Modal */}
-            <Modal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="Post Recruitment Notice">
-                <form onSubmit={handleCreate} className="space-y-4">
+            {/* Edit/Create Recruitment Modal */}
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditMode ? "Edit Recruitment Notice" : "Post Recruitment Notice"}>
+                <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium mb-1 text-[#0b1c30]">Title</label>
                         <input
@@ -208,7 +272,7 @@ const RecruitmentListContent = () => {
 
                     <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
                         <button
-                            onClick={() => setIsCreateOpen(false)}
+                            onClick={() => setIsModalOpen(false)}
                             type="button"
                             className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold rounded-lg transition-colors"
                         >
@@ -219,7 +283,7 @@ const RecruitmentListContent = () => {
                             disabled={submitting}
                             className="px-4 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors shadow-xs"
                         >
-                            {submitting ? 'Creating...' : 'Post Notice'}
+                            {submitting ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Notice' : 'Post Notice')}
                         </button>
                     </div>
                 </form>
