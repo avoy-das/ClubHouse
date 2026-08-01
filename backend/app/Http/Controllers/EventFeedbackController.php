@@ -6,6 +6,7 @@ use App\Http\Requests\StoreEventFeedbackRequest;
 use App\Models\Event;
 use App\Models\EventFeedback;
 use App\Models\EventRegistration;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 
 class EventFeedbackController extends Controller
@@ -35,6 +36,25 @@ class EventFeedbackController extends Controller
             'comments'              => $request->validated()['comments'] ?? null,
             'submitted_at'          => now(),
         ]);
+
+        NotificationService::notifyUser(
+            $event->created_by,
+            'event_feedback_submitted',
+            'New Event Feedback',
+            "New feedback submitted for event '{$event->title}'.",
+            Event::class,
+            $event->id
+        );
+
+        NotificationService::notifyClubExecutives(
+            $event->club_id,
+            'event_feedback_submitted',
+            'New Event Feedback',
+            "New feedback submitted for event '{$event->title}'.",
+            Event::class,
+            $event->id,
+            $event->created_by
+        );
 
         return response()->json($feedback, 201);
     }

@@ -13,6 +13,7 @@ return new class extends Migration
             $table->foreignId('club_id')->constrained('clubs')->cascadeOnDelete();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->enum('role', ['president', 'vice_president', 'secretary', 'treasurer', 'member']);
+            $table->enum('status', ['active', 'inactive', 'removed'])->default('active');
             $table->timestamp('joined_at')->useCurrent();
             $table->unique(['club_id', 'user_id']);
         });

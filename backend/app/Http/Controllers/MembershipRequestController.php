@@ -7,6 +7,7 @@ use App\Models\Club;
 use App\Models\MembershipRequest;
 use App\Models\Notification;
 use App\Services\ClubMembershipService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -35,6 +36,16 @@ class MembershipRequestController extends Controller
             'status'  => 'pending',
             'message' => $request->validated()['message'] ?? null,
         ]);
+
+        NotificationService::notifyClubExecutives(
+            $club->id,
+            'membership_request_submitted',
+            'New Membership Request',
+            "{$user->name} requested to join '{$club->name}'.",
+            Club::class,
+            $club->id,
+            $user->id
+        );
 
         return response()->json($membershipRequest, 201);
     }
@@ -73,6 +84,16 @@ class MembershipRequestController extends Controller
 
         if ($status === 'approved') {
             $membershipService->admitUser($membershipRequest->club, $membershipRequest->user);
+
+            NotificationService::notifyClubExecutives(
+                $membershipRequest->club_id,
+                'new_member_joined',
+                'New Member Joined',
+                "{$membershipRequest->user->name} has joined '{$membershipRequest->club->name}'.",
+                Club::class,
+                $membershipRequest->club_id,
+                $user->id
+            );
         }
 
         Notification::create([

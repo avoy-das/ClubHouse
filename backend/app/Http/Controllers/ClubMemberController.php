@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Club;
 use App\Models\ClubMember;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -35,6 +36,25 @@ class ClubMemberController extends Controller
         }
 
         $member->update(['status' => 'removed']);
+
+        NotificationService::notifyUser(
+            $member->user_id,
+            'member_removed',
+            'Removed from Club',
+            "You have been removed from the club '{$club->name}'.",
+            Club::class,
+            $club->id
+        );
+
+        NotificationService::notifyClubExecutives(
+            $club->id,
+            'member_removed',
+            'Member Removed',
+            "A member has been removed from '{$club->name}'.",
+            Club::class,
+            $club->id,
+            $user->id
+        );
 
         return response()->json(['message' => 'Member removed successfully.']);
     }

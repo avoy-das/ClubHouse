@@ -36,13 +36,47 @@ class User extends Authenticatable
         ];
     }
 
-public function clubs()
-{
-    return $this->hasMany(ClubMember::class);
-}
+    public function clubs()
+    {
+        return $this->hasMany(ClubMember::class);
+    }
 
-public function createdClubs()
-{
-    return $this->hasMany(Club::class, 'created_by');
-}
+    public function clubMemberships()
+    {
+        return $this->hasMany(ClubMember::class);
+    }
+
+    public function createdClubs()
+    {
+        return $this->hasMany(Club::class, 'created_by');
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function isMemberOf(int|Club $club): bool
+    {
+        $clubId = $club instanceof Club ? $club->id : $club;
+        return $this->clubMemberships()
+            ->where('club_id', $clubId)
+            ->where('status', 'active')
+            ->exists();
+    }
+
+    public function hasClubPermission(int|Club $club, string $permission): bool
+    {
+        $clubId = $club instanceof Club ? $club->id : $club;
+
+        return $this->clubMemberships()
+            ->where('club_id', $clubId)
+            ->where('status', 'active')
+            ->whereHas('positions', function ($q) use ($permission) {
+                $q->where(function ($q2) {
+                    $q2->whereNull('ends_at')->orWhere('ends_at', '>', now());
+                })->whereHas('position', fn ($q3) => $q3->where($permission, true));
+            })
+            ->exists();
+    }
 }

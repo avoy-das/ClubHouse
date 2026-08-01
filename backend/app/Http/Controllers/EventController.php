@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateEventStatusRequest;
 use App\Models\Club;
 use App\Models\Event;
 use App\Services\AuditService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -140,6 +141,27 @@ class EventController extends Controller
             'starts_at'=> $event->starts_at,
         ]);
 
+        NotificationService::notifyClubMembers(
+            $event->club_id,
+            'event_created',
+            'New Event Created',
+            "A new event '{$event->title}' was created in your club.",
+            Event::class,
+            $event->id,
+            $user->id
+        );
+
+        if (!$user->is_admin) {
+            NotificationService::notifyAdmins(
+                'event_created',
+                'New Event Created',
+                "New event '{$event->title}' created for club ID {$event->club_id}.",
+                Event::class,
+                $event->id,
+                $user->id
+            );
+        }
+
         $response = ['event' => $event->load(['club:id,name', 'creator:id,name'])];
 
         // Attach warning if overlapping events exist — not a block
@@ -238,6 +260,27 @@ class EventController extends Controller
 
         AuditService::log('event.updated', $event, ['changed_fields' => array_keys($data)]);
 
+        NotificationService::notifyEventAttendees(
+            $event->id,
+            'event_updated',
+            'Event Details Updated',
+            "The details for event '{$event->title}' have been updated.",
+            Event::class,
+            $event->id,
+            $user->id
+        );
+
+        if ($user->is_admin && $event->created_by !== $user->id) {
+            NotificationService::notifyUser(
+                $event->created_by,
+                'event_updated',
+                'Event Modified by Admin',
+                "An admin has updated your event '{$event->title}'.",
+                Event::class,
+                $event->id
+            );
+        }
+
         $response['event'] = $event->fresh()->load(['club:id,name', 'creator:id,name']);
 
         return response()->json($response);
@@ -273,6 +316,38 @@ class EventController extends Controller
             'from' => $oldStatus,
             'to'   => $newStatus,
         ]);
+
+        if ($newStatus === 'cancelled') {
+            NotificationService::notifyEventAttendees(
+                $event->id,
+                'event_cancelled',
+                'Event Cancelled',
+                "The event '{$event->title}' has been cancelled.",
+                Event::class,
+                $event->id
+            );
+
+            if ($user->is_admin && $event->created_by !== $user->id) {
+                NotificationService::notifyUser(
+                    $event->created_by,
+                    'event_cancelled',
+                    'Event Cancelled by Admin',
+                    "An admin cancelled your event '{$event->title}'.",
+                    Event::class,
+                    $event->id
+                );
+            }
+        } elseif (in_array($newStatus, ['published', 'upcoming', 'ongoing'])) {
+            NotificationService::notifyClubMembers(
+                $event->club_id,
+                'event_created',
+                'Event Now Active',
+                "The event '{$event->title}' is now {$newStatus}!",
+                Event::class,
+                $event->id,
+                $user->id
+            );
+        }
 
         return response()->json([
             'message' => "Event status updated to '{$newStatus}'.",

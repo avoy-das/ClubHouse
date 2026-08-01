@@ -14,7 +14,7 @@ const Navbar = () => {
         const fetchNotifications = async () => {
             try {
                 const res = await notificationService.list();
-                const list = res.data || res;
+                const list = res.notifications || res.data || res;
                 if (active && Array.isArray(list)) {
                     const unread = list.filter((n) => !n.is_read).length;
                     setUnreadCount(unread);

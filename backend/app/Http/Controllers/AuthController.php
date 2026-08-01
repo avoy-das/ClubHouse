@@ -6,6 +6,7 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -53,7 +54,7 @@ class AuthController extends Controller
 
             return response()->json([
                 'message' => 'Invalid credentials.',
-            ], 422);
+            ], 401);
         }
 
         $user  = Auth::user();
@@ -127,6 +128,15 @@ class AuthController extends Controller
         ]);
 
         AuditService::log('auth.password.changed', $user, [], $user->id);
+
+        NotificationService::notifyUser(
+            $user->id,
+            'security_alert',
+            'Password Changed',
+            'The password for your account was changed successfully.',
+            User::class,
+            $user->id
+        );
 
         return response()->json([
             'message' => 'Password updated successfully.',

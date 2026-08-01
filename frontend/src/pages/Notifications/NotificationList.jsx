@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import notificationService from '../../services/notificationService';
+import { getNotificationTargetUrl } from '../../utils/notificationUtils';
 import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 
 const NotificationList = () => {
+    const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -28,7 +31,8 @@ const NotificationList = () => {
         loadNotifications();
     }, []);
 
-    const handleMarkRead = async (id) => {
+    const handleMarkRead = async (id, e) => {
+        if (e) e.stopPropagation();
         try {
             await notificationService.markRead(id);
             setNotifications((prev) =>
@@ -37,6 +41,14 @@ const NotificationList = () => {
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to mark notification as read');
         }
+    };
+
+    const handleNotificationClick = async (notif) => {
+        if (!notif.is_read) {
+            handleMarkRead(notif.id);
+        }
+        const targetUrl = getNotificationTargetUrl(notif);
+        navigate(targetUrl);
     };
 
     const handleMarkAllRead = async () => {
@@ -54,7 +66,7 @@ const NotificationList = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-lg shadow-sm border">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-                        <p className="text-gray-500 text-sm">System updates, membership approvals, and event alerts.</p>
+                        <p className="text-gray-500 text-sm">System updates, membership approvals, and event alerts. Click any item to navigate.</p>
                     </div>
                     {notifications.some((n) => !n.is_read) && (
                         <Button variant="secondary" size="sm" onClick={handleMarkAllRead}>
@@ -76,11 +88,12 @@ const NotificationList = () => {
                         {notifications.map((notif) => (
                             <div
                                 key={notif.id}
-                                className={`p-4 flex items-start justify-between transition ${
-                                    notif.is_read ? 'bg-white' : 'bg-blue-50/60'
+                                onClick={() => handleNotificationClick(notif)}
+                                className={`p-4 flex items-start justify-between cursor-pointer transition hover:bg-slate-50 ${
+                                    notif.is_read ? 'bg-white' : 'bg-blue-50/70 border-l-4 border-l-blue-600'
                                 }`}
                             >
-                                <div className="space-y-1">
+                                <div className="space-y-1 pr-4">
                                     <div className="flex items-center space-x-2">
                                         {!notif.is_read && (
                                             <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" />
@@ -92,11 +105,18 @@ const NotificationList = () => {
                                         {new Date(notif.created_at).toLocaleString()}
                                     </span>
                                 </div>
-                                {!notif.is_read && (
-                                    <Button variant="secondary" size="sm" onClick={() => handleMarkRead(notif.id)}>
-                                        Mark as Read
-                                    </Button>
-                                )}
+                                <div className="flex items-center space-x-2 shrink-0">
+                                    {!notif.is_read && (
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={(e) => handleMarkRead(notif.id, e)}
+                                        >
+                                            Mark as Read
+                                        </Button>
+                                    )}
+                                    <span className="text-slate-400 text-sm">&rarr;</span>
+                                </div>
                             </div>
                         ))}
                     </div>

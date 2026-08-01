@@ -6,6 +6,7 @@ use App\Http\Requests\StoreAnnouncementRequest;
 use App\Http\Requests\UpdateAnnouncementRequest;
 use App\Models\Announcement;
 use App\Models\Club;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -36,6 +37,16 @@ class AnnouncementController extends Controller
             'is_pinned' => $data['is_pinned'] ?? false,
         ]);
 
+        NotificationService::notifyClubMembers(
+            $club->id,
+            'announcement_posted',
+            'New Announcement',
+            "New announcement in '{$club->name}': {$announcement->title}",
+            Announcement::class,
+            $announcement->id,
+            $request->user()->id
+        );
+
         return response()->json($announcement->load('author'), 201);
     }
 
@@ -56,6 +67,17 @@ class AnnouncementController extends Controller
     public function destroy(Request $request, Announcement $announcement): JsonResponse
     {
         $this->authorize('delete', $announcement);
+
+        if ($request->user()->is_admin && $announcement->posted_by !== $request->user()->id) {
+            NotificationService::notifyUser(
+                $announcement->posted_by,
+                'announcement_deleted',
+                'Announcement Deleted by Admin',
+                "Your announcement '{$announcement->title}' was deleted by an administrator.",
+                Announcement::class,
+                $announcement->id
+            );
+        }
 
         $announcement->delete();
 

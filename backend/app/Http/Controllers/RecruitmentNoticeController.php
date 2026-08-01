@@ -6,6 +6,7 @@ use App\Http\Requests\StoreRecruitmentNoticeRequest;
 use App\Http\Requests\UpdateRecruitmentNoticeRequest;
 use App\Models\Club;
 use App\Models\RecruitmentNotice;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -47,6 +48,16 @@ class RecruitmentNoticeController extends Controller
 
         $notice = RecruitmentNotice::create($data);
 
+        NotificationService::notifyClubMembers(
+            $club->id,
+            'recruitment_opened',
+            'Recruitment Campaign Opened',
+            "A new recruitment campaign '{$notice->title}' has opened in '{$club->name}'!",
+            Club::class,
+            $club->id,
+            $request->user()->id
+        );
+
         return response()->json($notice->load('club'), 201);
     }
 
@@ -73,6 +84,18 @@ class RecruitmentNoticeController extends Controller
         $this->authorize('update', $recruitmentNotice);
 
         $recruitmentNotice->update($request->validated());
+
+        if ($request->user()->is_admin) {
+            NotificationService::notifyClubExecutives(
+                $recruitmentNotice->club_id,
+                'recruitment_updated',
+                'Recruitment Campaign Updated',
+                "An admin updated the recruitment campaign '{$recruitmentNotice->title}'.",
+                Club::class,
+                $recruitmentNotice->club_id,
+                $request->user()->id
+            );
+        }
 
         return response()->json($recruitmentNotice->load('club'));
     }

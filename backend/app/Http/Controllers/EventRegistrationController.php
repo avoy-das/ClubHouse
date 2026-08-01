@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -112,6 +113,15 @@ class EventRegistrationController extends Controller
             'event_id' => $event->id,
         ]);
 
+        NotificationService::notifyUser(
+            $user->id,
+            'event_registration_confirmed',
+            'Registration Confirmed',
+            "Your registration for event '{$event->title}' has been confirmed!",
+            Event::class,
+            $event->id
+        );
+
         return response()->json([
             'message'             => 'Successfully registered for event.',
             'is_registered'       => true,
@@ -202,6 +212,26 @@ class EventRegistrationController extends Controller
             'attended'       => $attendedVal,
             'updated_by'     => $authUser->id,
         ]);
+
+        if ($attendedVal === true) {
+            NotificationService::notifyUser(
+                $user->id,
+                'event_attendance',
+                'Attendance Marked: Present',
+                "Your attendance for '{$event->title}' has been marked as Attended.",
+                Event::class,
+                $event->id
+            );
+        } elseif ($attendedVal === false) {
+            NotificationService::notifyUser(
+                $user->id,
+                'event_attendance',
+                'Attendance Marked: Absent',
+                "Your attendance for '{$event->title}' has been marked as Absent.",
+                Event::class,
+                $event->id
+            );
+        }
 
         return response()->json([
             'message'      => 'Attendance status updated successfully.',
