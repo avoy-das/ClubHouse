@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Club;
 use App\Models\ClubMember;
 use App\Models\ClubMemberPosition;
 use App\Models\ClubPosition;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -34,6 +36,17 @@ class ClubMemberPositionController extends Controller
             'assigned_at'      => now(),
         ]);
 
+        $clubName = $member->club ? $member->club->name : 'your club';
+
+        NotificationService::notifyUser(
+            $member->user_id,
+            'role_changed',
+            'Role Updated',
+            "You have been assigned the position of '{$position->name}' in '{$clubName}'.",
+            Club::class,
+            $member->club_id
+        );
+
         return response()->json($memberPosition->load('position'), 201);
     }
 
@@ -56,6 +69,18 @@ class ClubMemberPositionController extends Controller
         }
 
         $memberPosition->update(['ends_at' => now()]);
+
+        $clubName = $member->club ? $member->club->name : 'your club';
+        $posName = $memberPosition->position ? $memberPosition->position->name : 'Position';
+
+        NotificationService::notifyUser(
+            $member->user_id,
+            'role_changed',
+            'Role Updated',
+            "Your position of '{$posName}' in '{$clubName}' has been revoked.",
+            Club::class,
+            $member->club_id
+        );
 
         return response()->json(['message' => 'Position revoked successfully.']);
     }

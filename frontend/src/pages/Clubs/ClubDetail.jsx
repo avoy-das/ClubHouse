@@ -261,7 +261,7 @@ const ClubDetail = () => {
                         )}
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900">{club.name}</h1>
-                            <p className="text-slate-500 text-sm mt-0.5">{club.department}</p>
+                            {club.department && <p className="text-slate-500 text-sm mt-0.5">{club.department}</p>}
                         </div>
                     </div>
 

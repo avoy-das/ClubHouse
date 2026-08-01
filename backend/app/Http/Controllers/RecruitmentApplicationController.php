@@ -8,6 +8,7 @@ use App\Models\Notification;
 use App\Models\RecruitmentApplication;
 use App\Models\RecruitmentNotice;
 use App\Services\ClubMembershipService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -36,6 +37,25 @@ class RecruitmentApplicationController extends Controller
             'status'                => 'pending',
         ]);
 
+        NotificationService::notifyUser(
+            $user->id,
+            'recruitment_application_submitted',
+            'Application Submitted',
+            "Your recruitment application for '{$recruitmentNotice->title}' has been submitted successfully.",
+            Club::class,
+            $recruitmentNotice->club_id
+        );
+
+        NotificationService::notifyClubExecutives(
+            $recruitmentNotice->club_id,
+            'recruitment_application_submitted',
+            'New Recruitment Application',
+            "{$user->name} submitted a recruitment application for '{$recruitmentNotice->title}'.",
+            Club::class,
+            $recruitmentNotice->club_id,
+            $user->id
+        );
+
         return response()->json($application, 201);
     }
 
@@ -59,7 +79,7 @@ class RecruitmentApplicationController extends Controller
         $this->authorize('review', $application);
 
         $request->validate([
-            'status' => 'required|in:accepted,rejected',
+            'status' => 'required|in:interview,accepted,rejected',
         ]);
 
         $status = $request->input('status');
@@ -75,11 +95,15 @@ class RecruitmentApplicationController extends Controller
             $membershipService->admitUser($application->recruitmentNotice->club, $application->user);
         }
 
+        $message = $status === 'interview'
+            ? "Your recruitment application for '{$application->recruitmentNotice->club->name}' has advanced to the Interview phase."
+            : "Your recruitment application for '{$application->recruitmentNotice->club->name}' has been {$status}.";
+
         Notification::create([
             'user_id'      => $application->user_id,
             'type'         => 'recruitment_application_' . $status,
             'title'        => 'Recruitment Application ' . ucfirst($status),
-            'message'      => "Your recruitment application for '{$application->recruitmentNotice->club->name}' has been {$status}.",
+            'message'      => $message,
             'related_type' => Club::class,
             'related_id'   => $application->recruitmentNotice->club_id,
         ]);

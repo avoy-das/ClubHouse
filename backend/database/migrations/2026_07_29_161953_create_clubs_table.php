@@ -25,7 +25,7 @@ return new class extends Migration
                 'Other',
             ]);
             $table->text('description');
-            $table->string('department');
+            $table->string('department')->nullable();
             $table->string('contact_email');
             $table->string('contact_phone')->nullable();
             $table->string('logo_path')->nullable();

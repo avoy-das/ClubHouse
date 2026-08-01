@@ -58,10 +58,10 @@ const CreateClub = () => {
         }
     };
 
-    const field = (label, name, type = 'text', placeholder = '') => (
+    const field = (label, name, type = 'text', placeholder = '', isOptional = false) => (
         <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-                {label}
+                {label} {isOptional && <span className="text-slate-400 font-normal">(optional)</span>}
             </label>
             <input
                 type={type}
@@ -141,9 +141,9 @@ const CreateClub = () => {
                         )}
                     </div>
 
-                    {field('Department', 'department', 'text', 'e.g. Computer Science')}
+                    {field('Department', 'department', 'text', 'e.g. Computer Science', true)}
                     {field('Contact Email', 'contact_email', 'email', 'e.g. club@university.edu')}
-                    {field('Contact Phone', 'contact_phone', 'text', 'e.g. 01700000000')}
+                    {field('Contact Phone', 'contact_phone', 'text', 'e.g. 01700000000', true)}
 
                     {/* Reason */}
                     <div>

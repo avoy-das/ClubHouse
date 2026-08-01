@@ -9,6 +9,7 @@ use App\Models\ClubMember;
 use App\Models\User;
 use App\Models\AuditLog;
 use App\Services\AuditService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -38,6 +39,15 @@ class ClubController extends Controller
 
         AuditService::log('club.created', $club);
 
+        NotificationService::notifyAdmins(
+            'club_creation_request',
+            'New Club Creation Request',
+            "A new club creation request for '{$club->name}' has been submitted.",
+            Club::class,
+            $club->id,
+            $request->user()->id
+        );
+
         return response()->json([
             'message' => 'Club creation request submitted successfully.',
             'club'    => $club,
@@ -49,6 +59,7 @@ class ClubController extends Controller
     {
         $clubs = Club::where('status', 'approved')
             ->with('creator:id,name')
+            ->withCount('members')
             ->latest()
             ->get();
 
@@ -102,6 +113,15 @@ class ClubController extends Controller
             'previous_status' => 'pending',
         ]);
 
+        NotificationService::notifyUser(
+            $club->created_by,
+            'club_approved',
+            'Club Approved',
+            "Your request to create the club '{$club->name}' has been approved by an administrator!",
+            Club::class,
+            $club->id
+        );
+
         return response()->json([
             'message' => 'Club approved successfully.',
             'club'    => $club,
@@ -129,6 +149,15 @@ class ClubController extends Controller
             'rejection_reason' => $request->rejection_reason,
         ]);
 
+        NotificationService::notifyUser(
+            $club->created_by,
+            'club_rejected',
+            'Club Creation Request Rejected',
+            "Your request to create the club '{$club->name}' was rejected. Reason: {$request->rejection_reason}",
+            Club::class,
+            $club->id
+        );
+
         return response()->json([
             'message' => 'Club rejected.',
             'club'    => $club,
@@ -155,6 +184,18 @@ class ClubController extends Controller
         $club->update($data);
 
         AuditService::log('club.updated', $club);
+
+        if ($user->is_admin) {
+            NotificationService::notifyClubExecutives(
+                $club->id,
+                'club_updated',
+                'Club Details Updated',
+                "An admin has updated details for your club '{$club->name}'.",
+                Club::class,
+                $club->id,
+                $user->id
+            );
+        }
 
         return response()->json([
             'message' => 'Club updated successfully.',
@@ -203,6 +244,16 @@ class ClubController extends Controller
             'user_id' => $user->id,
         ]);
 
+        NotificationService::notifyClubExecutives(
+            $club->id,
+            'member_left',
+            'Member Left Club',
+            "{$user->name} has left '{$club->name}'.",
+            Club::class,
+            $club->id,
+            $user->id
+        );
+
         return response()->json([
             'message' => 'You have left the club successfully.',
         ]);
@@ -214,7 +265,8 @@ class ClubController extends Controller
         $user = $request->user();
         $q = trim($request->input('q', ''));
 
-        $membersQuery = ClubMember::with(['user:id,name,student_id,email,department', 'club:id,name,slug']);
+        $membersQuery = ClubMember::where('status', 'active')
+            ->with(['user:id,name,student_id,email,department', 'club:id,name,slug']);
 
         if ($q !== '') {
             $escaped = '%' . addcslashes($q, '%_\\') . '%';

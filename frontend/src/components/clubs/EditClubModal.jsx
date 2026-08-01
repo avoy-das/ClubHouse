@@ -136,13 +136,12 @@ const EditClubModal = ({ isOpen, onClose, club, onSuccess }) => {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Department *</label>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">Department (Optional)</label>
                             <input
                                 type="text"
                                 name="department"
                                 value={formData.department}
                                 onChange={handleChange}
-                                required
                                 placeholder="e.g. Computer Science & Engineering"
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-900"
                             />

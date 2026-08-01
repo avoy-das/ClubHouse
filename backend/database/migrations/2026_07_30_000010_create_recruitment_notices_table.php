@@ -8,13 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('recruitment_notices')) {
-            return;
-        }
-
         Schema::create('recruitment_notices', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('club_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('club_id')->constrained('clubs')->cascadeOnDelete();
             $table->string('title');
             $table->text('description')->nullable();
             $table->text('requirements')->nullable();
@@ -31,3 +27,4 @@ return new class extends Migration
         Schema::dropIfExists('recruitment_notices');
     }
 };
+

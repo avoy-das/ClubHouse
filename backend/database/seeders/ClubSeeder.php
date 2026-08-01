@@ -37,31 +37,39 @@ class ClubSeeder extends Seeder
 
         $sampleClubs = [
             [
-                'name'        => 'Computer Science Society',
-                'category'    => 'Academic & Technology',
-                'description' => 'The official student organization for computer science, software engineering, and AI enthusiasts.',
+                'name'          => 'Computer Science Society',
+                'category'      => 'Technology',
+                'description'   => 'The official student organization for computer science, software engineering, and AI enthusiasts.',
+                'contact_email' => 'cs.society@university.edu',
+                'reason'        => 'Promoting CS & IT skills',
             ],
             [
-                'name'        => 'Robotics & Automation Club',
-                'category'    => 'Engineering',
-                'description' => 'Building next-generation autonomous systems, drones, and competitive robots.',
+                'name'          => 'Robotics & Automation Club',
+                'category'      => 'Technology',
+                'description'   => 'Building next-generation autonomous systems, drones, and competitive robots.',
+                'contact_email' => 'robotics@university.edu',
+                'reason'        => 'Advancing robotics research',
             ],
             [
-                'name'        => 'University Debating Club',
-                'category'    => 'Cultural & Arts',
-                'description' => 'Fostering critical thinking, public speaking, and parliamentary debate excellence.',
+                'name'          => 'University Debating Club',
+                'category'      => 'Academic',
+                'description'   => 'Fostering critical thinking, public speaking, and parliamentary debate excellence.',
+                'contact_email' => 'debate@university.edu',
+                'reason'        => 'Enhancing debating skills',
             ],
         ];
 
         foreach ($sampleClubs as $clubData) {
             $club = Club::firstOrCreate(
-                ['slug' => Str::slug($clubData['name'])],
+                ['name' => $clubData['name']],
                 [
-                    'name'        => $clubData['name'],
-                    'description' => $clubData['description'],
-                    'category'    => $clubData['category'],
-                    'status'      => 'approved',
-                    'created_by'  => $admin->id,
+                    'name'          => $clubData['name'],
+                    'description'   => $clubData['description'],
+                    'category'      => $clubData['category'],
+                    'contact_email' => $clubData['contact_email'],
+                    'reason'        => $clubData['reason'],
+                    'status'        => 'approved',
+                    'created_by'    => $admin->id,
                 ]
             );
 

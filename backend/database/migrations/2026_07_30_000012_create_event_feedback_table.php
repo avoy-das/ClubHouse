@@ -8,17 +8,22 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('event_feedback')) {
-            return;
-        }
-
         Schema::create('event_feedback', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('event_registration_id')->unique()->constrained()->cascadeOnDelete();
-            $table->unsignedTinyInteger('rating');
-            $table->text('comments')->nullable();
-            $table->timestamp('submitted_at')->useCurrent();
+
+            $table->foreignId('event_id')
+                  ->constrained('events')
+                  ->cascadeOnDelete();
+
+            $table->foreignId('user_id')
+                  ->constrained('users')
+                  ->cascadeOnDelete();
+
+            $table->unsignedTinyInteger('rating')->nullable();
+            $table->text('comment')->nullable();
             $table->timestamps();
+
+            $table->unique(['event_id', 'user_id']);
         });
     }
 
@@ -27,3 +32,4 @@ return new class extends Migration
         Schema::dropIfExists('event_feedback');
     }
 };
+

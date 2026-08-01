@@ -3,6 +3,8 @@ import MainLayout from '../../layouts/MainLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
+import notificationService from '../../services/notificationService';
+import { getNotificationTargetUrl } from '../../utils/notificationUtils';
 
 const Dashboard = () => {
     const { user, isAdmin } = useAuth();
@@ -271,9 +273,14 @@ const Dashboard = () => {
                                     {recentNotifications.map((notif) => (
                                         <div
                                             key={notif.id}
-                                            onClick={() => navigate('/notifications')}
-                                            className={`p-3 rounded-lg border text-xs cursor-pointer transition ${
-                                                notif.is_read ? 'bg-slate-50 border-slate-200' : 'bg-blue-50 border-blue-200 font-medium'
+                                            onClick={() => {
+                                                if (!notif.is_read) {
+                                                    notificationService.markRead(notif.id).catch(() => {});
+                                                }
+                                                navigate(getNotificationTargetUrl(notif));
+                                            }}
+                                            className={`p-3 rounded-lg border text-xs cursor-pointer transition hover:shadow-sm ${
+                                                notif.is_read ? 'bg-slate-50 border-slate-200 hover:bg-slate-100' : 'bg-blue-50 border-blue-200 font-medium hover:bg-blue-100/70'
                                             }`}
                                         >
                                             <div className="font-semibold text-slate-900">{notif.title || notif.type}</div>

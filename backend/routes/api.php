@@ -100,7 +100,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/membership-requests/{membershipRequest}', [MembershipRequestController::class, 'review']);
 
     // Club members & position assignment
-    Route::get('/clubs/{club}/members', [ClubMemberController::class, 'index']);
     Route::delete('/clubs/{club}/members/{member}', [ClubMemberController::class, 'destroy']);
     Route::post('/club-members/{member}/positions', [ClubMemberPositionController::class, 'store']);
     Route::delete('/club-members/{member}/positions/{position}', [ClubMemberPositionController::class, 'destroy']);
@@ -112,12 +111,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Events
     Route::get('/events', [EventController::class, 'index']);
     Route::apiResource('clubs.events', EventController::class)->shallow();
-
-    // Event registration & attendance
-    Route::post('/events/{event}/register', [EventRegistrationController::class, 'store']);
-    Route::delete('/events/{event}/register', [EventRegistrationController::class, 'destroy']);
-    Route::get('/events/{event}/registrations', [EventRegistrationController::class, 'index']);
-    Route::patch('/events/{event}/registrations/{registration}/attendance', [EventRegistrationController::class, 'markAttendance']);
 
     // Certificates
     Route::get('/certificates', [CertificateController::class, 'index']);
