@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import MainLayout from '../../layouts/MainLayout';
 import recruitmentService from '../../services/recruitmentService';
 import { ClubPermissionsProvider } from '../../context/ClubPermissionsContext';
 import Badge from '../../components/ui/Badge';
@@ -9,7 +10,8 @@ import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
 
 const RecruitmentApplicationsContent = () => {
-    const { clubId, noticeId } = useParams();
+    const { clubId, noticeId, id } = useParams();
+    const targetNoticeId = noticeId || id;
 
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -21,7 +23,7 @@ const RecruitmentApplicationsContent = () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await recruitmentService.listApplications(noticeId);
+            const res = await recruitmentService.listApplications(targetNoticeId);
             const list = res.data || res;
             setApplications(Array.isArray(list) ? list : []);
         } catch (err) {
@@ -32,8 +34,8 @@ const RecruitmentApplicationsContent = () => {
     };
 
     useEffect(() => {
-        if (noticeId) loadApplications();
-    }, [noticeId]);
+        if (targetNoticeId) loadApplications();
+    }, [targetNoticeId]);
 
     const handleReview = async (appId, status) => {
         setReviewingId(appId);
@@ -59,8 +61,8 @@ const RecruitmentApplicationsContent = () => {
                     <h1 className="text-2xl font-bold text-gray-900">Review Recruitment Applications</h1>
                     <p className="text-gray-500 text-sm">Accepting an application admits the applicant as a club member.</p>
                 </div>
-                <Link to={`/clubs/${clubId}/recruitment/${noticeId}`}>
-                    <Button variant="secondary">← Back to Drive</Button>
+                <Link to="/recruitment">
+                    <Button variant="secondary">← Back to Drives</Button>
                 </Link>
             </div>
 
@@ -151,10 +153,19 @@ const RecruitmentApplicationsContent = () => {
 
 const RecruitmentApplications = () => {
     const { clubId } = useParams();
+    if (clubId) {
+        return (
+            <MainLayout>
+                <ClubPermissionsProvider clubId={clubId}>
+                    <RecruitmentApplicationsContent />
+                </ClubPermissionsProvider>
+            </MainLayout>
+        );
+    }
     return (
-        <ClubPermissionsProvider clubId={clubId}>
+        <MainLayout>
             <RecruitmentApplicationsContent />
-        </ClubPermissionsProvider>
+        </MainLayout>
     );
 };
 

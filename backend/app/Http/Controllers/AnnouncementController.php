@@ -61,4 +61,20 @@ class AnnouncementController extends Controller
 
         return response()->json(['message' => 'Announcement deleted successfully.']);
     }
+
+    public function allAnnouncements(Request $request): JsonResponse
+    {
+        $userClubIds = \App\Models\ClubMember::where('user_id', $request->user()->id)->pluck('club_id');
+
+        $announcements = Announcement::whereIn('club_id', $userClubIds)
+            ->orWhereHas('club', function ($q) {
+                $q->where('status', 'approved');
+            })
+            ->with(['club:id,name', 'author:id,name'])
+            ->orderBy('is_pinned', 'desc')
+            ->latest()
+            ->get();
+
+        return response()->json($announcements);
+    }
 }

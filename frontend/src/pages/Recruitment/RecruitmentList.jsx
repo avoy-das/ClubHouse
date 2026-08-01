@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import MainLayout from '../../layouts/MainLayout';
 import recruitmentService from '../../services/recruitmentService';
 import { ClubPermissionsProvider, useClubPermissions } from '../../context/ClubPermissionsContext';
 import Card from '../../components/ui/Card';
@@ -82,7 +83,7 @@ const RecruitmentListContent = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-lg shadow-sm border">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Member Recruitment Drives</h1>
-                    <p className="text-gray-500 text-sm">Apply for official positions and general membership.</p>
+                    <p className="text-gray-500 text-sm">Apply for official positions and general membership across clubs.</p>
                 </div>
                 <div className="flex space-x-3">
                     {clubId && (
@@ -120,13 +121,13 @@ const RecruitmentListContent = () => {
                                 <p className="text-sm text-gray-600 line-clamp-3 mb-4">{notice.description}</p>
                             </div>
                             <div className="pt-3 border-t flex items-center justify-between">
-                                <Link to={`/clubs/${notice.club_id || clubId}/recruitment/${notice.id}`}>
+                                <Link to={`/recruitment/${notice.id}`}>
                                     <Button variant="primary" size="sm">
                                         View Details & Apply →
                                     </Button>
                                 </Link>
                                 {can('can_manage_recruitment') && (
-                                    <Link to={`/clubs/${notice.club_id || clubId}/recruitment/${notice.id}/applications`}>
+                                    <Link to={`/recruitment/${notice.id}/applications`}>
                                         <Button variant="secondary" size="sm">
                                             Review Applications
                                         </Button>
@@ -216,12 +217,18 @@ const RecruitmentList = () => {
     const { clubId } = useParams();
     if (clubId) {
         return (
-            <ClubPermissionsProvider clubId={clubId}>
-                <RecruitmentListContent />
-            </ClubPermissionsProvider>
+            <MainLayout>
+                <ClubPermissionsProvider clubId={clubId}>
+                    <RecruitmentListContent />
+                </ClubPermissionsProvider>
+            </MainLayout>
         );
     }
-    return <RecruitmentListContent />;
+    return (
+        <MainLayout>
+            <RecruitmentListContent />
+        </MainLayout>
+    );
 };
 
 export default RecruitmentList;

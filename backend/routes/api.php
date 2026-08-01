@@ -6,6 +6,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\ClubController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ClubGalleryController;
 use App\Http\Controllers\ClubMemberController;
 use App\Http\Controllers\ClubMemberPositionController;
@@ -35,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/me',                    [AuthController::class, 'updateProfile']);
     Route::post('/me/change-password',   [AuthController::class, 'changePassword']);
     Route::get('/me/memberships',        [AuthController::class, 'myMemberships']);
+    Route::get('/dashboard',             [DashboardController::class, 'index']);
     Route::get('/search',                SearchController::class);
 
     // Clubs — authenticated user & executive actions
@@ -67,15 +69,19 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin only
     Route::middleware('is_admin')->group(function () {
 
-        Route::get('/users',        [UserController::class, 'index']);
-        Route::get('/users/{user}', [UserController::class, 'show']);
-        Route::put('/users/{user}', [UserController::class, 'update']);
+        Route::get('/users',           [UserController::class, 'index']);
+        Route::get('/users/{user}',    [UserController::class, 'show']);
+        Route::put('/users/{user}',    [UserController::class, 'update']);
+        Route::delete('/users/{user}', [UserController::class, 'destroy']);
 
         Route::get('/admin/clubs',                 [ClubController::class, 'adminIndex']);
         Route::put('/admin/clubs/{club}',          [ClubController::class, 'update']);
+        Route::delete('/admin/clubs/{club}',       [ClubController::class, 'destroyAdmin']);
         Route::post('/admin/clubs/{club}/approve', [ClubController::class, 'approve']);
         Route::post('/admin/clubs/{club}/reject',  [ClubController::class, 'reject']);
         Route::post('/admin/clubs/{club}/suspend', [ClubController::class, 'suspend']);
+
+        Route::get('/admin/reports/clubs/{club}', [ReportController::class, 'clubReport']);
 
     });
 
@@ -100,6 +106,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/club-members/{member}/positions/{position}', [ClubMemberPositionController::class, 'destroy']);
 
     // Announcements
+    Route::get('/announcements', [AnnouncementController::class, 'allAnnouncements']);
     Route::apiResource('clubs.announcements', AnnouncementController::class)->shallow();
 
     // Events
@@ -127,6 +134,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 
     // Club Gallery

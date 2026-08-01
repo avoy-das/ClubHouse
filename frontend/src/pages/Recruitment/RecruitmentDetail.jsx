@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import MainLayout from '../../layouts/MainLayout';
 import recruitmentService from '../../services/recruitmentService';
 import { ClubPermissionsProvider } from '../../context/ClubPermissionsContext';
 import Badge from '../../components/ui/Badge';
@@ -9,7 +10,8 @@ import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
 
 const RecruitmentDetailContent = () => {
-    const { clubId, noticeId } = useParams();
+    const { clubId, noticeId, id } = useParams();
+    const targetNoticeId = noticeId || id;
 
     const [notice, setNotice] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ const RecruitmentDetailContent = () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await recruitmentService.get(noticeId);
+            const res = await recruitmentService.get(targetNoticeId);
             setNotice(res.data || res);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to load recruitment notice');
@@ -36,8 +38,8 @@ const RecruitmentDetailContent = () => {
     };
 
     useEffect(() => {
-        if (noticeId) loadNotice();
-    }, [noticeId]);
+        if (targetNoticeId) loadNotice();
+    }, [targetNoticeId]);
 
     const handleApply = async (e) => {
         e.preventDefault();
@@ -50,7 +52,7 @@ const RecruitmentDetailContent = () => {
                 experience,
                 portfolio_url: portfolioUrl,
             };
-            await recruitmentService.apply(noticeId, answers);
+            await recruitmentService.apply(targetNoticeId, answers);
             setSuccess('Application submitted successfully!');
             setMotivation('');
             setExperience('');
@@ -80,8 +82,8 @@ const RecruitmentDetailContent = () => {
                         </div>
                         <h1 className="text-3xl font-extrabold text-gray-900">{notice.title}</h1>
                     </div>
-                    <Link to={`/clubs/${notice.club_id || clubId}/recruitment`}>
-                        <Button variant="secondary">← Back to Recruitment</Button>
+                    <Link to="/recruitment">
+                        <Button variant="secondary">← Back to Recruitment Drives</Button>
                     </Link>
                 </div>
 
@@ -182,12 +184,18 @@ const RecruitmentDetail = () => {
     const { clubId } = useParams();
     if (clubId) {
         return (
-            <ClubPermissionsProvider clubId={clubId}>
-                <RecruitmentDetailContent />
-            </ClubPermissionsProvider>
+            <MainLayout>
+                <ClubPermissionsProvider clubId={clubId}>
+                    <RecruitmentDetailContent />
+                </ClubPermissionsProvider>
+            </MainLayout>
         );
     }
-    return <RecruitmentDetailContent />;
+    return (
+        <MainLayout>
+            <RecruitmentDetailContent />
+        </MainLayout>
+    );
 };
 
 export default RecruitmentDetail;

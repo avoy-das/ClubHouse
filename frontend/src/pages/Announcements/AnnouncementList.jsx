@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import MainLayout from '../../layouts/MainLayout';
 import announcementService from '../../services/announcementService';
 import { ClubPermissionsProvider, useClubPermissions } from '../../context/ClubPermissionsContext';
 import Button from '../../components/ui/Button';
@@ -29,7 +30,9 @@ const AnnouncementListContent = () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await announcementService.listForClub(clubId);
+            const res = clubId
+                ? await announcementService.listForClub(clubId)
+                : await announcementService.listAll();
             const list = res.data || res;
             setAnnouncements(Array.isArray(list) ? list : []);
         } catch (err) {
@@ -40,7 +43,7 @@ const AnnouncementListContent = () => {
     };
 
     useEffect(() => {
-        if (clubId) loadAnnouncements();
+        loadAnnouncements();
     }, [clubId]);
 
     const openCreateModal = () => {
@@ -105,14 +108,22 @@ const AnnouncementListContent = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-lg shadow-sm border">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Club Announcements</h1>
-                    <p className="text-gray-500 text-sm">Official updates and notices from club executives.</p>
+                    <h1 className="text-2xl font-bold text-gray-900">
+                        {clubId ? 'Club Announcements' : 'All Announcements'}
+                    </h1>
+                    <p className="text-gray-500 text-sm">Official updates and notices from campus clubs.</p>
                 </div>
                 <div className="flex space-x-3">
-                    <Link to={`/clubs/${clubId}`}>
-                        <Button variant="secondary">← Back to Club</Button>
-                    </Link>
-                    {can('can_manage_announcements') && (
+                    {clubId ? (
+                        <Link to={`/clubs/${clubId}`}>
+                            <Button variant="secondary">← Back to Club</Button>
+                        </Link>
+                    ) : (
+                        <Link to="/clubs">
+                            <Button variant="secondary">Browse Clubs</Button>
+                        </Link>
+                    )}
+                    {clubId && can('can_manage_announcements') && (
                         <Button variant="primary" onClick={openCreateModal}>
                             + Post Announcement
                         </Button>
@@ -137,6 +148,11 @@ const AnnouncementListContent = () => {
                                     <span className="bg-amber-600 text-white text-xs px-2 py-0.5 rounded font-bold">
                                         📌 PINNED
                                     </span>
+                                    {item.club?.name && (
+                                        <span className="bg-slate-200 text-slate-800 text-xs px-2 py-0.5 rounded font-medium">
+                                            {item.club.name}
+                                        </span>
+                                    )}
                                     <h3 className="font-bold text-xl text-gray-900">{item.title}</h3>
                                 </div>
                                 <span className="text-xs text-gray-500">
@@ -144,7 +160,7 @@ const AnnouncementListContent = () => {
                                 </span>
                             </div>
                             <p className="text-gray-700 text-sm whitespace-pre-line leading-relaxed">{item.body}</p>
-                            {can('can_manage_announcements') && (
+                            {clubId && can('can_manage_announcements') && (
                                 <div className="pt-2 flex justify-end space-x-2 border-t border-amber-200">
                                     <Button variant="secondary" size="sm" onClick={() => openEditModal(item)}>
                                         Edit
@@ -161,13 +177,20 @@ const AnnouncementListContent = () => {
                     {regular.map((item) => (
                         <div key={item.id} className="bg-white border p-6 rounded-lg shadow-sm space-y-2">
                             <div className="flex items-center justify-between">
-                                <h3 className="font-bold text-lg text-gray-900">{item.title}</h3>
+                                <div className="flex items-center space-x-2">
+                                    {item.club?.name && (
+                                        <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-0.5 rounded font-medium">
+                                            {item.club.name}
+                                        </span>
+                                    )}
+                                    <h3 className="font-bold text-lg text-gray-900">{item.title}</h3>
+                                </div>
                                 <span className="text-xs text-gray-500">
                                     {new Date(item.created_at).toLocaleDateString()}
                                 </span>
                             </div>
                             <p className="text-gray-700 text-sm whitespace-pre-line leading-relaxed">{item.body}</p>
-                            {can('can_manage_announcements') && (
+                            {clubId && can('can_manage_announcements') && (
                                 <div className="pt-2 flex justify-end space-x-2 border-t">
                                     <Button variant="secondary" size="sm" onClick={() => openEditModal(item)}>
                                         Edit
@@ -236,10 +259,19 @@ const AnnouncementListContent = () => {
 
 const AnnouncementList = () => {
     const { clubId } = useParams();
+    if (clubId) {
+        return (
+            <MainLayout>
+                <ClubPermissionsProvider clubId={clubId}>
+                    <AnnouncementListContent />
+                </ClubPermissionsProvider>
+            </MainLayout>
+        );
+    }
     return (
-        <ClubPermissionsProvider clubId={clubId}>
+        <MainLayout>
             <AnnouncementListContent />
-        </ClubPermissionsProvider>
+        </MainLayout>
     );
 };
 
