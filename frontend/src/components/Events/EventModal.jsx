@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
+import { AlertTriangle, Calendar } from 'lucide-react';
 
 const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClubId = '' }) => {
     const isEdit = Boolean(eventToEdit);
@@ -127,10 +128,11 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
     };
 
     return (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0f172a]/60 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full p-6 relative animate-in fade-in zoom-in duration-150">
                 <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                    <h2 className="text-lg font-bold text-slate-900">
+                    <h2 className="text-lg font-bold text-[#0b1c30] flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-blue-600" />
                         {isEdit ? 'Edit Event Details' : 'Create New Event'}
                     </h2>
                     <button
@@ -148,8 +150,9 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                 )}
 
                 {warning && (
-                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg">
-                        ⚠️ {warning}
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>{warning}</span>
                     </div>
                 )}
 
@@ -157,13 +160,13 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     {/* Club Selector (Only if creating and not pre-selected) */}
                     {!isEdit && (
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Target Club *</label>
+                            <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Target Club *</label>
                             <select
                                 name="club_id"
                                 value={formData.club_id}
                                 onChange={handleChange}
                                 required
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-900 bg-slate-50"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb] bg-[#f8f9ff]"
                             >
                                 <option value="">-- Select Club --</option>
                                 {clubs.map(c => (
@@ -175,7 +178,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
 
                     {/* Title */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">Event Title *</label>
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Event Title *</label>
                         <input
                             type="text"
                             name="title"
@@ -183,32 +186,32 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                             onChange={handleChange}
                             required
                             placeholder="e.g. Annual Tech Symposium 2026"
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-900"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb]"
                         />
                     </div>
 
                     {/* Description */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Description</label>
                         <textarea
                             name="description"
                             rows={3}
                             value={formData.description}
                             onChange={handleChange}
                             placeholder="Detailed agenda, requirements, or event overview..."
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-900"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb]"
                         />
                     </div>
 
                     {/* Grid: Visibility & Location Type */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Visibility *</label>
+                            <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Visibility *</label>
                             <select
                                 name="visibility"
                                 value={formData.visibility}
                                 onChange={handleChange}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-900 bg-slate-50"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb] bg-[#f8f9ff]"
                             >
                                 <option value="public">Public (Open to All)</option>
                                 <option value="members_only">Members Only</option>
@@ -216,12 +219,12 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                         </div>
 
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Location Type *</label>
+                            <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Location Type *</label>
                             <select
                                 name="location_type"
                                 value={formData.location_type}
                                 onChange={handleChange}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-900 bg-slate-50"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb] bg-[#f8f9ff]"
                             >
                                 <option value="physical">Physical Venue</option>
                                 <option value="online">Online Stream / Video Link</option>
@@ -232,19 +235,19 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     {/* Location Value & Capacity */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="sm:col-span-2">
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Location Details</label>
+                            <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Location Details</label>
                             <input
                                 type="text"
                                 name="location_value"
                                 value={formData.location_value}
                                 onChange={handleChange}
                                 placeholder={formData.location_type === 'online' ? 'https://meet.google.com/xyz' : 'Auditorium 1, Main Campus'}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-900"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb]"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Capacity *</label>
+                            <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Capacity *</label>
                             <input
                                 type="number"
                                 name="capacity"
@@ -252,7 +255,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                 value={formData.capacity}
                                 onChange={handleChange}
                                 required
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-900"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb]"
                             />
                         </div>
                     </div>
@@ -260,26 +263,26 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     {/* Date Times */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date & Time *</label>
+                            <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Start Date & Time *</label>
                             <input
                                 type="datetime-local"
                                 name="starts_at"
                                 value={formData.starts_at}
                                 onChange={handleChange}
                                 required
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-900"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb]"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">End Date & Time *</label>
+                            <label className="block text-xs font-semibold text-[#0b1c30] mb-1">End Date & Time *</label>
                             <input
                                 type="datetime-local"
                                 name="ends_at"
                                 value={formData.ends_at}
                                 onChange={handleChange}
                                 required
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-900"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb]"
                             />
                         </div>
                     </div>
@@ -296,7 +299,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
+                            className="px-5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white rounded-lg text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
                         >
                             {loading ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Event')}
                         </button>

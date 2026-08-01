@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Search } from 'lucide-react';
 
 const SearchBar = () => {
     const [searchParams] = useSearchParams();
@@ -17,34 +18,22 @@ const SearchBar = () => {
         e.preventDefault();
         const trimmed = query.trim();
         if (trimmed.length < 2) {
-            return; // Do not submit if less than 2 characters
+            return;
         }
         navigate(`/search?q=${encodeURIComponent(trimmed)}`);
     };
 
     return (
-        <form onSubmit={handleSubmit} className="relative flex items-center">
+        <form onSubmit={handleSubmit} className="relative flex items-center w-full">
+            <Search className="w-4 h-4 text-[#444748] absolute left-3.5 pointer-events-none" />
             <input
                 type="text"
-                placeholder="Search clubs, events..."
+                placeholder="Search events, clubs..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 maxLength={100}
-                className="w-44 sm:w-60 md:w-72 bg-slate-800 text-white placeholder-slate-400 text-sm rounded-lg pl-9 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700 transition-all"
+                className="w-full bg-[#f0eee9] text-[#1b1c19] placeholder-[#444748] text-xs rounded-full pl-10 pr-4 py-2 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:ring-1 focus:ring-[#1c1b1b] transition-all"
             />
-            <svg
-                className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-            >
-                <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-            </svg>
         </form>
     );
 };
