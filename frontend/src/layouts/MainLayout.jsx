@@ -60,19 +60,30 @@ const MainLayout = ({ children }) => {
                             <SearchBar />
                         </div>
 
-                        {/* Right side — user info + logout */}
-                        <div className="flex items-center gap-4">
-                            <span className="text-slate-300 text-sm">
-                                {user?.name}
+                        {/* Right side — user info + profile + logout */}
+                        <div className="flex items-center gap-3">
+                            <Link
+                                to="/profile"
+                                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                            >
+                                <span className="text-sm font-medium">
+                                    {user?.name}
+                                </span>
                                 {isAdmin() && (
-                                    <span className="ml-2 px-2 py-0.5 bg-amber-500 text-white text-xs rounded-full font-medium">
+                                    <span className="px-2 py-0.5 bg-amber-500 text-white text-xs rounded-full font-medium">
                                         Admin
                                     </span>
                                 )}
-                            </span>
+                            </Link>
+                            <Link
+                                to="/profile"
+                                className="px-3 py-1.5 text-sm text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 rounded-md transition-colors"
+                            >
+                                Profile
+                            </Link>
                             <button
                                 onClick={handleLogout}
-                                className="px-3 py-1.5 text-sm text-slate-300 hover:text-white border border-slate-600 hover:border-slate-400 rounded-md transition-colors"
+                                className="px-3 py-1.5 text-sm text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 rounded-md transition-colors"
                             >
                                 Logout
                             </button>

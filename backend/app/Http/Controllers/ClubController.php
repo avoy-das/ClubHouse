@@ -6,8 +6,11 @@ use App\Http\Requests\CreateClubRequest;
 use App\Http\Requests\UpdateClubRequest;
 use App\Models\Club;
 use App\Models\ClubMember;
+use App\Models\User;
+use App\Models\AuditLog;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class ClubController extends Controller
 {
@@ -132,9 +135,15 @@ class ClubController extends Controller
         ]);
     }
 
-    // Admin only — update club details
+    // Admin or Club Executive — update club details
     public function update(UpdateClubRequest $request, Club $club)
     {
+        $user = $request->user();
+
+        if (!$this->canManageClub($user, $club)) {
+            return response()->json(['message' => 'Only club executives or admins can edit club details.'], 403);
+        }
+
         $data = $request->validated();
 
         if ($request->hasFile('logo')) {
@@ -149,7 +158,7 @@ class ClubController extends Controller
 
         return response()->json([
             'message' => 'Club updated successfully.',
-            'club'    => $club,
+            'club'    => $club->fresh()->load('creator:id,name'),
         ]);
     }
 
@@ -167,6 +176,36 @@ class ClubController extends Controller
         ]);
 
         return response()->json(['message' => 'Club suspended.']);
+    }
+
+    // Authenticated user leaves a club
+    public function leave(Request $request, Club $club)
+    {
+        $user = $request->user();
+
+        $membership = ClubMember::where('club_id', $club->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$membership) {
+            return response()->json(['message' => 'You are not a member of this club.'], 422);
+        }
+
+        if (in_array($membership->role, ['president', 'vice_president', 'secretary', 'treasurer'])) {
+            return response()->json([
+                'message' => 'Executives cannot leave the club without transferring their role first.',
+            ], 422);
+        }
+
+        $membership->delete();
+
+        AuditService::log('club.member_left', $club, [
+            'user_id' => $user->id,
+        ]);
+
+        return response()->json([
+            'message' => 'You have left the club successfully.',
+        ]);
     }
 
     // Contextual search and listing for club members
@@ -197,5 +236,149 @@ class ClubController extends Controller
         $members = $membersQuery->get();
 
         return response()->json($members);
+    }
+
+    /**
+     * PATCH /api/clubs/{club}/members/{user}/role
+     *
+     * Exec/Admin action to promote or demote a club member.
+     */
+    public function updateMemberRole(Request $request, Club $club, User $user): JsonResponse
+    {
+        $authUser = $request->user();
+
+        if (!$this->canManageClub($authUser, $club)) {
+            return response()->json([
+                'message' => 'Only club executives or admins can change member roles.',
+            ], 403);
+        }
+
+        $request->validate([
+            'role' => ['required', 'string', 'in:president,vice_president,secretary,treasurer,member'],
+        ]);
+
+        $newRole = $request->input('role');
+
+        $membership = ClubMember::where('club_id', $club->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$membership) {
+            return response()->json([
+                'message' => 'This user is not a member of the club.',
+            ], 404);
+        }
+
+        $oldRole = $membership->role;
+
+        $membership->update([
+            'role' => $newRole,
+        ]);
+
+        AuditService::log('club.member_role_updated', $club, [
+            'target_user_id' => $user->id,
+            'old_role'       => $oldRole,
+            'new_role'       => $newRole,
+            'updated_by'     => $authUser->id,
+        ]);
+
+        return response()->json([
+            'message'    => "Member role updated to '{$newRole}'.",
+            'membership' => $membership->fresh()->load('user:id,name,student_id,email,department'),
+        ]);
+    }
+
+    /**
+     * DELETE /api/clubs/{club}/members/{user}
+     *
+     * Exec/Admin action to kick/remove a member from a club.
+     */
+    public function removeMember(Request $request, Club $club, User $user): JsonResponse
+    {
+        $authUser = $request->user();
+
+        if (!$this->canManageClub($authUser, $club)) {
+            return response()->json([
+                'message' => 'Only club executives or admins can remove members.',
+            ], 403);
+        }
+
+        $membership = ClubMember::where('club_id', $club->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$membership) {
+            return response()->json([
+                'message' => 'This user is not a member of the club.',
+            ], 404);
+        }
+
+        // Prevent kicking president unless auth user is admin
+        if ($membership->role === 'president' && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'Cannot remove the club president. Transfer or demote role first.',
+            ], 422);
+        }
+
+        $membership->delete();
+
+        AuditService::log('club.member_removed', $club, [
+            'target_user_id' => $user->id,
+            'removed_by'     => $authUser->id,
+        ]);
+
+        return response()->json([
+            'message' => 'Member removed from club successfully.',
+        ]);
+    }
+
+    /**
+     * GET /api/clubs/{club}/audit-logs
+     *
+     * Exec-only read-only activity logs scoped strictly to this club.
+     */
+    public function auditLogs(Request $request, Club $club): JsonResponse
+    {
+        $authUser = $request->user();
+
+        if (!$this->canManageClub($authUser, $club)) {
+            return response()->json([
+                'message' => 'Only club executives or admins can view club audit logs.',
+            ], 403);
+        }
+
+        $logs = AuditLog::with('user:id,name,email')
+            ->where(function ($query) use ($club) {
+                $query->where(function ($q) use ($club) {
+                    $q->where('target_type', 'Club')
+                      ->where('target_id', $club->id);
+                })
+                ->orWhere(function ($q) use ($club) {
+                    $q->where('target_type', 'Event')
+                      ->whereIn('target_id', function ($sub) use ($club) {
+                          $sub->select('id')->from('events')->where('club_id', $club->id);
+                      });
+                })
+                ->orWhereRaw("JSON_EXTRACT(metadata, '$.club_id') = ?", [$club->id]);
+            })
+            ->latest('id')
+            ->paginate(30);
+
+        return response()->json($logs);
+    }
+
+    /**
+     * Helper to check if user is admin or executive of club.
+     */
+    private function canManageClub($user, Club $club): bool
+    {
+        if ($user->is_admin) {
+            return true;
+        }
+
+        return ClubMember::where('club_id', $club->id)
+            ->where('user_id', $user->id)
+            ->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer'])
+            ->exists();
     }
 }

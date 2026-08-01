@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
+import EventModal from '../../components/Events/EventModal';
+import { useAuth } from '../../context/AuthContext';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -14,11 +16,13 @@ const statusBadgeStyles = {
 };
 
 const EventsPage = () => {
+    const { user } = useAuth();
     const [events, setEvents] = useState([]);
     const [clubs, setClubs] = useState([]);
     const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
 
     // Filter states
     const [search, setSearch] = useState('');
@@ -58,7 +62,7 @@ const EventsPage = () => {
     };
 
     // Fetch events whenever filters or page change
-    useEffect(() => {
+    const fetchEvents = () => {
         setLoading(true);
         setError(null);
 
@@ -86,7 +90,19 @@ const EventsPage = () => {
             })
             .catch(() => setError('Failed to load events.'))
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchEvents();
     }, [page, search, clubId, datePreset, statusFilter]);
+
+    const handleEventCreated = (newEvent) => {
+        setIsCreateOpen(false);
+        fetchEvents();
+        if (newEvent?.id) {
+            navigate(`/events/${newEvent.id}`);
+        }
+    };
 
     const formatDate = (isoStr) => {
         if (!isoStr) return '';
@@ -110,7 +126,21 @@ const EventsPage = () => {
                         Browse all published events across clubs and manage your registrations.
                     </p>
                 </div>
+                {user && (
+                    <button
+                        onClick={() => setIsCreateOpen(true)}
+                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5 self-start sm:self-auto"
+                    >
+                        + Create Event
+                    </button>
+                )}
             </div>
+
+            <EventModal
+                isOpen={isCreateOpen}
+                onClose={() => setIsCreateOpen(false)}
+                onSuccess={handleEventCreated}
+            />
 
             {/* Filter Bar */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">

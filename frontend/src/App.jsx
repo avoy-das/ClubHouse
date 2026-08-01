@@ -13,6 +13,7 @@ import AdminClubList from './pages/Admin/AdminClubList';
 import SearchPage from './pages/Search/SearchPage';
 import EventsPage from './pages/Events/EventsPage';
 import EventDetailPage from './pages/Events/EventDetailPage';
+import ProfilePage from './pages/Profile/ProfilePage';
 
 const App = () => {
     return (
@@ -26,6 +27,7 @@ const App = () => {
                     {/* Protected */}
                     <Route element={<ProtectedRoute />}>
                         <Route path="/dashboard"      element={<Dashboard />} />
+                        <Route path="/profile"        element={<ProfilePage />} />
                         <Route path="/search"         element={<SearchPage />} />
                         <Route path="/clubs"           element={<ClubList />} />
                         <Route path="/clubs/:id"       element={<ClubDetail />} />

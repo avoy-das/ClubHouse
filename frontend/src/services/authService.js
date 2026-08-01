@@ -22,6 +22,21 @@ const authService = {
         return response.data;
     },
 
+    updateProfile: async (data) => {
+        const response = await api.put('/me', data);
+        return response.data;
+    },
+
+    changePassword: async (data) => {
+        const response = await api.post('/me/change-password', data);
+        return response.data;
+    },
+
+    getMyMemberships: async () => {
+        const response = await api.get('/me/memberships');
+        return response.data;
+    },
+
     getToken: () => localStorage.getItem('token'),
 
     isLoggedIn: () => !!localStorage.getItem('token'),

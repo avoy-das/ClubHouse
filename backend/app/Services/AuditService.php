@@ -8,13 +8,13 @@ use Illuminate\Support\Facades\Auth;
 
 class AuditService
 {
-    public static function log(string $action, Model $target, array $metadata = []): void
+    public static function log(string $action, ?Model $target = null, array $metadata = [], ?int $userId = null): void
     {
         AuditLog::create([
-            'user_id'     => Auth::id(),
+            'user_id'     => $userId ?? Auth::id(),
             'action'      => $action,
-            'target_type' => class_basename($target),
-            'target_id'   => $target->getKey(),
+            'target_type' => $target ? class_basename($target) : 'User',
+            'target_id'   => $target ? $target->getKey() : null,
             'metadata'    => empty($metadata) ? null : $metadata,
         ]);
     }
