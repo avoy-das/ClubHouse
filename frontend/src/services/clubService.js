@@ -16,8 +16,22 @@ const clubService = {
     listMembers: (clubId, query = '') =>
         api.get(`/clubs/${clubId}/members`, { params: query ? { q: query } : {} }),
 
-    removeMember: (clubId, memberId) =>
-        api.delete(`/clubs/${clubId}/members/${memberId}`),
+    updateClub: (id, formData) =>
+        api.post(`/clubs/${id}`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }),
+
+    leaveClub: (id) =>
+        api.delete(`/clubs/${id}/leave`),
+
+    updateMemberRole: (clubId, userId, role) =>
+        api.patch(`/clubs/${clubId}/members/${userId}/role`, { role }),
+
+    removeMember: (clubId, userId) =>
+        api.delete(`/clubs/${clubId}/members/${userId}`),
+
+    getClubAuditLogs: (clubId, page = 1) =>
+        api.get(`/clubs/${clubId}/audit-logs`, { params: { page } }),
 
     // Admin only
     adminGetClubs: () =>

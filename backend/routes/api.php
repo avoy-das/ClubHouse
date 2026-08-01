@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
@@ -18,10 +19,6 @@ use App\Http\Controllers\RecruitmentApplicationController;
 use App\Http\Controllers\RecruitmentNoticeController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\ClubController;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\EventController;
-use App\Http\Controllers\EventRegistrationController;
 use App\Http\Controllers\SearchController;
 
 // Public
@@ -33,15 +30,24 @@ Route::get('/clubs/{club}', [ClubController::class, 'show']);
 // Authenticated
 Route::middleware('auth:sanctum')->group(function () {
 
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/me',      [AuthController::class, 'me']);
-    Route::get('/search',  SearchController::class);
+    Route::post('/logout',               [AuthController::class, 'logout']);
+    Route::get('/me',                    [AuthController::class, 'me']);
+    Route::put('/me',                    [AuthController::class, 'updateProfile']);
+    Route::post('/me/change-password',   [AuthController::class, 'changePassword']);
+    Route::get('/me/memberships',        [AuthController::class, 'myMemberships']);
+    Route::get('/search',                SearchController::class);
 
-    // Clubs — any authenticated user
-    Route::get('/clubs',               [ClubController::class, 'index']);
-    Route::get('/clubs/{club}',        [ClubController::class, 'show']);
-    Route::get('/clubs/{club}/members', [ClubController::class, 'members']);
-    Route::post('/clubs',              [ClubController::class, 'store']);
+    // Clubs — authenticated user & executive actions
+    Route::get('/clubs',                             [ClubController::class, 'index']);
+    Route::get('/clubs/{club}',                      [ClubController::class, 'show']);
+    Route::get('/clubs/{club}/members',               [ClubController::class, 'members']);
+    Route::post('/clubs',                            [ClubController::class, 'store']);
+    Route::put('/clubs/{club}',                       [ClubController::class, 'update']);
+    Route::post('/clubs/{club}',                      [ClubController::class, 'update']); // Support multipart formdata update
+    Route::delete('/clubs/{club}/leave',             [ClubController::class, 'leave']);
+    Route::patch('/clubs/{club}/members/{user}/role', [ClubController::class, 'updateMemberRole']);
+    Route::delete('/clubs/{club}/members/{user}',    [ClubController::class, 'removeMember']);
+    Route::get('/clubs/{club}/audit-logs',           [ClubController::class, 'auditLogs']);
 
     // Events — any authenticated user (visibility filtered in controller)
     Route::get('/events',                  [EventController::class, 'index']);
@@ -51,9 +57,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus']);
     Route::delete('/events/{event}',       [EventController::class, 'destroy']);
 
-    // Event Registrations
-    Route::post('/events/{event}/register',   [EventRegistrationController::class, 'register']);
-    Route::delete('/events/{event}/register', [EventRegistrationController::class, 'cancel']);
+    // Event Registrations & Attendance
+    Route::get('/events/{event}/registrations',                          [EventRegistrationController::class, 'index']);
+    Route::post('/events/{event}/register',                              [EventRegistrationController::class, 'register']);
+    Route::delete('/events/{event}/register',                            [EventRegistrationController::class, 'cancel']);
+    Route::patch('/events/{event}/registrations/{user}/attendance',      [EventRegistrationController::class, 'updateAttendance']);
+    Route::get('/events/{event}/attendance-report',                      [EventRegistrationController::class, 'attendanceReport']);
 
     // Admin only
     Route::middleware('is_admin')->group(function () {

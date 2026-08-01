@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import eventService from '../../services/eventService';
+import EventModal from '../../components/Events/EventModal';
+import MarkAttendanceModal from '../../components/Events/MarkAttendanceModal';
+import AttendanceReportModal from '../../components/Events/AttendanceReportModal';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -25,6 +28,11 @@ const EventDetailPage = () => {
     const [error, setError] = useState(null);
     const [toast, setToast] = useState(null);
     const [notFound, setNotFound] = useState(false);
+
+    // Executive management modal states
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
+    const [isReportOpen, setIsReportOpen] = useState(false);
 
     useEffect(() => {
         setLoading(true);
@@ -113,6 +121,56 @@ const EventDetailPage = () => {
         }
     };
 
+    // Executive Action Handlers
+    const handleStatusTransition = async (newStatus) => {
+        if (!window.confirm(`Are you sure you want to change status to '${newStatus}'?`)) return;
+        setSubmitting(true);
+        try {
+            const res = await eventService.updateEventStatus(id, newStatus);
+            setEvent(res.data.event);
+            setToast({
+                type: 'success',
+                message: res.data.message || `Event status updated to ${newStatus}.`,
+            });
+        } catch (err) {
+            setToast({
+                type: 'error',
+                message: err.response?.data?.message || 'Failed to update event status.',
+            });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleDeleteEvent = async () => {
+        if (!window.confirm('Are you sure you want to permanently delete this event? This action cannot be undone.')) return;
+        setSubmitting(true);
+        try {
+            await eventService.deleteEvent(id);
+            setToast({
+                type: 'success',
+                message: 'Event deleted successfully.',
+            });
+            setTimeout(() => {
+                navigate('/events');
+            }, 1500);
+        } catch (err) {
+            setToast({
+                type: 'error',
+                message: err.response?.data?.message || 'Failed to delete event.',
+            });
+            setSubmitting(false);
+        }
+    };
+
+    const handleEventUpdated = (updatedEvent, message) => {
+        setEvent(updatedEvent);
+        setToast({
+            type: 'success',
+            message: message || 'Event updated successfully.',
+        });
+    };
+
     const formatDate = (isoStr) => {
         if (!isoStr) return '';
         const d = new Date(isoStr);
@@ -181,7 +239,7 @@ const EventDetailPage = () => {
     return (
         <MainLayout>
             {/* Back link */}
-            <div className="mb-6">
+            <div className="mb-6 flex items-center justify-between">
                 <Link to="/events" className="text-sm text-slate-500 hover:text-slate-800 flex items-center gap-1">
                     &larr; Back to Events
                 </Link>
@@ -206,6 +264,101 @@ const EventDetailPage = () => {
                 </div>
             )}
 
+            {/* Executive Control Panel Toolbar (Visible only if canManage is true) */}
+            {canManage && (
+                <div className="mb-6 bg-gradient-to-r from-purple-900 via-slate-900 to-indigo-900 text-white rounded-2xl p-5 shadow-sm border border-purple-800/30">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-purple-300">
+                                Club Executive Control Suite
+                            </span>
+                            <h3 className="text-lg font-bold text-white mt-0.5">
+                                Event Management Toolbar
+                            </h3>
+                        </div>
+
+                        {/* Control Actions */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Edit Event */}
+                            <button
+                                onClick={() => setIsEditOpen(true)}
+                                className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
+                            >
+                                ✏️ Edit Event
+                            </button>
+
+                            {/* Mark Attendance */}
+                            <button
+                                onClick={() => setIsAttendanceOpen(true)}
+                                className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm flex items-center gap-1.5"
+                            >
+                                📋 Check-in Roster
+                            </button>
+
+                            {/* Attendance Report */}
+                            <button
+                                onClick={() => setIsReportOpen(true)}
+                                className="px-3.5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm flex items-center gap-1.5"
+                            >
+                                📊 Attendance Report
+                            </button>
+
+                            {/* Status Transitions */}
+                            {event.status === 'draft' && (
+                                <button
+                                    onClick={() => handleStatusTransition('published')}
+                                    disabled={submitting}
+                                    className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm"
+                                >
+                                    🚀 Publish Event
+                                </button>
+                            )}
+
+                            {event.status === 'published' && (
+                                <button
+                                    onClick={() => handleStatusTransition('ongoing')}
+                                    disabled={submitting}
+                                    className="px-3.5 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm"
+                                >
+                                    ▶️ Mark Ongoing
+                                </button>
+                            )}
+
+                            {event.status === 'ongoing' && (
+                                <button
+                                    onClick={() => handleStatusTransition('completed')}
+                                    disabled={submitting}
+                                    className="px-3.5 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm"
+                                >
+                                    🏁 Mark Completed
+                                </button>
+                            )}
+
+                            {['draft', 'published', 'ongoing'].includes(event.status) && (
+                                <button
+                                    onClick={() => handleStatusTransition('cancelled')}
+                                    disabled={submitting}
+                                    className="px-3.5 py-2 bg-rose-600/80 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold transition-colors border border-rose-500/30"
+                                >
+                                    🚫 Cancel Event
+                                </button>
+                            )}
+
+                            {/* Delete Event (only draft or cancelled) */}
+                            {['draft', 'cancelled'].includes(event.status) && (
+                                <button
+                                    onClick={handleDeleteEvent}
+                                    disabled={submitting}
+                                    className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm"
+                                >
+                                    🗑️ Delete Event
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Detailed Event Card */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -223,7 +376,7 @@ const EventDetailPage = () => {
                     <div className="flex items-center gap-2">
                         {canManage && (
                             <span className="text-xs font-semibold px-2.5 py-1 bg-purple-100 text-purple-700 border border-purple-200 rounded-full">
-                                Manage Event (Executive Access)
+                                Executive Access
                             </span>
                         )}
                         <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${statusBadgeStyles[event.status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
@@ -337,8 +490,29 @@ const EventDetailPage = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Modals */}
+            <EventModal
+                isOpen={isEditOpen}
+                onClose={() => setIsEditOpen(false)}
+                eventToEdit={event}
+                onSuccess={handleEventUpdated}
+            />
+
+            <MarkAttendanceModal
+                isOpen={isAttendanceOpen}
+                onClose={() => setIsAttendanceOpen(false)}
+                event={event}
+            />
+
+            <AttendanceReportModal
+                isOpen={isReportOpen}
+                onClose={() => setIsReportOpen(false)}
+                event={event}
+            />
         </MainLayout>
     );
 };
 
 export default EventDetailPage;
+

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
+use App\Models\User;
+use App\Services\AuditService;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
 class LoginRequest extends FormRequest
@@ -17,14 +19,29 @@ class LoginRequest extends FormRequest
 
     /**
      * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'email'    => ['required', 'email'],
+            'email'    => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
         ];
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        $email = $this->input('email');
+        $user = $email ? User::where('email', strtolower($email))->first() : null;
+
+        AuditService::log('auth.login.failed', $user, [
+            'email'      => $email,
+            'ip'         => $this->ip(),
+            'user_agent' => $this->userAgent(),
+            'status'     => 'failed',
+            'reason'     => 'Validation failed',
+            'errors'     => $validator->errors()->toArray(),
+        ], $user?->id);
+
+        parent::failedValidation($validator);
     }
 }

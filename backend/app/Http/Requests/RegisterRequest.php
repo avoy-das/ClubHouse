@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Services\AuditService;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
 class RegisterRequest extends FormRequest
@@ -37,6 +39,23 @@ class RegisterRequest extends FormRequest
         return [
             'email.ends_with' => 'Only official NSTU student emails (@student.nstu.edu.bd) are allowed to register.',
         ];
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        AuditService::log('auth.register.failed', null, [
+            'name'       => $this->input('name'),
+            'student_id' => $this->input('student_id'),
+            'email'      => $this->input('email'),
+            'department' => $this->input('department'),
+            'ip'         => $this->ip(),
+            'user_agent' => $this->userAgent(),
+            'status'     => 'failed',
+            'reason'     => 'Validation failed',
+            'errors'     => $validator->errors()->toArray(),
+        ]);
+
+        parent::failedValidation($validator);
     }
 }
 
