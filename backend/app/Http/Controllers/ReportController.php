@@ -42,7 +42,7 @@ class ReportController extends Controller
             'club'                => $club->load('creator:id,name'),
             'total_members'       => ClubMember::where('club_id', $club->id)->count(),
             'total_events'        => Event::where('club_id', $club->id)->count(),
-            'upcoming_events'     => Event::where('club_id', $club->id)->where('start_time', '>', now())->count(),
+            'upcoming_events'     => Event::where('club_id', $club->id)->where('starts_at', '>', now())->count(),
             'total_registrations' => $totalRegistrations,
             'avg_attendance_rate' => $avgAttendanceRate,
         ]);

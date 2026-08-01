@@ -23,9 +23,9 @@ class DashboardController extends Controller
         // User's upcoming registered events
         $upcomingEvents = EventRegistration::where('user_id', $user->id)
             ->whereHas('event', function ($q) {
-                $q->where('start_time', '>', now());
+                $q->where('starts_at', '>', now());
             })
-            ->with(['event:id,title,start_time,location,club_id', 'event.club:id,name'])
+            ->with(['event:id,title,starts_at,location_value,club_id', 'event.club:id,name'])
             ->limit(5)
             ->get();
 
