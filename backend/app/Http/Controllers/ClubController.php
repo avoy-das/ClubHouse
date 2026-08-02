@@ -266,7 +266,7 @@ class ClubController extends Controller
         $q = trim($request->input('q', ''));
 
         $membersQuery = ClubMember::where('status', 'active')
-            ->with(['user:id,name,student_id,email,department', 'club:id,name,slug']);
+            ->with(['user:id,name,student_id,email,department', 'club:id,name']);
 
         if ($q !== '') {
             $escaped = '%' . addcslashes($q, '%_\\') . '%';

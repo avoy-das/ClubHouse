@@ -84,7 +84,7 @@ const AdminClubs = () => {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-lg shadow-sm border">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Admin — Club Management</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Admin — Club Approval</h1>
                     <p className="text-gray-500 text-sm">Approve pending club creations, suspend, or delete clubs.</p>
                 </div>
                 <div className="flex space-x-3 text-sm">

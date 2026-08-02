@@ -4,9 +4,9 @@ import { useAuth } from '../../context/AuthContext';
 import { Building2, AtSign, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
 const Login = () => {
-    const { login }        = useAuth();
-    const navigate         = useNavigate();
-    const [error, setError]     = useState('');
+    const { login } = useAuth();
+    const navigate = useNavigate();
+    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
@@ -16,7 +16,7 @@ const Login = () => {
         setLoading(true);
 
         const data = {
-            email:    e.target.email.value,
+            email: e.target.email.value,
             password: e.target.password.value,
         };
 
@@ -38,10 +38,10 @@ const Login = () => {
                     <Building2 className="w-6 h-6" />
                 </div>
                 <h1 className="text-3xl font-extrabold text-[#1b1c19] tracking-tight font-heading mt-3">
-                    Portal
+                    ClubHouse
                 </h1>
                 <p className="text-xs font-medium text-[#615e57] mt-1">
-                    ClubHouse University Academic Network
+                    Central hub for university clubs
                 </p>
             </div>
 
@@ -64,7 +64,7 @@ const Login = () => {
                                 type="email"
                                 name="email"
                                 required
-                                placeholder="a.rivera@clubhouse.edu"
+                                placeholder="hasan@student.nstu.edu.bd"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full pl-11 pr-4 py-3.5 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
                         </div>
@@ -132,7 +132,7 @@ const Login = () => {
                     <span>•</span>
                     <span className="hover:text-[#1b1c19] cursor-pointer">Support</span>
                 </p>
-                <p>© 2026 ClubHouse University. All systems normal.</p>
+                <p>© 2026 ClubHouse . All systems normal.</p>
             </div>
         </div>
     );

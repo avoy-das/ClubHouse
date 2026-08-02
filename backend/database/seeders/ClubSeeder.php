@@ -61,7 +61,7 @@ class ClubSeeder extends Seeder
 
         foreach ($sampleClubs as $clubData) {
             $club = Club::firstOrCreate(
-                ['name' => $clubData['name']],
+                ['name' => $clubData['name']],      
                 [
                     'name'          => $clubData['name'],
                     'description'   => $clubData['description'],

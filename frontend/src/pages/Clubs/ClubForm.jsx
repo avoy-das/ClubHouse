@@ -6,7 +6,6 @@ import clubService from '../../services/clubService';
 
 const ClubForm = ({ isOpen, onClose, club = null, onSuccess }) => {
     const [name, setName] = useState(club?.name || '');
-    const [slug, setSlug] = useState(club?.slug || '');
     const [description, setDescription] = useState(club?.description || '');
     const [category, setCategory] = useState(club?.category || 'academic');
     const [logoPath, setLogoPath] = useState(club?.logo_path || '');
@@ -20,7 +19,6 @@ const ClubForm = ({ isOpen, onClose, club = null, onSuccess }) => {
         try {
             const payload = {
                 name,
-                slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
                 description,
                 category,
                 logo_path: logoPath,
@@ -53,21 +51,7 @@ const ClubForm = ({ isOpen, onClose, club = null, onSuccess }) => {
                         required
                         className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={name}
-                        onChange={(e) => {
-                            setName(e.target.value);
-                            if (!club) setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
-                        }}
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium mb-1">Slug</label>
-                    <input
-                        type="text"
-                        required
-                        className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                        value={slug}
-                        onChange={(e) => setSlug(e.target.value)}
+                        onChange={(e) => setName(e.target.value)}
                     />
                 </div>
 

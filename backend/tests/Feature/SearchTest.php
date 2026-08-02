@@ -31,7 +31,6 @@ class SearchTest extends TestCase
         $counter++;
         return Club::create(array_merge([
             'name'          => 'Basketball Club ' . $counter,
-            'slug'          => 'basketball-club-' . $counter,
             'description'   => 'University basketball team and community',
             'category'      => 'Sports',
             'department'    => 'CSTE',

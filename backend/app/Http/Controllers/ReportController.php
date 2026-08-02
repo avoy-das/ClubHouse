@@ -16,13 +16,13 @@ class ReportController extends Controller
     {
         return response()->json([
             'total_users'         => User::count(),
-            'total_clubs'         => Club::count(),
-            'pending_clubs'       => Club::where('status', 'pending')->count(),
+            'total_clubs'         => Club::where('status', 'approved')->count(),
             'approved_clubs'      => Club::where('status', 'approved')->count(),
+            'pending_clubs'       => Club::where('status', 'pending')->count(),
             'suspended_clubs'     => Club::where('status', 'suspended')->count(),
             'total_memberships'   => ClubMember::where('status', 'active')->count(),
             'total_events'        => Event::count(),
-            'total_registrations' => EventRegistration::where('status', 'registered')->count(),
+            'total_registrations' => EventRegistration::count(),
             'total_certificates'  => Certificate::count(),
         ]);
     }
@@ -32,9 +32,8 @@ class ReportController extends Controller
         $eventIds = Event::where('club_id', $club->id)->pluck('id');
         $totalRegistrations = EventRegistration::whereIn('event_id', $eventIds)->count();
         $attendedCount = EventRegistration::whereIn('event_id', $eventIds)
-            ->where(function ($q) {
-                $q->where('attended', true)->orWhere('status', 'attended');
-            })->count();
+            ->where('attended', true)
+            ->count();
 
         $avgAttendanceRate = $totalRegistrations > 0 ? round(($attendedCount / $totalRegistrations) * 100, 2) : 0;
 

@@ -4,8 +4,8 @@ import authService from '../../services/authService';
 import { Users, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 const Register = () => {
-    const navigate             = useNavigate();
-    const [error, setError]     = useState('');
+    const navigate = useNavigate();
+    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
@@ -15,13 +15,13 @@ const Register = () => {
         setLoading(true);
 
         const data = {
-            name:                  e.target.name.value,
-            student_id:            e.target.student_id.value,
-            email:                 e.target.email.value,
-            password:              e.target.password.value,
+            name: e.target.name.value,
+            student_id: e.target.student_id.value,
+            email: e.target.email.value,
+            password: e.target.password.value,
             password_confirmation: e.target.password_confirmation.value,
-            department:            e.target.department.value,
-            phone:                 e.target.phone.value,
+            department: e.target.department.value,
+            phone: e.target.phone.value,
         };
 
         try {
@@ -38,7 +38,7 @@ const Register = () => {
         <div className="min-h-screen bg-[#fbf9f4] flex flex-col items-center justify-center p-4 sm:p-6 font-sans text-[#1b1c19]">
             {/* Card Container */}
             <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] shadow-xl border border-[#e4e2dd] w-full max-w-2xl my-6">
-                
+
                 {/* Header Icon & Title */}
                 <div className="flex flex-col items-center text-center mb-8">
                     <div className="w-12 h-12 rounded-full bg-[#1c1b1b] text-white flex items-center justify-center shadow-xs mb-4">
@@ -47,9 +47,7 @@ const Register = () => {
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1b1c19] tracking-tight font-heading">
                         Create ClubHouse Account
                     </h1>
-                    <p className="text-xs text-[#615e57] max-w-md mx-auto mt-2 leading-relaxed font-sans">
-                        Join your university's premier community platform. Connect with clubs, manage events, and grow your network.
-                    </p>
+
                 </div>
 
                 {error && (
@@ -69,7 +67,7 @@ const Register = () => {
                                 type="text"
                                 name="name"
                                 required
-                                placeholder="Alex Rivera"
+                                placeholder="Hasan Mahmud Joy"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
                         </div>
@@ -83,7 +81,7 @@ const Register = () => {
                                 type="text"
                                 name="student_id"
                                 required
-                                placeholder="ID-2024-0000"
+                                placeholder="MUH2325012M"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
                         </div>
@@ -110,7 +108,7 @@ const Register = () => {
                                 type="email"
                                 name="email"
                                 required
-                                placeholder="alex.rivera@university.edu"
+                                placeholder="hasan@student.nstu.edu.bd"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
                         </div>
@@ -161,7 +159,7 @@ const Register = () => {
                         <input
                             type="text"
                             name="phone"
-                            placeholder="+1 (555) 019-2834"
+                            placeholder="+880 1714-671105"
                             className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                         />
                     </div>

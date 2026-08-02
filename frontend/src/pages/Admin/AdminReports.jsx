@@ -72,7 +72,7 @@ const AdminReports = () => {
                     </div>
                     <div className="flex space-x-2 text-xs font-semibold">
                         <Link to="/admin/clubs" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
-                            Club Management
+                            Club Approval
                         </Link>
                         <Link to="/admin/users" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
                             User Directory
@@ -96,7 +96,12 @@ const AdminReports = () => {
                                         <div className="text-xs uppercase tracking-wider font-semibold text-[#eab308]">Total Active Clubs</div>
                                         <Building2 className="w-5 h-5 text-blue-400" />
                                     </div>
-                                    <div className="text-3xl font-extrabold mt-3">{reports.total_clubs ?? reports.clubs_count ?? 0}</div>
+                                    <div className="text-3xl font-extrabold mt-3">{reports.approved_clubs ?? reports.total_clubs ?? 0}</div>
+                                    {Boolean(reports.pending_clubs) && (
+                                        <div className="text-xs text-amber-400 mt-2 font-medium">
+                                            {reports.pending_clubs} pending creation {reports.pending_clubs === 1 ? 'request' : 'requests'}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="bg-white text-[#0b1c30] p-6 rounded-2xl shadow-xs border border-slate-200">
