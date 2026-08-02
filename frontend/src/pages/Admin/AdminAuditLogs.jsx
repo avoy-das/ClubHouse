@@ -76,7 +76,7 @@ const AdminAuditLogs = () => {
                     </div>
                     <div className="flex space-x-2 text-xs font-semibold">
                         <Link to="/admin/clubs" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
-                            Club Management
+                            Club Approval
                         </Link>
                         <Link to="/admin/users" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
                             User Directory

@@ -35,7 +35,6 @@ class EventRegistrationTest extends TestCase
 
         $this->club = Club::create([
             'name'          => 'Test Science Club',
-            'slug'          => 'test-science-club',
             'description'   => 'A test club',
             'category'      => 'Academic',
             'department'    => 'Science',

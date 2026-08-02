@@ -314,29 +314,39 @@ const SearchPage = () => {
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                             {members.map((member) => (
-                                                <div
+                                                <Link
                                                     key={member.id}
-                                                    className="p-5 border border-slate-200 rounded-xl bg-[#f8f9ff] hover:border-blue-300 transition-all"
+                                                    to={`/admin/users?user=${member.id}`}
+                                                    className="p-5 border border-slate-200 rounded-xl bg-[#f8f9ff] hover:border-blue-500 hover:shadow-xs transition-all block group cursor-pointer"
                                                 >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 bg-[#0f172a] text-white font-bold rounded-full flex items-center justify-center text-sm">
-                                                            {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
-                                                        </div>
-                                                        <div>
-                                                            <h4 className="font-bold text-[#0b1c30] text-base">{member.name}</h4>
-                                                            <p className="text-slate-500 text-xs">{member.email}</p>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 bg-[#0f172a] text-white font-bold rounded-full flex items-center justify-center text-sm group-hover:bg-blue-600 transition-colors">
+                                                                {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-bold text-[#0b1c30] group-hover:text-blue-600 transition-colors text-base">
+                                                                    {member.name}
+                                                                </h4>
+                                                                <p className="text-slate-500 text-xs">{member.email}</p>
+                                                            </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="mt-4 pt-3 border-t border-slate-200 text-xs space-y-1 text-slate-600">
+                                                    <div className="mt-4 pt-3 border-t border-slate-200 text-xs space-y-1 text-slate-600 flex items-center justify-between">
                                                         <div>
-                                                            <span className="font-semibold text-slate-700">Student ID:</span> {member.student_id}
+                                                            <div>
+                                                                <span className="font-semibold text-slate-700">Student ID:</span> {member.student_id}
+                                                            </div>
+                                                            <div>
+                                                                <span className="font-semibold text-slate-700">Department:</span> {member.department || 'N/A'}
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <span className="font-semibold text-slate-700">Department:</span> {member.department || 'N/A'}
-                                                        </div>
+                                                        <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                            Inspect User →
+                                                        </span>
                                                     </div>
-                                                </div>
+                                                </Link>
                                             ))}
                                         </div>
                                     )}

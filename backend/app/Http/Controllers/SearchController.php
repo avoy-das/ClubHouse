@@ -34,7 +34,7 @@ class SearchController extends Controller
 
         // 2. Events (title, description)
         $events = Event::query()
-            ->with(['club:id,name,slug'])
+            ->with(['club:id,name'])
             ->where(function ($q) use ($escaped) {
                 $q->where('title', 'LIKE', $escaped)
                   ->orWhere('description', 'LIKE', $escaped);
@@ -43,7 +43,7 @@ class SearchController extends Controller
 
         // 3. Recruitment Notices (title, description)
         $recruitmentQuery = RecruitmentNotice::query()
-            ->with(['club:id,name,slug']);
+            ->with(['club:id,name']);
 
         // Non-admins only see 'open' recruitment notices
         if (!$user || !$user->is_admin) {

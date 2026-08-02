@@ -11,12 +11,16 @@ class UserController extends Controller
 {
     public function index(): JsonResponse
     {
-        $users = User::all();
+        $users = User::with(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,name,title'])
+            ->latest()
+            ->get();
+
         return response()->json($users);
     }
 
     public function show(User $user): JsonResponse
     {
+        $user->load(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,name,title']);
         return response()->json($user);
     }
 
@@ -29,7 +33,26 @@ class UserController extends Controller
             'is_admin'   => ['sometimes', 'boolean'],
         ]);
 
+        $oldIsAdmin = $user->is_admin;
+
         $user->update($validated);
+
+        if (array_key_exists('is_admin', $validated) && $validated['is_admin'] !== $oldIsAdmin) {
+            $action = $user->is_admin ? 'admin.role_promoted' : 'admin.role_demoted';
+            AuditService::log($action, $user, [
+                'target_user_id' => $user->id,
+                'target_user'    => $user->name,
+                'is_admin'       => $user->is_admin,
+            ]);
+        } else {
+            AuditService::log('admin.user_updated', $user, [
+                'target_user_id' => $user->id,
+                'target_user'    => $user->name,
+                'updated_fields' => array_keys($validated),
+            ]);
+        }
+
+        $user->load(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,name,title']);
 
         return response()->json($user);
     }
@@ -40,6 +63,8 @@ class UserController extends Controller
 
         AuditService::log('admin.user_deactivated', $user, [
             'deactivated_by' => $request->user()->id,
+            'user_name'      => $user->name,
+            'user_email'     => $user->email,
         ]);
 
         $user->delete();
