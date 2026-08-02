@@ -6,6 +6,7 @@ use App\Models\Announcement;
 use App\Models\Club;
 use App\Models\ClubMember;
 use App\Models\User;
+use App\Models\Notification;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

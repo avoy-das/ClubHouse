@@ -10,6 +10,7 @@ const announcementService = {
         }
         return (await api.post('/announcements', data)).data;
     },
+    createGlobal: async (data) => (await api.post('/announcements', data)).data,
     getCreationContext: async () => (await api.get('/announcements/creation-context')).data,
     getClubMembers: async (clubId) => (await api.get(`/clubs/${clubId}/announcement-members`)).data,
     update: async (announcementId, data) => (await api.put(`/announcements/${announcementId}`, data)).data,

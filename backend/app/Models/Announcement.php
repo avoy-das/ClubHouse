@@ -20,12 +20,14 @@ class Announcement extends Model
         'target_type',
         'target_club_id',
         'target_user_id',
+        'targets',
     ];
 
     protected function casts(): array
     {
         return [
             'is_pinned' => 'boolean',
+            'targets'   => 'array',
         ];
     }
 
