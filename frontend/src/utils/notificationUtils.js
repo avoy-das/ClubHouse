@@ -1,4 +1,17 @@
 /**
+ * Helper to check if a notification is an announcement.
+ *
+ * @param {Object} notification
+ * @returns {boolean}
+ */
+export const isAnnouncementNotification = (notification) => {
+    if (!notification) return false;
+    const type = notification.type || '';
+    const relatedType = notification.related_type || '';
+    return relatedType.includes('Announcement') || type.includes('announcement');
+};
+
+/**
  * Helper to determine the target route for a given notification.
  *
  * @param {Object} notification
@@ -31,7 +44,7 @@ export const getNotificationTargetUrl = (notification) => {
 
     // 4. Announcements
     if (relatedType.includes('Announcement') || type.includes('announcement')) {
-        return relatedId ? `/clubs/${relatedId}/announcements` : '/announcements';
+        return '/announcements';
     }
 
     // 5. Club & Membership related notifications (approved, rejected, updated, member joined/left/removed, role changed)

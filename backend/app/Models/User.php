@@ -56,6 +56,11 @@ class User extends Authenticatable
         return $this->hasMany(Notification::class);
     }
 
+    public function receivedAnnouncements()
+    {
+        return $this->belongsToMany(Announcement::class, 'announcement_recipients')->withTimestamps();
+    }
+
     public function isMemberOf(int|Club $club): bool
     {
         $clubId = $club instanceof Club ? $club->id : $club;
@@ -73,7 +78,7 @@ class User extends Authenticatable
             ->where('club_id', $clubId)
             ->where('status', 'active')
             ->where(function ($query) use ($permission) {
-                $query->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer'])
+                $query->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
                       ->orWhereHas('positions', function ($q) use ($permission) {
                           $q->where(function ($q2) {
                               $q2->whereNull('ends_at')->orWhere('ends_at', '>', now());
@@ -81,5 +86,25 @@ class User extends Authenticatable
                       });
             })
             ->exists();
+    }
+
+    public function getExecutiveClubs()
+    {
+        if ($this->is_admin) {
+            return Club::where('status', 'approved')->get(['id', 'name']);
+        }
+
+        return Club::whereHas('members', function ($q) {
+            $q->where('user_id', $this->id)
+              ->where('status', 'active')
+              ->where(function ($q2) {
+                  $q2->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
+                     ->orWhereHas('positions', function ($p) {
+                         $p->where(function ($p2) {
+                             $p2->whereNull('ends_at')->orWhere('ends_at', '>', now());
+                         })->whereHas('position', fn ($q3) => $q3->where('can_manage_announcements', true));
+                     });
+              });
+        })->where('status', 'approved')->get(['id', 'name']);
     }
 }

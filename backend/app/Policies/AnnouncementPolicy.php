@@ -18,18 +18,44 @@ class AnnouncementPolicy
         return true;
     }
 
-    public function create(User $user, Club $club): bool
+    public function create(User $user, ?Club $club = null): bool
     {
-        return $user->is_admin || $user->hasClubPermission($club, 'can_manage_announcements');
+        if ($user->is_admin) {
+            return true;
+        }
+
+        if ($club) {
+            return $user->hasClubPermission($club, 'can_manage_announcements');
+        }
+
+        return $user->getExecutiveClubs()->count() > 0;
     }
 
     public function update(User $user, Announcement $announcement): bool
     {
-        return $user->is_admin || $user->hasClubPermission($announcement->club_id, 'can_manage_announcements');
+        if ($user->is_admin) {
+            return true;
+        }
+
+        $clubId = $announcement->club_id ?? $announcement->target_club_id;
+        if ($clubId) {
+            return $user->hasClubPermission($clubId, 'can_manage_announcements');
+        }
+
+        return false;
     }
 
     public function delete(User $user, Announcement $announcement): bool
     {
-        return $user->is_admin || $user->hasClubPermission($announcement->club_id, 'can_manage_announcements');
+        if ($user->is_admin) {
+            return true;
+        }
+
+        $clubId = $announcement->club_id ?? $announcement->target_club_id;
+        if ($clubId) {
+            return $user->hasClubPermission($clubId, 'can_manage_announcements');
+        }
+
+        return false;
     }
 }

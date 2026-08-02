@@ -106,6 +106,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Announcements
     Route::get('/announcements', [AnnouncementController::class, 'allAnnouncements']);
+    Route::get('/announcements/creation-context', [AnnouncementController::class, 'creationContext']);
+    Route::post('/announcements', [AnnouncementController::class, 'store']);
+    Route::get('/clubs/{club}/announcement-members', [AnnouncementController::class, 'clubMembers']);
     Route::apiResource('clubs.announcements', AnnouncementController::class)->shallow();
 
     // Events
