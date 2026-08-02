@@ -58,6 +58,8 @@ class RecruitmentNoticeController extends Controller
             $request->user()->id
         );
 
+        \App\Services\AuditService::log('recruitment_notice_created', $notice, ['title' => $notice->title], $request->user()->id);
+
         return response()->json($notice->load('club'), 201);
     }
 
@@ -97,12 +99,16 @@ class RecruitmentNoticeController extends Controller
             );
         }
 
+        \App\Services\AuditService::log('recruitment_notice_updated', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
+
         return response()->json($recruitmentNotice->load('club'));
     }
 
     public function destroy(Request $request, RecruitmentNotice $recruitmentNotice): JsonResponse
     {
         $this->authorize('delete', $recruitmentNotice);
+
+        \App\Services\AuditService::log('recruitment_notice_deleted', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
 
         $recruitmentNotice->delete();
 

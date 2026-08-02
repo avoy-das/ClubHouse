@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import recruitmentService from '../../services/recruitmentService';
 import { ClubPermissionsProvider } from '../../context/ClubPermissionsContext';
+import { useAuth } from '../../context/AuthContext';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -12,6 +13,7 @@ import SuccessBanner from '../../components/ui/SuccessBanner';
 const RecruitmentDetailContent = () => {
     const { clubId, noticeId, id } = useParams();
     const targetNoticeId = noticeId || id;
+    const { user } = useAuth();
 
     const [notice, setNotice] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -130,18 +132,23 @@ const RecruitmentDetailContent = () => {
                 {isOpen ? (
                     <div className="bg-white border rounded-lg p-6 mt-6 space-y-4">
                         <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Submit Your Application</h3>
-                        <form onSubmit={handleApply} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Why are you interested in joining?</label>
-                                <textarea
-                                    rows={3}
-                                    required
-                                    placeholder="Explain your motivation..."
-                                    className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={motivation}
-                                    onChange={(e) => setMotivation(e.target.value)}
-                                />
+                        {notice.club?.members?.some(m => m.user_id === user?.id && m.status === 'active') ? (
+                            <div className="bg-blue-50 text-blue-700 p-4 rounded text-center font-medium">
+                                You are already a member of this club.
                             </div>
+                        ) : (
+                            <form onSubmit={handleApply} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Why are you interested in joining?</label>
+                                    <textarea
+                                        rows={3}
+                                        required
+                                        placeholder="Explain your motivation..."
+                                        className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                        value={motivation}
+                                        onChange={(e) => setMotivation(e.target.value)}
+                                    />
+                                </div>
 
                             <div>
                                 <label className="block text-sm font-medium mb-1">Relevant Experience / Skills</label>
@@ -169,6 +176,7 @@ const RecruitmentDetailContent = () => {
                                 {submitting ? 'Submitting Application...' : 'Submit Application'}
                             </Button>
                         </form>
+                        )}
                     </div>
                 ) : (
                     <div className="bg-gray-100 p-6 rounded text-center text-gray-600 font-medium">

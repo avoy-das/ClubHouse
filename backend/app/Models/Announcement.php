@@ -16,12 +16,14 @@ class Announcement extends Model
         'body',
         'posted_by',
         'is_pinned',
+        'targets',
     ];
 
     protected function casts(): array
     {
         return [
             'is_pinned' => 'boolean',
+            'targets' => 'array',
         ];
     }
 
