@@ -120,6 +120,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/events/{event}/feedback', [EventFeedbackController::class, 'store']);
 
     // Recruitment
+    Route::get('/recruitment-notices', [RecruitmentNoticeController::class, 'index']);
     Route::apiResource('clubs.recruitment-notices', RecruitmentNoticeController::class)->shallow();
     Route::post('/recruitment-notices/{recruitmentNotice}/apply', [RecruitmentApplicationController::class, 'store']);
     Route::get('/recruitment-notices/{recruitmentNotice}/applications', [RecruitmentApplicationController::class, 'index']);

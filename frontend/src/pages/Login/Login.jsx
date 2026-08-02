@@ -21,8 +21,12 @@ const Login = () => {
         try {
             await login(data);
             navigate('/dashboard');
-        } catch {
-            setError('Invalid email or password.');
+        } catch (err) {
+            if (err.response?.data?.message) {
+                setError(err.response.data.message);
+            } else {
+                setError('Invalid email or password.');
+            }
         } finally {
             setLoading(false);
         }

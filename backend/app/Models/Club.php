@@ -44,4 +44,9 @@ class Club extends Model
     {
         return $this->hasMany(Event::class);
     }
+
+    public function positions()
+    {
+        return $this->hasMany(ClubPosition::class);
+    }
 }
