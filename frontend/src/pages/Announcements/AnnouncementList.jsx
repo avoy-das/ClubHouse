@@ -406,11 +406,10 @@ const AnnouncementListContent = () => {
                             {currentOptions.map((opt) => (
                                 <label
                                     key={opt.id}
-                                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                                        targetType === opt.id
+                                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${targetType === opt.id
                                             ? 'bg-blue-50/70 border-blue-400 ring-1 ring-blue-400'
                                             : 'bg-white border-slate-200 hover:bg-slate-100/80'
-                                    }`}
+                                        }`}
                                 >
                                     <input
                                         type="checkbox"

@@ -14,6 +14,7 @@ class RecruitmentNotice extends Model
     protected $fillable = [
         'club_id',
         'title',
+        'session',
         'description',
         'requirements',
         'opens_at',

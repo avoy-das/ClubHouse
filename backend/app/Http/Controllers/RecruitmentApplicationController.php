@@ -27,7 +27,7 @@ class RecruitmentApplicationController extends Controller
             ->exists();
 
         if ($existing) {
-            return response()->json(['message' => 'You have already submitted an application for this recruitment notice.'], 422);
+            return response()->json(['message' => 'You have already submitted an application for this recruitment campaign. Candidates are permitted to apply only once per recruitment campaign.'], 422);
         }
 
         $isMember = \App\Models\ClubMember::where('club_id', $recruitmentNotice->club_id)
@@ -36,7 +36,7 @@ class RecruitmentApplicationController extends Controller
             ->exists();
 
         if ($isMember) {
-            return response()->json(['message' => 'You are already a member of this club.'], 422);
+            return response()->json(['message' => 'You are already an active member of this club. Recruitment is reserved for new applicants.'], 422);
         }
 
         $application = RecruitmentApplication::create([

@@ -107,4 +107,24 @@ class User extends Authenticatable
               });
         })->where('status', 'approved')->get(['id', 'name']);
     }
+
+    public function getClubRank(int|Club $club): int
+    {
+        if ($this->is_admin) {
+            return 100;
+        }
+
+        $clubId = $club instanceof Club ? $club->id : $club;
+
+        $member = ClubMember::where('club_id', $clubId)
+            ->where('user_id', $this->id)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$member) {
+            return 1;
+        }
+
+        return $member->getHighestRank();
+    }
 }

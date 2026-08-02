@@ -136,7 +136,7 @@ const RecruitmentApplicationsContent = () => {
                 </div>
                 <Link to="/recruitment">
                     <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-semibold rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5">
-                        <ArrowLeft className="w-4 h-4" /> Back to Drives
+                        <ArrowLeft className="w-4 h-4" /> Back to Recruitment
                     </button>
                 </Link>
             </div>
@@ -150,7 +150,7 @@ const RecruitmentApplicationsContent = () => {
                 </h3>
 
                 {applications.length === 0 ? (
-                    <p className="text-slate-500 text-sm py-4">No applications submitted for this drive yet.</p>
+                    <p className="text-slate-500 text-sm py-4">No applications submitted for this recruitment notice yet.</p>
                 ) : (
                     <div className="space-y-6">
                         {applications.map((app) => (

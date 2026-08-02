@@ -15,6 +15,37 @@ const roleLabels = {
     member:         'Member',
 };
 
+const getRoleRank = (role) => {
+    switch ((role || 'member').toLowerCase()) {
+        case 'president': return 10;
+        case 'vice_president':
+        case 'vice president':
+        case 'vp': return 9;
+        case 'secretary':
+        case 'treasurer': return 8;
+        case 'executive': return 7;
+        default: return 1;
+    }
+};
+
+const getMemberHighestRank = (member) => {
+    let maxRank = getRoleRank(member?.role);
+    if (member?.positions && Array.isArray(member.positions)) {
+        member.positions.forEach(p => {
+            if (p.position?.title) {
+                const title = p.position.title.toLowerCase();
+                let rank = 1;
+                if (title.includes('president') && !title.includes('vice')) rank = 10;
+                else if (title.includes('vice') || title.includes('vp')) rank = 9;
+                else if (title.includes('secretary') || title.includes('treasurer')) rank = 8;
+                else if (p.position.is_executive || p.position.can_manage_members) rank = 7;
+                if (rank > maxRank) maxRank = rank;
+            }
+        });
+    }
+    return maxRank;
+};
+
 const ClubDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -364,6 +395,18 @@ const ClubDetail = () => {
                         {membersList.map(member => {
                             const isUpdating = updatingUserId === member.user_id;
                             const memberName = member.user?.name || member.name || `User #${member.user_id}`;
+                            const isSelf = user && (member.user_id === user.id || member.id === myMembership?.id);
+                            const callerRank = isAdmin() ? 100 : (myMembership ? getMemberHighestRank(myMembership) : 1);
+                            const targetCurrentRank = getMemberHighestRank(member);
+                            const canManageTarget = isExec && !isSelf && (isAdmin() || callerRank > targetCurrentRank);
+
+                            const availableRoleOptions = [
+                                { value: 'president', label: 'President', rank: 10 },
+                                { value: 'vice_president', label: 'Vice President', rank: 9 },
+                                { value: 'secretary', label: 'Secretary', rank: 8 },
+                                { value: 'treasurer', label: 'Treasurer', rank: 8 },
+                                { value: 'member', label: 'Member', rank: 1 },
+                            ].filter(opt => isAdmin() || opt.rank < callerRank);
 
                             return (
                                 <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3">
@@ -386,7 +429,7 @@ const ClubDetail = () => {
 
                                     {/* Action controls / Role badge */}
                                     <div className="flex items-center gap-2 shrink-0">
-                                        {isExec ? (
+                                        {canManageTarget ? (
                                             <>
                                                 {/* Role Dropdown */}
                                                 <select
@@ -395,18 +438,16 @@ const ClubDetail = () => {
                                                     disabled={isUpdating}
                                                     className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 bg-[#f8f9ff] text-[#0b1c30] focus:border-[#2563eb]"
                                                 >
-                                                    <option value="president">President</option>
-                                                    <option value="vice_president">Vice President</option>
-                                                    <option value="secretary">Secretary</option>
-                                                    <option value="treasurer">Treasurer</option>
-                                                    <option value="member">Member</option>
+                                                    {availableRoleOptions.map(opt => (
+                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                    ))}
                                                 </select>
 
                                                 {/* Kick / Remove Button */}
                                                 <button
                                                     onClick={() => handleRemoveMember(member.user_id, memberName)}
-                                                    disabled={isUpdating || (member.role === 'president' && !isAdmin())}
-                                                    title={member.role === 'president' && !isAdmin() ? 'Cannot remove President' : 'Remove member'}
+                                                    disabled={isUpdating}
+                                                    title="Remove member"
                                                     className="px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors disabled:opacity-40"
                                                 >
                                                     Remove
@@ -414,7 +455,7 @@ const ClubDetail = () => {
                                             </>
                                         ) : (
                                             <span className="text-xs text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full font-medium capitalize">
-                                                {roleLabels[member.role] || member.role || 'Member'}
+                                                {roleLabels[member.role] || member.role || 'Member'}{isSelf ? ' (You)' : ''}
                                             </span>
                                         )}
                                     </div>

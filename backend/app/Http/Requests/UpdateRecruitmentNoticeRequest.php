@@ -15,6 +15,7 @@ class UpdateRecruitmentNoticeRequest extends FormRequest
     {
         return [
             'title'        => 'sometimes|required|string|max:255',
+            'session'      => 'nullable|string|max:100',
             'description'  => 'nullable|string',
             'requirements' => 'nullable|string',
             'opens_at'     => 'sometimes|required|date',

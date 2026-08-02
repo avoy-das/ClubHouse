@@ -321,6 +321,28 @@ class ClubController extends Controller
             ], 404);
         }
 
+        if ($authUser->id === $user->id && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'You cannot modify your own role in the club.',
+            ], 403);
+        }
+
+        $callerRank = $authUser->getClubRank($club);
+        $targetCurrentRank = $membership->getHighestRank();
+        $newRoleRank = ClubMember::getRoleRank($newRole);
+
+        if ($targetCurrentRank >= $callerRank && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'Only higher ranks can control members of lower ranks. You cannot modify the role of a member with an equal or higher rank.',
+            ], 403);
+        }
+
+        if ($newRoleRank >= $callerRank && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'You cannot assign or promote a member to a role rank equal to or higher than your own rank.',
+            ], 403);
+        }
+
         $oldRole = $membership->role;
 
         $membership->update([
@@ -363,6 +385,21 @@ class ClubController extends Controller
             return response()->json([
                 'message' => 'This user is not a member of the club.',
             ], 404);
+        }
+
+        if ($authUser->id === $user->id && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'You cannot remove yourself from the club.',
+            ], 403);
+        }
+
+        $callerRank = $authUser->getClubRank($club);
+        $targetCurrentRank = $membership->getHighestRank();
+
+        if ($targetCurrentRank >= $callerRank && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'Only higher ranks can control members of lower ranks. You cannot remove a member with an equal or higher rank.',
+            ], 403);
         }
 
         // Prevent kicking president unless auth user is admin

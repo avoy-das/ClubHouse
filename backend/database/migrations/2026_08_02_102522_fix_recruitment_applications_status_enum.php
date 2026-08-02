@@ -11,11 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        \Illuminate\Support\Facades\DB::statement("ALTER TABLE recruitment_applications MODIFY COLUMN status ENUM('pending', 'interview', 'accepted', 'rejected') NOT NULL DEFAULT 'pending'");
+        if (\Illuminate\Support\Facades\DB::getDriverName() !== 'sqlite') {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE recruitment_applications MODIFY COLUMN status ENUM('pending', 'interview', 'accepted', 'rejected') NOT NULL DEFAULT 'pending'");
+        }
     }
 
     public function down(): void
     {
-        \Illuminate\Support\Facades\DB::statement("ALTER TABLE recruitment_applications MODIFY COLUMN status ENUM('pending', 'accepted', 'rejected') NOT NULL DEFAULT 'pending'");
+        if (\Illuminate\Support\Facades\DB::getDriverName() !== 'sqlite') {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE recruitment_applications MODIFY COLUMN status ENUM('pending', 'accepted', 'rejected') NOT NULL DEFAULT 'pending'");
+        }
     }
 };

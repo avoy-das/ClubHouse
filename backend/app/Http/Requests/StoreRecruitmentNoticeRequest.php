@@ -15,6 +15,7 @@ class StoreRecruitmentNoticeRequest extends FormRequest
     {
         return [
             'title'        => 'required|string|max:255',
+            'session'      => 'nullable|string|max:100',
             'description'  => 'nullable|string',
             'requirements' => 'nullable|string',
             'opens_at'     => 'required|date',

@@ -12,11 +12,97 @@ use Illuminate\Http\Request;
 
 class ClubMemberPositionController extends Controller
 {
+    private function getRoleRank(?string $role): int
+    {
+        return match (strtolower($role ?? 'member')) {
+            'president'      => 10,
+            'vice_president',
+            'vice president',
+            'vp'             => 9,
+            'secretary',
+            'treasurer'      => 8,
+            'executive'      => 7,
+            default          => 1,
+        };
+    }
+
+    private function calculatePositionRank(?ClubPosition $pos): int
+    {
+        if (!$pos) return 1;
+        $title = strtolower($pos->title);
+        if (str_contains($title, 'president') && !str_contains($title, 'vice')) {
+            return 10;
+        }
+        if (str_contains($title, 'vice') || str_contains($title, 'vp')) {
+            return 9;
+        }
+        if (str_contains($title, 'secretary') || str_contains($title, 'treasurer')) {
+            return 8;
+        }
+        if ($pos->is_executive || $pos->can_manage_members) {
+            return 7;
+        }
+        return 1;
+    }
+
+    private function getMemberHighestRank(ClubMember $member): int
+    {
+        $maxRank = $this->getRoleRank($member->role);
+
+        $positions = $member->positions()
+            ->where(function ($q) {
+                $q->whereNull('ends_at')->orWhere('ends_at', '>', now());
+            })
+            ->with('position')
+            ->get();
+
+        foreach ($positions as $p) {
+            if ($p->position) {
+                $rank = $this->calculatePositionRank($p->position);
+                if ($rank > $maxRank) {
+                    $maxRank = $rank;
+                }
+            }
+        }
+
+        return $maxRank;
+    }
+
+    private function syncMemberPrimaryRole(ClubMember $member): void
+    {
+        $highestRank = $member->getHighestRank();
+        
+        $role = match (true) {
+            $highestRank >= 10 => 'president',
+            $highestRank >= 9  => 'vice_president',
+            $highestRank >= 8  => 'secretary',
+            $highestRank >= 7  => 'executive',
+            default            => 'member',
+        };
+
+        if ($member->role !== $role) {
+            $member->update(['role' => $role]);
+        }
+    }
+
     public function store(Request $request, ClubMember $member): JsonResponse
     {
         $user = $request->user();
         if (!$user->is_admin && !$user->hasClubPermission($member->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($member->user_id === $user->id && !$user->is_admin) {
+            return response()->json(['message' => 'You cannot change your own position or role within your club.'], 403);
+        }
+
+        $callerRank = $user->getClubRank($member->club_id);
+        $targetCurrentRank = $member->getHighestRank();
+
+        if ($targetCurrentRank >= $callerRank && !$user->is_admin) {
+            return response()->json([
+                'message' => 'Only higher ranks can control ranks of lower ranks. You cannot modify the position of a member with an equal or higher rank.'
+            ], 403);
         }
 
         $request->validate([
@@ -30,19 +116,30 @@ class ClubMemberPositionController extends Controller
             return response()->json(['message' => 'Position does not belong to this club.'], 422);
         }
 
+        $newPosRank = ClubMember::calculatePositionRank($position);
+
+        if ($newPosRank >= $callerRank && !$user->is_admin) {
+            return response()->json([
+                'message' => 'You cannot assign or promote a member to a position rank equal to or higher than your own rank.'
+            ], 403);
+        }
+
         $memberPosition = ClubMemberPosition::create([
             'club_member_id'   => $member->id,
             'club_position_id' => $positionId,
             'assigned_at'      => now(),
         ]);
 
+        $this->syncMemberPrimaryRole($member);
+
         $clubName = $member->club ? $member->club->name : 'your club';
+        $titleName = $position->title ?? 'Position';
 
         NotificationService::notifyUser(
             $member->user_id,
             'role_changed',
             'Role Updated',
-            "You have been assigned the position of '{$position->name}' in '{$clubName}'.",
+            "You have been assigned the position of '{$titleName}' in '{$clubName}'.",
             Club::class,
             $member->club_id
         );
@@ -55,6 +152,19 @@ class ClubMemberPositionController extends Controller
         $user = $request->user();
         if (!$user->is_admin && !$user->hasClubPermission($member->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($member->user_id === $user->id && !$user->is_admin) {
+            return response()->json(['message' => 'You cannot revoke your own position within your club.'], 403);
+        }
+
+        $callerRank = $user->getClubRank($member->club_id);
+        $targetCurrentRank = $member->getHighestRank();
+
+        if ($targetCurrentRank >= $callerRank && !$user->is_admin) {
+            return response()->json([
+                'message' => 'Only higher ranks can control ranks of lower ranks. You cannot revoke the position of a member with an equal or higher rank.'
+            ], 403);
         }
 
         $memberPosition = ClubMemberPosition::where('club_member_id', $member->id)
@@ -70,8 +180,10 @@ class ClubMemberPositionController extends Controller
 
         $memberPosition->update(['ends_at' => now()]);
 
+        $this->syncMemberPrimaryRole($member);
+
         $clubName = $member->club ? $member->club->name : 'your club';
-        $posName = $memberPosition->position ? $memberPosition->position->name : 'Position';
+        $posName = $memberPosition->position ? $memberPosition->position->title : 'Position';
 
         NotificationService::notifyUser(
             $member->user_id,
