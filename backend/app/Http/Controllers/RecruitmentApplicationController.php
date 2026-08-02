@@ -30,6 +30,15 @@ class RecruitmentApplicationController extends Controller
             return response()->json(['message' => 'You have already submitted an application for this recruitment notice.'], 422);
         }
 
+        $isMember = \App\Models\ClubMember::where('club_id', $recruitmentNotice->club_id)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
+
+        if ($isMember) {
+            return response()->json(['message' => 'You are already a member of this club.'], 422);
+        }
+
         $application = RecruitmentApplication::create([
             'recruitment_notice_id' => $recruitmentNotice->id,
             'user_id'               => $user->id,
@@ -55,6 +64,8 @@ class RecruitmentApplicationController extends Controller
             $recruitmentNotice->club_id,
             $user->id
         );
+
+        \App\Services\AuditService::log('recruitment_application_submitted', $application, ['title' => $recruitmentNotice->title], $user->id);
 
         return response()->json($application, 201);
     }
@@ -107,6 +118,8 @@ class RecruitmentApplicationController extends Controller
             'related_type' => Club::class,
             'related_id'   => $application->recruitmentNotice->club_id,
         ]);
+
+        \App\Services\AuditService::log('recruitment_application_' . $status, $application, ['status' => $status], $user->id);
 
         return response()->json($application->load(['user', 'reviewer']));
     }

@@ -105,6 +105,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/club-members/{member}/positions/{position}', [ClubMemberPositionController::class, 'destroy']);
 
     // Announcements
+    Route::post('/announcements', [AnnouncementController::class, 'storeGlobal'])->middleware('is_admin');
     Route::get('/announcements', [AnnouncementController::class, 'allAnnouncements']);
     Route::apiResource('clubs.announcements', AnnouncementController::class)->shallow();
 

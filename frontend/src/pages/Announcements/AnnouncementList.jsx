@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import announcementService from '../../services/announcementService';
 import { ClubPermissionsProvider, useClubPermissions } from '../../context/ClubPermissionsContext';
+import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
@@ -12,6 +13,7 @@ import { Megaphone, Pin, Plus, ArrowLeft, Edit, Trash2 } from 'lucide-react';
 const AnnouncementListContent = () => {
     const { clubId } = useParams();
     const { can } = useClubPermissions();
+    const { isAdmin } = useAuth();
 
     const [announcements, setAnnouncements] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,6 +26,11 @@ const AnnouncementListContent = () => {
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
     const [isPinned, setIsPinned] = useState(false);
+    
+    const [targetType, setTargetType] = useState('all_users');
+    const [targetUserId, setTargetUserId] = useState('');
+    const [targetClubId, setTargetClubId] = useState('');
+    
     const [submitting, setSubmitting] = useState(false);
 
     const loadAnnouncements = async () => {
@@ -68,12 +75,27 @@ const AnnouncementListContent = () => {
         setError(null);
         setSuccess(null);
         try {
-            const payload = { title, body, is_pinned: isPinned };
+            const targets = {
+                types: [targetType],
+            };
+            if (targetType === 'single_user' || targetType === 'single_club_member') {
+                targets.user_ids = [parseInt(targetUserId, 10)];
+            }
+            if (targetType === 'entire_club' && targetClubId && !clubId && isAdmin()) {
+                targets.club_ids = [parseInt(targetClubId, 10)];
+            }
+
+            const payload = { title, body, is_pinned: isPinned, targets };
+            
             if (editingItem) {
                 await announcementService.update(editingItem.id, payload);
                 setSuccess('Announcement updated.');
             } else {
-                await announcementService.create(clubId, payload);
+                if (clubId) {
+                    await announcementService.create(clubId, payload);
+                } else {
+                    await announcementService.createGlobal(payload);
+                }
                 setSuccess('Announcement posted.');
             }
             setIsModalOpen(false);
@@ -253,6 +275,49 @@ const AnnouncementListContent = () => {
                             onChange={(e) => setBody(e.target.value)}
                         />
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-[#0b1c30]">Target Audience</label>
+                        <select
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
+                            value={targetType}
+                            onChange={(e) => setTargetType(e.target.value)}
+                        >
+                            {isAdmin() && <option value="all_users">All System Users</option>}
+                            {!isAdmin() && <option value="all_users">All Users</option>}
+                            <option value="entire_club">Entire Club</option>
+                            {isAdmin() && <option value="single_user">Single User</option>}
+                            <option value="single_club_member">Single Club Member</option>
+                        </select>
+                    </div>
+
+                    {(targetType === 'single_user' || targetType === 'single_club_member') && (
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-[#0b1c30]">User ID</label>
+                            <input
+                                type="number"
+                                required
+                                placeholder="Enter User ID"
+                                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
+                                value={targetUserId}
+                                onChange={(e) => setTargetUserId(e.target.value)}
+                            />
+                        </div>
+                    )}
+                    
+                    {targetType === 'entire_club' && !clubId && isAdmin() && (
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-[#0b1c30]">Club ID</label>
+                            <input
+                                type="number"
+                                required
+                                placeholder="Enter Club ID"
+                                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
+                                value={targetClubId}
+                                onChange={(e) => setTargetClubId(e.target.value)}
+                            />
+                        </div>
+                    )}
 
                     <label className="flex items-center space-x-2 text-sm font-medium text-slate-700">
                         <input
