@@ -39,10 +39,47 @@ class RecruitmentApplicationController extends Controller
             return response()->json(['message' => 'You are already an active member of this club. Recruitment is reserved for new applicants.'], 422);
         }
 
+        $answers = $request->input('answers', []);
+        if (is_string($answers)) {
+            $answers = json_decode($answers, true) ?? [];
+        }
+
+        if (!is_array($answers)) {
+            $answers = [];
+        }
+
+        // Process any uploaded custom files
+        if ($request->hasFile('answers_files')) {
+            $uploadedFiles = $request->file('answers_files');
+            if (is_array($uploadedFiles)) {
+                foreach ($uploadedFiles as $key => $file) {
+                    if ($file && $file->isValid()) {
+                        $path = $file->store('recruitment_applications', 'public');
+                        $answers['custom_files'][$key] = [
+                            'name' => $file->getClientOriginalName(),
+                            'path' => $path,
+                            'url'  => '/storage/' . $path,
+                        ];
+                    }
+                }
+            }
+        }
+
+        foreach ($request->allFiles() as $key => $file) {
+            if ($key !== 'answers_files' && !is_array($file) && $file->isValid()) {
+                $path = $file->store('recruitment_applications', 'public');
+                $answers['custom_files'][$key] = [
+                    'name' => $file->getClientOriginalName(),
+                    'path' => $path,
+                    'url'  => '/storage/' . $path,
+                ];
+            }
+        }
+
         $application = RecruitmentApplication::create([
             'recruitment_notice_id' => $recruitmentNotice->id,
             'user_id'               => $user->id,
-            'answers'               => $request->validated()['answers'] ?? null,
+            'answers'               => $answers,
             'status'                => 'pending',
         ]);
 
@@ -73,7 +110,7 @@ class RecruitmentApplicationController extends Controller
     public function index(Request $request, RecruitmentNotice $recruitmentNotice): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($recruitmentNotice->club_id, 'can_manage_recruitment')) {
+        if (!$user->hasClubPermission($recruitmentNotice->club_id, 'can_manage_recruitment')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 

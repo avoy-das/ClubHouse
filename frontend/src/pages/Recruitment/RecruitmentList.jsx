@@ -25,6 +25,8 @@ const RecruitmentListContent = () => {
 
     const [availableClubs, setAvailableClubs] = useState([]);
     const [isExecUser, setIsExecUser] = useState(false);
+    const [currentClub, setCurrentClub] = useState(null);
+    const [myExecClubIds, setMyExecClubIds] = useState([]);
 
     // Modal state for creation/editing
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,12 +52,33 @@ const RecruitmentListContent = () => {
             let res;
             if (clubId) {
                 res = await recruitmentService.listForClub(clubId);
+                try {
+                    const clubRes = await clubService.getClub(clubId);
+                    setCurrentClub(clubRes.data || clubRes);
+                } catch {
+                    // Ignore single club fetch error
+                }
             } else {
                 res = await recruitmentService.listAll();
             }
             const list = res.data || res;
             const loadedNotices = Array.isArray(list) ? list : [];
             setNotices(loadedNotices);
+
+            // Fetch memberships to identify actual executive clubs for review permissions
+            let execClubIdsList = [];
+            try {
+                const membersRes = await authService.getMyMemberships();
+                const memberships = membersRes.data || membersRes || [];
+                const execMemberships = memberships.filter(m => 
+                    m.status === 'active' && 
+                    (m.role !== 'member' || (m.positions && m.positions.some(p => p.position?.is_executive || p.position?.can_manage_recruitment)))
+                );
+                execClubIdsList = execMemberships.map(m => m.club_id || m.club?.id).filter(Boolean);
+            } catch {
+                // Ignore membership fetch error
+            }
+            setMyExecClubIds(execClubIdsList);
 
             // Determine executive clubs and eligibility
             let clubsList = [];
@@ -66,6 +89,9 @@ const RecruitmentListContent = () => {
                 const allClubsRes = await clubService.list();
                 clubsList = (allClubsRes.data || allClubsRes || []).filter(c => c.status === 'approved');
             } else {
+                if (execClubIdsList.length > 0) {
+                    execFlag = true;
+                }
                 const membersRes = await authService.getMyMemberships();
                 const memberships = membersRes.data || membersRes || [];
                 const execMemberships = memberships.filter(m => 
@@ -73,7 +99,6 @@ const RecruitmentListContent = () => {
                     (m.role !== 'member' || (m.positions && m.positions.some(p => p.position?.is_executive || p.position?.can_manage_recruitment)))
                 );
                 if (execMemberships.length > 0) {
-                    execFlag = true;
                     clubsList = execMemberships.map(m => m.club).filter(Boolean);
                 }
             }
@@ -113,6 +138,18 @@ const RecruitmentListContent = () => {
             return;
         }
 
+        if (clubId) {
+            const hasActiveInThisClub = notices.some(n => 
+                String(n.club_id) === String(clubId) && 
+                n.status === 'open' && 
+                new Date(n.closes_at) > new Date()
+            );
+            if (hasActiveInThisClub) {
+                setShowIneligibleModal(true);
+                return;
+            }
+        }
+
         if (availableClubs.length === 0) {
             setShowIneligibleModal(true);
             return;
@@ -129,6 +166,27 @@ const RecruitmentListContent = () => {
         handleCreateOpen();
     };
 
+    const [customFields, setCustomFields] = useState([]);
+
+    const addCustomField = () => {
+        setCustomFields(prev => [
+            ...prev,
+            { id: `field_${Date.now()}`, label: '', type: 'text', required: false }
+        ]);
+    };
+
+    const updateCustomField = (index, key, value) => {
+        setCustomFields(prev => {
+            const next = [...prev];
+            next[index] = { ...next[index], [key]: value };
+            return next;
+        });
+    };
+
+    const removeCustomField = (index) => {
+        setCustomFields(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleCreateOpen = () => {
         setIsEditMode(false);
         setEditNoticeId(null);
@@ -136,6 +194,7 @@ const RecruitmentListContent = () => {
         setSession('Spring 2026');
         setDescription('');
         setRequirements('');
+        setCustomFields([]);
         
         // Default start date = now, default end date = +14 days
         const now = new Date();
@@ -156,6 +215,7 @@ const RecruitmentListContent = () => {
         setSession(notice.session || '');
         setDescription(notice.description || '');
         setRequirements(notice.requirements || '');
+        setCustomFields(Array.isArray(notice.custom_fields) ? notice.custom_fields : []);
         
         const formatForInput = (dateString) => {
             if (!dateString) return '';
@@ -178,11 +238,15 @@ const RecruitmentListContent = () => {
                 return new Date(localDateString).toISOString();
             };
 
+            const targetClubObj = availableClubs.find(c => String(c.id) === String(selectedClubId)) || currentClub;
+            const defaultTitle = targetClubObj ? `${targetClubObj.name} Recruitment` : 'Club Recruitment';
+
             const payload = {
-                title,
+                title: defaultTitle,
                 session,
                 description,
                 requirements,
+                custom_fields: customFields,
                 opens_at: toUTC(opensAt),
                 closes_at: toUTC(closesAt),
                 status,
@@ -218,6 +282,13 @@ const RecruitmentListContent = () => {
 
     const isUserExecutive = can('can_manage_recruitment') || isAdmin() || isExecUser;
 
+    const activeNoticeForClub = notices.find(n => 
+        n.status === 'open' && 
+        new Date(n.closes_at) > new Date() &&
+        (!clubId || String(n.club_id) === String(clubId))
+    );
+    const hasActiveRecruitmentInClub = Boolean(activeNoticeForClub);
+
     if (loading) return <LoadingSpinner />;
 
     return (
@@ -235,7 +306,11 @@ const RecruitmentListContent = () => {
                         {isUserExecutive ? (
                             <button 
                                 onClick={handleCreateSidebarClick}
-                                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all"
+                                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold rounded-xl shadow-xs transition-all ${
+                                    clubId && hasActiveRecruitmentInClub
+                                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300'
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                }`}
                             >
                                 <Plus className="w-4 h-4" /> Start Recruitment Campaign
                             </button>
@@ -253,8 +328,8 @@ const RecruitmentListContent = () => {
 
                         <button 
                             onClick={() => {
-                                if (clubId) {
-                                    navigate(`/clubs/${clubId}`);
+                                if (clubId && notices.length > 0) {
+                                    navigate(`/clubs/${clubId}/recruitment/${notices[0].id}/applications`);
                                 } else {
                                     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
                                 }
@@ -300,9 +375,13 @@ const RecruitmentListContent = () => {
                             <Target className="w-3.5 h-3.5" /> Official Recruitment
                         </div>
                         <h1 className="text-2xl font-extrabold text-[#0b1c30]">
-                            Member Recruitment
+                            {currentClub ? `${currentClub.name} Recruitment` : 'Member Recruitment'}
                         </h1>
-                        <p className="text-slate-500 text-xs mt-0.5">Explore open recruitment campaigns and join official student organization teams.</p>
+                        <p className="text-slate-500 text-xs mt-0.5">
+                            {currentClub 
+                                ? `Explore active recruitment campaigns and team opportunities for ${currentClub.name}.`
+                                : 'Explore open recruitment campaigns and join official student organization teams.'}
+                        </p>
                     </div>
                     <div className="flex space-x-3">
                         {clubId && (
@@ -315,13 +394,44 @@ const RecruitmentListContent = () => {
                     </div>
                 </div>
 
+                {/* Executive Alert Banner when an active recruitment campaign is already running */}
+                {clubId && isUserExecutive && hasActiveRecruitmentInClub && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-amber-900">
+                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                            <h4 className="font-bold text-sm text-amber-900">Active Recruitment Campaign in Progress</h4>
+                            <p className="text-xs text-amber-800 leading-relaxed">
+                                An active recruitment campaign (<span className="font-semibold">{activeNoticeForClub?.title}</span>) is currently running for {currentClub?.name || 'this club'}. A club can host only 1 active recruitment campaign at a time. You can review submitted applications or manage campaign details below.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {error && <ErrorBanner message={error} />}
 
                 {notices.length === 0 ? (
                     <div className="bg-white p-12 text-center rounded-2xl shadow-xs border border-slate-200 text-slate-500 space-y-3">
                         <Target className="w-10 h-10 text-slate-300 mx-auto" />
-                        <p className="text-base font-semibold text-slate-700">No open recruitment campaigns currently available.</p>
-                        <p className="text-xs text-slate-400 max-w-sm mx-auto">Check back later or contact club executives for membership updates.</p>
+                        <p className="text-base font-semibold text-slate-700">
+                            {clubId 
+                                ? `No recruitment is currently ongoing for ${currentClub?.name || 'this club'}.`
+                                : 'No open recruitment campaigns currently available.'}
+                        </p>
+                        <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                            {isUserExecutive && clubId 
+                                ? 'As a club executive, you can launch a new recruitment campaign using the button in the sidebar.'
+                                : 'Check back later or contact club executives for upcoming recruitment announcements.'}
+                        </p>
+                        {isUserExecutive && clubId && (
+                            <div className="pt-2">
+                                <button
+                                    onClick={handleCreateSidebarClick}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5"
+                                >
+                                    <Plus className="w-4 h-4" /> Start Recruitment Campaign
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -372,7 +482,7 @@ const RecruitmentListContent = () => {
                                     <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">{notice.description}</p>
                                 </div>
                                 <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                                    <Link to={`/recruitment/${notice.id}`}>
+                                    <Link to={clubId ? `/clubs/${clubId}/recruitment/${notice.id}` : `/recruitment/${notice.id}`}>
                                         <button className={`px-4 py-2 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 shadow-xs ${
                                             notice.is_member
                                                 ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
@@ -387,8 +497,8 @@ const RecruitmentListContent = () => {
                                                 : 'View Details & Apply'} <ArrowRight className="w-3.5 h-3.5" />
                                         </button>
                                     </Link>
-                                    {(can('can_manage_recruitment') || isAdmin() || availableClubs.some(c => c.id === notice.club_id)) && (
-                                        <Link to={`/recruitment/${notice.id}/applications`}>
+                                    {myExecClubIds.includes(notice.club_id) && (
+                                        <Link to={clubId ? `/clubs/${clubId}/recruitment/${notice.id}/applications` : `/recruitment/${notice.id}/applications`}>
                                             <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] border border-slate-300 text-xs font-bold rounded-xl transition-colors">
                                                 Review Applications
                                             </button>
@@ -448,29 +558,16 @@ const RecruitmentListContent = () => {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="sm:col-span-2">
-                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Campaign Title</label>
-                            <input
-                                type="text"
-                                required
-                                placeholder="e.g. Executive & Member Recruitment"
-                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Academic Session</label>
-                            <input
-                                type="text"
-                                required
-                                placeholder="e.g. Spring 2026"
-                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
-                                value={session}
-                                onChange={(e) => setSession(e.target.value)}
-                            />
-                        </div>
+                    <div>
+                        <label className="block text-xs font-bold text-[#0b1c30] mb-1">Academic Session</label>
+                        <input
+                            type="text"
+                            required
+                            placeholder="e.g. Spring 2026"
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
+                            value={session}
+                            onChange={(e) => setSession(e.target.value)}
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -517,6 +614,57 @@ const RecruitmentListContent = () => {
                             value={requirements}
                             onChange={(e) => setRequirements(e.target.value)}
                         />
+                    </div>
+
+                    {/* Custom Application Form Fields Builder */}
+                    <div className="space-y-2 pt-3 border-t border-slate-100">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <label className="block text-xs font-bold text-[#0b1c30]">Custom Application Form Fields</label>
+                                <p className="text-[11px] text-slate-500">Add custom text or file upload questions for applicants.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={addCustomField}
+                                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Add Form Field
+                            </button>
+                        </div>
+                        {customFields.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic py-1">No custom fields added yet. Default questions (Motivation & Experience) will be used.</p>
+                        ) : (
+                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1 pt-1">
+                                {customFields.map((field, idx) => (
+                                    <div key={field.id || idx} className="flex items-center gap-2 bg-[#f8f9ff] p-2 rounded-xl border border-slate-200">
+                                        <input
+                                            type="text"
+                                            placeholder="Question / Label (e.g. Upload Student ID or Resume)"
+                                            required
+                                            value={field.label}
+                                            onChange={(e) => updateCustomField(idx, 'label', e.target.value)}
+                                            className="flex-1 text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-500 bg-white"
+                                        />
+                                        <select
+                                            value={field.type}
+                                            onChange={(e) => updateCustomField(idx, 'type', e.target.value)}
+                                            className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-500 bg-white font-medium"
+                                        >
+                                            <option value="text">Text Input</option>
+                                            <option value="file">File Upload</option>
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeCustomField(idx)}
+                                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                                            title="Remove Field"
+                                        >
+                                            <Trash className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">

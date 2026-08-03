@@ -102,9 +102,9 @@ class User extends Authenticatable
                      ->orWhereHas('positions', function ($p) {
                          $p->where(function ($p2) {
                              $p2->whereNull('ends_at')->orWhere('ends_at', '>', now());
-                         })->whereHas('position', fn ($q3) => $q3->where('can_manage_announcements', true));
-                     });
-              });
+                          })->whereHas('position', fn ($q3) => $q3->where('can_manage_events', true)->orWhere('can_manage_announcements', true)->orWhere('is_executive', true));
+                      });
+               });
         })->where('status', 'approved')->get(['id', 'name']);
     }
 

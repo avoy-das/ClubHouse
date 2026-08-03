@@ -19,22 +19,28 @@ class ClubController extends Controller
     public function store(CreateClubRequest $request)
     {
         $logoPath = null;
+        $permissionDocPath = null;
 
         if ($request->hasFile('logo')) {
             $logoPath = $request->file('logo')->store('logos', 'public');
         }
 
+        if ($request->hasFile('permission_document')) {
+            $permissionDocPath = $request->file('permission_document')->store('club_permissions', 'public');
+        }
+
         $club = Club::create([
-            'name'          => $request->name,
-            'category'      => $request->category,
-            'description'   => $request->description,
-            'department'    => $request->department,
-            'contact_email' => $request->contact_email,
-            'contact_phone' => $request->contact_phone,
-            'logo_path'     => $logoPath,
-            'reason'        => $request->reason,
-            'status'        => 'pending',
-            'created_by'    => $request->user()->id,
+            'name'                => $request->name,
+            'category'            => $request->category,
+            'description'         => $request->description,
+            'department'          => $request->department,
+            'contact_email'       => $request->contact_email,
+            'contact_phone'       => $request->contact_phone,
+            'logo_path'           => $logoPath,
+            'permission_doc_path' => $permissionDocPath,
+            'reason'              => $request->reason,
+            'status'              => 'pending',
+            'created_by'          => $request->user()->id,
         ]);
 
         AuditService::log('club.created', $club);
@@ -54,9 +60,13 @@ class ClubController extends Controller
         ], 201);
     }
 
-    // Any authenticated user can view approved clubs
-    public function index()
+    // Any authenticated user can view approved clubs (or executive-scoped clubs if requested)
+    public function index(Request $request): JsonResponse
     {
+        if ($request->query('scope') === 'executive') {
+            return response()->json($request->user()->getExecutiveClubs());
+        }
+
         $clubs = Club::where('status', 'approved')
             ->with('creator:id,name')
             ->withCount('members')
@@ -64,6 +74,12 @@ class ClubController extends Controller
             ->get();
 
         return response()->json($clubs);
+    }
+
+    // Authenticated user gets list of clubs where they are an executive
+    public function executiveClubs(Request $request): JsonResponse
+    {
+        return response()->json($request->user()->getExecutiveClubs());
     }
 
     // Any authenticated user can view a single approved club

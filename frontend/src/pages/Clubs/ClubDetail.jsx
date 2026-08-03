@@ -5,7 +5,8 @@ import clubService from '../../services/clubService';
 import { useAuth } from '../../context/AuthContext';
 import EditClubModal from '../../components/Clubs/EditClubModal';
 import ClubAuditLogModal from '../../components/Clubs/ClubAuditLogModal';
-import { ArrowLeft, Edit, FileText, Search, Shield, Building2, Megaphone, Target } from 'lucide-react';
+import EventModal from '../../components/Events/EventModal';
+import { ArrowLeft, Edit, FileText, Search, Shield, Building2, Megaphone, Target, Calendar } from 'lucide-react';
 
 const roleLabels = {
     president:      'President',
@@ -60,6 +61,7 @@ const ClubDetail = () => {
     // Modal states
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isLogsOpen, setIsLogsOpen] = useState(false);
+    const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
 
     // Contextual member search state
     const [memberQuery, setMemberQuery] = useState('');
@@ -68,7 +70,7 @@ const ClubDetail = () => {
     const [updatingUserId, setUpdatingUserId] = useState(null);
 
     const myMembership = club?.members?.find(m => m.user_id === user?.id);
-    const isExec = isAdmin() || (myMembership && ['president', 'vice_president', 'secretary', 'treasurer'].includes(myMembership.role));
+    const isExec = isAdmin() || (myMembership && ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(myMembership.role));
 
     const formatDate = (isoStr) => {
         if (!isoStr) return 'N/A';
@@ -259,6 +261,13 @@ const ClubDetail = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                onClick={() => setIsCreateEventOpen(true)}
+                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
+                            >
+                                <Calendar className="w-4 h-4" /> Create Event
+                            </button>
+
                             <button
                                 onClick={() => setIsEditOpen(true)}
                                 className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
@@ -482,6 +491,20 @@ const ClubDetail = () => {
                 isOpen={isLogsOpen}
                 onClose={() => setIsLogsOpen(false)}
                 club={club}
+            />
+
+            <EventModal
+                isOpen={isCreateEventOpen}
+                onClose={() => setIsCreateEventOpen(false)}
+                defaultClubId={club?.id}
+                isLockedClub={true}
+                onSuccess={(newEvent, msg) => {
+                    setIsCreateEventOpen(false);
+                    setToast({
+                        type: 'success',
+                        message: msg || 'Event created successfully.',
+                    });
+                }}
             />
         </MainLayout>
     );

@@ -111,4 +111,58 @@ class RecruitmentApplicationTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonPath('message', 'You are already an active member of this club. Recruitment is reserved for new applicants.');
     }
+
+    public function test_admin_who_is_not_club_executive_cannot_view_or_review_applications(): void
+    {
+        $nonExecAdmin = $this->createUser(['is_admin' => true]);
+
+        $application = RecruitmentApplication::create([
+            'recruitment_notice_id' => $this->notice->id,
+            'user_id'               => $this->applicant->id,
+            'status'                => 'pending',
+        ]);
+
+        // Admin who is not a club executive cannot view applications
+        $responseIndex = $this->actingAs($nonExecAdmin)
+            ->getJson("/api/recruitment-notices/{$this->notice->id}/applications");
+        $responseIndex->assertStatus(403);
+
+        // Admin who is not a club executive cannot review application
+        $responseReview = $this->actingAs($nonExecAdmin)
+            ->patchJson("/api/recruitment-applications/{$application->id}", [
+                'status' => 'accepted',
+            ]);
+        $responseReview->assertStatus(403);
+    }
+
+    public function test_club_executive_can_view_and_review_applications(): void
+    {
+        $executiveUser = $this->createUser();
+        ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $executiveUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $application = RecruitmentApplication::create([
+            'recruitment_notice_id' => $this->notice->id,
+            'user_id'               => $this->applicant->id,
+            'status'                => 'pending',
+        ]);
+
+        // Executive can view applications
+        $responseIndex = $this->actingAs($executiveUser)
+            ->getJson("/api/recruitment-notices/{$this->notice->id}/applications");
+        $responseIndex->assertStatus(200);
+
+        // Executive can review and accept application
+        $responseReview = $this->actingAs($executiveUser)
+            ->patchJson("/api/recruitment-applications/{$application->id}", [
+                'status' => 'accepted',
+            ]);
+        $responseReview->assertStatus(200)
+            ->assertJsonPath('status', 'accepted');
+    }
 }

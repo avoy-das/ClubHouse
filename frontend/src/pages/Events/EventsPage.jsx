@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
@@ -17,6 +17,8 @@ const statusBadgeStyles = {
 
 const EventsPage = () => {
     const { user } = useAuth();
+    const [searchParams] = useSearchParams();
+    const preselectedClubId = searchParams.get('create_club_id') || searchParams.get('club_id') || '';
     const [events, setEvents] = useState([]);
     const [clubs, setClubs] = useState([]);
     const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
@@ -140,6 +142,8 @@ const EventsPage = () => {
                 isOpen={isCreateOpen}
                 onClose={() => setIsCreateOpen(false)}
                 onSuccess={handleEventCreated}
+                defaultClubId={preselectedClubId}
+                isLockedClub={Boolean(preselectedClubId)}
             />
 
             {/* Filter Bar */}

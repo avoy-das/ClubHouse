@@ -79,6 +79,6 @@ class Event extends Model
      */
     public static function execRoles(): array
     {
-        return ['president', 'vice_president', 'secretary', 'treasurer'];
+        return ['president', 'vice_president', 'secretary', 'treasurer', 'executive'];
     }
 }

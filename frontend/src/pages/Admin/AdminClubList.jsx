@@ -123,6 +123,7 @@ const AdminClubList = () => {
                                             <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#0b1c30] uppercase tracking-wide">Club</th>
                                             <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#0b1c30] uppercase tracking-wide">Category</th>
                                             <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#0b1c30] uppercase tracking-wide">Requested By</th>
+                                            <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#0b1c30] uppercase tracking-wide">Permission Doc</th>
                                             <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#0b1c30] uppercase tracking-wide">Status</th>
                                             <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#0b1c30] uppercase tracking-wide">Actions</th>
                                         </tr>
@@ -136,6 +137,20 @@ const AdminClubList = () => {
                                                 </td>
                                                 <td className="px-5 py-4 text-slate-600">{club.category}</td>
                                                 <td className="px-5 py-4 text-slate-600">{club.creator?.name}</td>
+                                                <td className="px-5 py-4 text-xs">
+                                                    {club.permission_doc_path ? (
+                                                        <a
+                                                            href={`/storage/${club.permission_doc_path}`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="text-blue-600 hover:underline font-semibold"
+                                                        >
+                                                            View Attachment ↗
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-slate-400">Not provided</span>
+                                                    )}
+                                                </td>
                                                 <td className="px-5 py-4">
                                                     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyles[club.status]}`}>
                                                         {club.status.charAt(0).toUpperCase() + club.status.slice(1)}

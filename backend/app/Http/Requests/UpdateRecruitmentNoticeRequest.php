@@ -14,13 +14,14 @@ class UpdateRecruitmentNoticeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title'        => 'sometimes|required|string|max:255',
-            'session'      => 'nullable|string|max:100',
-            'description'  => 'nullable|string',
-            'requirements' => 'nullable|string',
-            'opens_at'     => 'sometimes|required|date',
-            'closes_at'    => 'sometimes|required|date',
-            'status'       => 'sometimes|in:draft,open,closed',
+            'title'         => 'sometimes|nullable|string|max:255',
+            'session'       => 'nullable|string|max:100',
+            'description'   => 'nullable|string',
+            'requirements'  => 'nullable|string',
+            'custom_fields' => 'nullable|array',
+            'opens_at'      => 'sometimes|required|date',
+            'closes_at'     => 'sometimes|required|date',
+            'status'        => 'sometimes|in:draft,open,closed',
         ];
     }
 }

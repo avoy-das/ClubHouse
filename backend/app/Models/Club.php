@@ -16,6 +16,7 @@ class Club extends Model
         'logo_path',
         'reason',
         'status',
+        'permission_doc_path',
         'created_by',
         'approved_by',
         'approved_at',

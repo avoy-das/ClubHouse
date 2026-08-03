@@ -5,6 +5,9 @@ const clubService = {
     getClubs: () =>
         api.get('/clubs'),
 
+    getExecutiveClubs: () =>
+        api.get('/clubs/executive'),
+
     getClub: (id) =>
         api.get(`/clubs/${id}`),
 

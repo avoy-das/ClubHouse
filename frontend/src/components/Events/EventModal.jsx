@@ -3,10 +3,12 @@ import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
 import { AlertTriangle, Calendar } from 'lucide-react';
 
-const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClubId = '' }) => {
+const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClubId = '', isLockedClub = false }) => {
     const isEdit = Boolean(eventToEdit);
 
     const [clubs, setClubs] = useState([]);
+    const [fetchingClubs, setFetchingClubs] = useState(false);
+    const [noExecutiveClubs, setNoExecutiveClubs] = useState(false);
     const [formData, setFormData] = useState({
         club_id: defaultClubId || '',
         title: '',
@@ -39,11 +41,30 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
         if (isOpen) {
             setError(null);
             setWarning(null);
+            setNoExecutiveClubs(false);
 
-            // Fetch user clubs for selection dropdown if creating
-            clubService.getClubs()
-                .then(res => setClubs(res.data || []))
-                .catch(() => setClubs([]));
+            if (!isEdit) {
+                setFetchingClubs(true);
+                clubService.getExecutiveClubs()
+                    .then(res => {
+                        const fetchedClubs = res.data || [];
+                        setClubs(fetchedClubs);
+
+                        if (fetchedClubs.length === 0 && !defaultClubId) {
+                            setNoExecutiveClubs(true);
+                        }
+
+                        // Auto-select if only 1 executive club and no default selected
+                        if (!defaultClubId && fetchedClubs.length === 1) {
+                            setFormData(prev => ({ ...prev, club_id: String(fetchedClubs[0].id) }));
+                        }
+                    })
+                    .catch(() => {
+                        setClubs([]);
+                        setNoExecutiveClubs(true);
+                    })
+                    .finally(() => setFetchingClubs(false));
+            }
 
             if (eventToEdit) {
                 setFormData({
@@ -63,8 +84,9 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                 defaultStart.setHours(10, 0, 0, 0);
                 const defaultEnd = new Date(defaultStart.getTime() + 7200000); // +2 hours
 
-                setFormData({
-                    club_id: defaultClubId || '',
+                setFormData(prev => ({
+                    ...prev,
+                    club_id: defaultClubId ? String(defaultClubId) : prev.club_id,
                     title: '',
                     description: '',
                     visibility: 'public',
@@ -73,7 +95,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     capacity: 50,
                     starts_at: formatForInput(defaultStart.toISOString()),
                     ends_at: formatForInput(defaultEnd.toISOString()),
-                });
+                }));
             }
         }
     }, [isOpen, eventToEdit, defaultClubId]);
@@ -143,6 +165,13 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     </button>
                 </div>
 
+                {noExecutiveClubs && (
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center gap-1.5 font-medium">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>You are not an executive of any club. Only club executives can create events.</span>
+                    </div>
+                )}
+
                 {error && (
                     <div className="mt-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg">
                         {error}
@@ -157,22 +186,44 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                 )}
 
                 <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-sm">
-                    {/* Club Selector (Only if creating and not pre-selected) */}
+                    {/* Club Selector (Only if creating) */}
                     {!isEdit && (
                         <div>
-                            <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Target Club *</label>
-                            <select
-                                name="club_id"
-                                value={formData.club_id}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb] bg-[#f8f9ff]"
-                            >
-                                <option value="">-- Select Club --</option>
-                                {clubs.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
+                            <label className="block text-xs font-semibold text-[#0b1c30] mb-1">
+                                {isLockedClub || defaultClubId ? 'Target Club (Locked) *' : 'Target Club *'}
+                            </label>
+                            {isLockedClub || defaultClubId ? (
+                                <select
+                                    name="club_id"
+                                    value={formData.club_id}
+                                    disabled
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-100 text-slate-700 cursor-not-allowed font-medium"
+                                >
+                                    {clubs.find(c => String(c.id) === String(formData.club_id)) ? (
+                                        <option value={formData.club_id}>
+                                            {clubs.find(c => String(c.id) === String(formData.club_id))?.name}
+                                        </option>
+                                    ) : (
+                                        <option value={formData.club_id}>Selected Club #{formData.club_id}</option>
+                                    )}
+                                </select>
+                            ) : (
+                                <select
+                                    name="club_id"
+                                    value={formData.club_id}
+                                    onChange={handleChange}
+                                    required
+                                    disabled={fetchingClubs || noExecutiveClubs}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb] bg-[#f8f9ff] disabled:opacity-60"
+                                >
+                                    <option value="">
+                                        {fetchingClubs ? 'Loading executive clubs...' : noExecutiveClubs ? 'No executive clubs available' : '-- Select Club --'}
+                                    </option>
+                                    {clubs.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
                     )}
 
@@ -298,7 +349,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                         </button>
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || (!isEdit && noExecutiveClubs)}
                             className="px-5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white rounded-lg text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
                         >
                             {loading ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Event')}

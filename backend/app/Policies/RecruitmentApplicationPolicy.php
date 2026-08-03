@@ -9,6 +9,6 @@ class RecruitmentApplicationPolicy
 {
     public function review(User $user, RecruitmentApplication $application): bool
     {
-        return $user->is_admin || $user->hasClubPermission($application->recruitmentNotice->club_id, 'can_manage_recruitment');
+        return $user->hasClubPermission($application->recruitmentNotice->club_id, 'can_manage_recruitment');
     }
 }

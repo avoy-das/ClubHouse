@@ -391,16 +391,27 @@ class EventController extends Controller
     // -------------------------------------------------------
 
     /**
-     * Check if a user is an exec (president, vp, secretary, treasurer)
+     * Check if a user is an exec (president, vp, secretary, treasurer, executive)
      * in the given club.
      */
     private function isExec(int $userId, int $clubId): bool
     {
-        return DB::table('club_members')
-            ->where('user_id', $userId)
-            ->where('club_id', $clubId)
-            ->whereIn('role', Event::execRoles())
-            ->exists();
+        $user = \App\Models\User::find($userId);
+        if (!$user) return false;
+
+        if ($user->is_admin) {
+            return true;
+        }
+
+        return $user->hasClubPermission($clubId, 'can_manage_events') ||
+            DB::table('club_members')
+                ->where('user_id', $userId)
+                ->where('club_id', $clubId)
+                ->where(function ($q) {
+                    $q->whereNull('status')->orWhere('status', 'active');
+                })
+                ->whereIn('role', Event::execRoles())
+                ->exists();
     }
 
     /**

@@ -14,13 +14,14 @@ class StoreRecruitmentNoticeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title'        => 'required|string|max:255',
-            'session'      => 'nullable|string|max:100',
-            'description'  => 'nullable|string',
-            'requirements' => 'nullable|string',
-            'opens_at'     => 'required|date',
-            'closes_at'    => 'required|date|after:opens_at',
-            'status'       => 'nullable|in:draft,open,closed',
+            'title'         => 'nullable|string|max:255',
+            'session'       => 'nullable|string|max:100',
+            'description'   => 'nullable|string',
+            'requirements'  => 'nullable|string',
+            'custom_fields' => 'nullable|array',
+            'opens_at'      => 'required|date',
+            'closes_at'     => 'required|date|after:opens_at',
+            'status'        => 'nullable|in:draft,open,closed',
         ];
     }
 }

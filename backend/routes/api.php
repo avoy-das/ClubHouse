@@ -26,7 +26,7 @@ use App\Http\Controllers\SearchController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
 Route::get('/clubs',     [ClubController::class, 'index']);
-Route::get('/clubs/{club}', [ClubController::class, 'show']);
+Route::get('/clubs/{club}', [ClubController::class, 'show'])->where('club', '[0-9]+');
 
 // Authenticated
 Route::middleware('auth:sanctum')->group(function () {
@@ -40,8 +40,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/search',                SearchController::class);
 
     // Clubs — authenticated user & executive actions
+    Route::get('/clubs/executive',                   [ClubController::class, 'executiveClubs']);
     Route::get('/clubs',                             [ClubController::class, 'index']);
-    Route::get('/clubs/{club}',                      [ClubController::class, 'show']);
+    Route::get('/clubs/{club}',                      [ClubController::class, 'show'])->where('club', '[0-9]+');
     Route::get('/clubs/{club}/members',               [ClubController::class, 'members']);
     Route::post('/clubs',                            [ClubController::class, 'store']);
     Route::put('/clubs/{club}',                       [ClubController::class, 'update']);

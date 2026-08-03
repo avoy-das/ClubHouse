@@ -74,6 +74,9 @@ class RecruitmentNoticeController extends Controller
         $data['club_id'] = $club->id;
         $data['created_by'] = $request->user()->id;
         $data['status'] = $data['status'] ?? 'open';
+        if (empty($data['title'])) {
+            $data['title'] = "{$club->name} Recruitment";
+        }
 
         $notice = RecruitmentNotice::create($data);
 
