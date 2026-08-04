@@ -24,6 +24,7 @@ const CreateClub = () => {
         contact_phone: '',
         reason:        '',
         logo:          null,
+        permission_document: null,
     });
 
     const handleChange = e => {
@@ -163,6 +164,24 @@ const CreateClub = () => {
                         />
                         {errors.reason && (
                             <p className="text-red-500 text-xs mt-1">{errors.reason[0]}</p>
+                        )}
+                    </div>
+
+                    {/* Permission Attachment from Authority */}
+                    <div>
+                        <label className="block text-sm font-medium text-[#0b1c30] mb-1">
+                            Authority Approval / Permission Attachment <span className="text-rose-500 font-bold">*</span>
+                        </label>
+                        <p className="text-xs text-slate-500 mb-2">Upload official permission letter or approval document from university authority (PDF, Image, or Word document).</p>
+                        <input
+                            type="file"
+                            name="permission_document"
+                            accept="application/pdf, image/png, image/jpeg, .doc, .docx"
+                            onChange={handleChange}
+                            className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-[#f8f9ff] file:text-[#0b1c30] hover:file:bg-slate-200"
+                        />
+                        {errors.permission_document && (
+                            <p className="text-red-500 text-xs mt-1">{errors.permission_document[0]}</p>
                         )}
                     </div>
 

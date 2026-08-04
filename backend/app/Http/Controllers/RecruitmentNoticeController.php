@@ -34,6 +34,24 @@ class RecruitmentNoticeController extends Controller
 
         $notices = $query->with('club')->latest()->get();
 
+        if ($user) {
+            $userMemberClubIds = \App\Models\ClubMember::where('user_id', $user->id)
+                ->where('status', 'active')
+                ->pluck('club_id')
+                ->toArray();
+
+            $userApps = \App\Models\RecruitmentApplication::where('user_id', $user->id)
+                ->get()
+                ->keyBy('recruitment_notice_id');
+
+            $notices->transform(function ($notice) use ($userMemberClubIds, $userApps) {
+                $noticeArray = $notice->toArray();
+                $noticeArray['is_member'] = in_array($notice->club_id, $userMemberClubIds);
+                $noticeArray['my_application'] = $userApps->get($notice->id);
+                return $noticeArray;
+            });
+        }
+
         return response()->json($notices);
     }
 
@@ -41,10 +59,24 @@ class RecruitmentNoticeController extends Controller
     {
         $this->authorize('create', [RecruitmentNotice::class, $club]);
 
+        $hasActiveRecruitment = RecruitmentNotice::where('club_id', $club->id)
+            ->where('status', 'open')
+            ->where('closes_at', '>', now())
+            ->exists();
+
+        if ($hasActiveRecruitment) {
+            return response()->json([
+                'message' => "This club ('{$club->name}') already has an active recruitment campaign in progress. A club can only host one recruitment campaign at a time."
+            ], 422);
+        }
+
         $data = $request->validated();
         $data['club_id'] = $club->id;
         $data['created_by'] = $request->user()->id;
         $data['status'] = $data['status'] ?? 'open';
+        if (empty($data['title'])) {
+            $data['title'] = "{$club->name} Recruitment";
+        }
 
         $notice = RecruitmentNotice::create($data);
 
@@ -69,14 +101,20 @@ class RecruitmentNoticeController extends Controller
         $recruitmentNotice->load(['club', 'creator']);
 
         $myApplication = null;
+        $isMember = false;
         if ($user) {
             $myApplication = $recruitmentNotice->applications()
                 ->where('user_id', $user->id)
                 ->first();
+            $isMember = \App\Models\ClubMember::where('club_id', $recruitmentNotice->club_id)
+                ->where('user_id', $user->id)
+                ->where('status', 'active')
+                ->exists();
         }
 
         $data = $recruitmentNotice->toArray();
         $data['my_application'] = $myApplication;
+        $data['is_member'] = $isMember;
 
         return response()->json($data);
     }

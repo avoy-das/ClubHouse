@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { CheckCircle2, ShieldCheck, FileCheck } from 'lucide-react';
 import MainLayout from '../../layouts/MainLayout';
 import recruitmentService from '../../services/recruitmentService';
 import { ClubPermissionsProvider } from '../../context/ClubPermissionsContext';
@@ -25,6 +26,8 @@ const RecruitmentDetailContent = () => {
     const [motivation, setMotivation] = useState('');
     const [experience, setExperience] = useState('');
     const [portfolioUrl, setPortfolioUrl] = useState('');
+    const [customTextAnswers, setCustomTextAnswers] = useState({});
+    const [customFileAnswers, setCustomFileAnswers] = useState({});
 
     const loadNotice = async () => {
         setLoading(true);
@@ -49,16 +52,33 @@ const RecruitmentDetailContent = () => {
         setError(null);
         setSuccess(null);
         try {
-            const answers = {
-                motivation,
-                experience,
-                portfolio_url: portfolioUrl,
-            };
-            await recruitmentService.apply(targetNoticeId, answers);
-            setSuccess('Application submitted successfully!');
+            const formData = new FormData();
+            formData.append('answers[motivation]', motivation);
+            formData.append('answers[experience]', experience);
+            formData.append('answers[portfolio_url]', portfolioUrl);
+
+            Object.entries(customTextAnswers).forEach(([key, val]) => {
+                formData.append(`answers[custom_text][${key}]`, val);
+            });
+
+            Object.entries(customFileAnswers).forEach(([key, file]) => {
+                if (file) {
+                    formData.append(`answers_files[${key}]`, file);
+                }
+            });
+
+            const res = await recruitmentService.apply(targetNoticeId, formData);
+            const createdApp = res.data || res;
+            setNotice((prev) => ({
+                ...prev,
+                my_application: createdApp,
+            }));
+            setSuccess("Application submitted successfully!");
             setMotivation('');
             setExperience('');
             setPortfolioUrl('');
+            setCustomTextAnswers({});
+            setCustomFileAnswers({});
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to submit application.');
         } finally {
@@ -70,6 +90,8 @@ const RecruitmentDetailContent = () => {
     if (!notice) return <ErrorBanner message={error || 'Recruitment notice not found'} />;
 
     const isOpen = notice.status === 'open' && new Date() >= new Date(notice.opens_at) && new Date() <= new Date(notice.closes_at);
+    const isAlreadyMember = notice.is_member || notice.club?.members?.some(m => m.user_id === user?.id && m.status === 'active');
+    const hasApplied = Boolean(notice.my_application);
 
     return (
         <div className="space-y-6">
@@ -78,14 +100,19 @@ const RecruitmentDetailContent = () => {
                     <div>
                         <div className="flex items-center space-x-3 mb-2">
                             <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                                Recruitment Drive
+                                Recruitment Campaign
                             </span>
+                            {notice.session && (
+                                <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-800 border">
+                                    Session: {notice.session}
+                                </span>
+                            )}
                             {notice.status && <Badge status={notice.status} />}
                         </div>
                         <h1 className="text-3xl font-extrabold text-gray-900">{notice.title}</h1>
                     </div>
-                    <Link to="/recruitment">
-                        <Button variant="secondary">← Back to Recruitment Drives</Button>
+                    <Link to={clubId ? `/clubs/${clubId}/recruitment` : '/recruitment'}>
+                        <Button variant="secondary">← Back to Recruitment</Button>
                     </Link>
                 </div>
 
@@ -96,7 +123,7 @@ const RecruitmentDetailContent = () => {
                     {/* Notice Info */}
                     <div className="md:col-span-2 space-y-4">
                         <div>
-                            <h3 className="font-bold text-gray-800 text-lg mb-1">Drive Overview</h3>
+                            <h3 className="font-bold text-gray-800 text-lg mb-1">Campaign Overview</h3>
                             <p className="text-gray-700 whitespace-pre-line leading-relaxed">{notice.description}</p>
                         </div>
 
@@ -128,59 +155,181 @@ const RecruitmentDetailContent = () => {
                     </div>
                 </div>
 
-                {/* Application Form */}
+                {/* Application Section */}
                 {isOpen ? (
                     <div className="bg-white border rounded-lg p-6 mt-6 space-y-4">
-                        <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Submit Your Application</h3>
-                        {notice.club?.members?.some(m => m.user_id === user?.id && m.status === 'active') ? (
-                            <div className="bg-blue-50 text-blue-700 p-4 rounded text-center font-medium">
-                                You are already a member of this club.
-                            </div>
-                        ) : (
-                            <form onSubmit={handleApply} className="space-y-4">
+                        {isAlreadyMember ? (
+                            <div className="bg-amber-50 border border-amber-200 text-amber-900 p-5 rounded-xl flex items-start gap-3.5">
+                                <ShieldCheck className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Why are you interested in joining?</label>
-                                    <textarea
-                                        rows={3}
-                                        required
-                                        placeholder="Explain your motivation..."
-                                        className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                        value={motivation}
-                                        onChange={(e) => setMotivation(e.target.value)}
-                                    />
+                                    <h4 className="font-bold text-sm text-amber-900">Already a Club Member</h4>
+                                    <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                                        You are already an active member of {notice.club?.name || 'this club'}. Recruitment is reserved for new applicants.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : hasApplied ? (
+                            <div className="bg-blue-50 border border-blue-200 text-blue-900 p-6 rounded-xl space-y-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-200/80 pb-3">
+                                    <div className="flex items-center gap-2">
+                                        <FileCheck className="w-5 h-5 text-blue-600" />
+                                        <h3 className="text-base font-bold text-blue-900">Application Already Submitted</h3>
+                                    </div>
+                                    {notice.my_application.status && <Badge status={notice.my_application.status} />}
                                 </div>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Relevant Experience / Skills</label>
-                                <textarea
-                                    rows={3}
-                                    placeholder="Highlight previous projects, leadership roles, or technical skills..."
-                                    className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={experience}
-                                    onChange={(e) => setExperience(e.target.value)}
-                                />
-                            </div>
+                                <p className="text-sm font-medium text-blue-800 leading-relaxed">
+                                    You have already submitted an application for this recruitment campaign. Candidates are permitted to submit only one application per recruitment campaign.
+                                </p>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Portfolio / LinkedIn / Resume URL (Optional)</label>
-                                <input
-                                    type="url"
-                                    placeholder="https://github.com/username or LinkedIn link"
-                                    className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={portfolioUrl}
-                                    onChange={(e) => setPortfolioUrl(e.target.value)}
-                                />
+                                <div className="bg-white/90 backdrop-blur-xs p-4 rounded-lg border border-blue-100 space-y-2 text-xs text-slate-700">
+                                    <div>
+                                        <span className="font-semibold text-slate-500">Submitted: </span>
+                                        <span className="font-medium text-slate-800">
+                                            {notice.my_application.created_at ? new Date(notice.my_application.created_at).toLocaleString() : 'Just now'}
+                                        </span>
+                                    </div>
+                                    {notice.my_application.answers?.motivation && (
+                                        <div>
+                                            <span className="font-semibold text-slate-500">Motivation: </span>
+                                            <p className="text-slate-800 mt-0.5 whitespace-pre-line leading-relaxed">
+                                                {notice.my_application.answers.motivation}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {notice.my_application.answers?.experience && (
+                                        <div>
+                                            <span className="font-semibold text-slate-500">Experience / Skills: </span>
+                                            <p className="text-slate-800 mt-0.5 whitespace-pre-line leading-relaxed">
+                                                {notice.my_application.answers.experience}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {notice.my_application.answers?.portfolio_url && (
+                                        <div>
+                                            <span className="font-semibold text-slate-500">Portfolio: </span>
+                                            <a
+                                                href={notice.my_application.answers.portfolio_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-blue-600 hover:underline break-all font-medium"
+                                            >
+                                                {notice.my_application.answers.portfolio_url}
+                                            </a>
+                                        </div>
+                                    )}
+                                    {notice.my_application.answers?.custom_text && Object.entries(notice.my_application.answers.custom_text).map(([key, val]) => (
+                                        <div key={key}>
+                                            <span className="font-semibold text-slate-500">{key}: </span>
+                                            <p className="text-slate-800 mt-0.5 whitespace-pre-line leading-relaxed">{val}</p>
+                                        </div>
+                                    ))}
+                                    {notice.my_application.answers?.custom_files && Object.entries(notice.my_application.answers.custom_files).map(([key, fileObj]) => (
+                                        <div key={key}>
+                                            <span className="font-semibold text-slate-500">{key}: </span>
+                                            <a
+                                                href={fileObj.url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-blue-600 hover:underline break-all font-semibold inline-flex items-center gap-1 mt-0.5"
+                                            >
+                                                📄 {fileObj.name || 'View Uploaded Document'} ↗
+                                            </a>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
+                        ) : (
+                            <>
+                                <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Submit Your Application</h3>
+                                <form onSubmit={handleApply} className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Why are you interested in joining?</label>
+                                        <textarea
+                                            rows={3}
+                                            required
+                                            placeholder="Explain your motivation..."
+                                            className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                            value={motivation}
+                                            onChange={(e) => setMotivation(e.target.value)}
+                                        />
+                                    </div>
 
-                            <Button variant="primary" type="submit" disabled={submitting}>
-                                {submitting ? 'Submitting Application...' : 'Submit Application'}
-                            </Button>
-                        </form>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Relevant Experience / Skills</label>
+                                        <textarea
+                                            rows={3}
+                                            placeholder="Highlight previous projects, leadership roles, or technical skills..."
+                                            className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                            value={experience}
+                                            onChange={(e) => setExperience(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Portfolio / LinkedIn / Resume URL (Optional)</label>
+                                        <input
+                                            type="url"
+                                            placeholder="https://github.com/username or LinkedIn link"
+                                            className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                            value={portfolioUrl}
+                                            onChange={(e) => setPortfolioUrl(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {/* Render Custom Fields created by Executive */}
+                                    {Array.isArray(notice.custom_fields) && notice.custom_fields.length > 0 && (
+                                        <div className="pt-3 border-t space-y-4">
+                                            <h4 className="font-bold text-slate-800 text-sm">Additional Campaign Questions</h4>
+                                            {notice.custom_fields.map((field, idx) => (
+                                                <div key={field.id || idx}>
+                                                    <label className="block text-sm font-medium mb-1">
+                                                        {field.label} {field.required && <span className="text-red-500">*</span>}
+                                                    </label>
+                                                    {field.type === 'file' ? (
+                                                        <input
+                                                            type="file"
+                                                            required={field.required}
+                                                            onChange={(e) => {
+                                                                const file = e.target.files[0];
+                                                                setCustomFileAnswers(prev => ({
+                                                                    ...prev,
+                                                                    [field.label || `Field ${idx + 1}`]: file
+                                                                }));
+                                                            }}
+                                                            className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-800 hover:file:bg-slate-200"
+                                                        />
+                                                    ) : (
+                                                        <textarea
+                                                            rows={2}
+                                                            required={field.required}
+                                                            placeholder="Your answer..."
+                                                            value={customTextAnswers[field.label || `Field ${idx + 1}`] || ''}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                setCustomTextAnswers(prev => ({
+                                                                    ...prev,
+                                                                    [field.label || `Field ${idx + 1}`]: val
+                                                                }));
+                                                            }}
+                                                            className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                                        />
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <Button variant="primary" type="submit" disabled={submitting}>
+                                        {submitting ? 'Submitting Application...' : 'Submit Application'}
+                                    </Button>
+                                </form>
+                            </>
                         )}
                     </div>
                 ) : (
                     <div className="bg-gray-100 p-6 rounded text-center text-gray-600 font-medium">
-                        The application window for this recruitment drive is currently closed.
+                        The application window for this recruitment campaign is currently closed.
                     </div>
                 )}
             </div>

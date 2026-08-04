@@ -4,7 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
 import notificationService from '../../services/notificationService';
-import { getNotificationTargetUrl } from '../../utils/notificationUtils';
+import announcementService from '../../services/announcementService';
+import { getNotificationTargetUrl, isAnnouncementNotification } from '../../utils/notificationUtils';
+import Modal from '../../components/ui/Modal';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Calendar, Building2, Target, GraduationCap, Plus, Shield, Bell, Megaphone, ArrowRight, User } from 'lucide-react';
 
 const Dashboard = () => {
@@ -14,6 +17,11 @@ const Dashboard = () => {
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Announcement Modal state
+    const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+    const [isDialogLoading, setIsDialogLoading] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     useEffect(() => {
         let active = true;
@@ -33,280 +41,334 @@ const Dashboard = () => {
         };
     }, []);
 
-    const quickActions = [
-        { label: 'Browse Events',     action: () => navigate('/events'), icon: Calendar },
-        { label: 'Browse Clubs',      action: () => navigate('/clubs'), icon: Building2 },
-        { label: 'Recruitment Drives', action: () => navigate('/recruitment'), icon: Target },
-        { label: 'My Certificates',   action: () => navigate('/certificates'), icon: GraduationCap },
-        { label: 'Request a Club',    action: () => navigate('/clubs/create'), icon: Plus },
-        ...(isAdmin()
-            ? [{ label: 'Admin Suite', action: () => navigate('/admin/clubs'), icon: Shield }]
-            : []),
-    ];
+    const handleNotificationClick = async (notif) => {
+        if (!notif.is_read) {
+            notificationService.markRead(notif.id).catch(() => {});
+        }
 
-    const formatDate = (isoStr) => {
-        if (!isoStr) return '';
-        const d = new Date(isoStr);
-        return d.toLocaleDateString(undefined, {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
+        if (isAnnouncementNotification(notif)) {
+            setIsDialogOpen(true);
+            setIsDialogLoading(true);
+            setSelectedAnnouncement({
+                title: notif.title || 'Announcement',
+                body: notif.message,
+                created_at: notif.created_at,
+            });
+
+            if (notif.related_id) {
+                try {
+                    const announcementData = await announcementService.show(notif.related_id);
+                    if (announcementData) {
+                        setSelectedAnnouncement(announcementData);
+                    }
+                } catch {
+                    // Fall back to notification message
+                } finally {
+                    setIsDialogLoading(false);
+                }
+            } else {
+                setIsDialogLoading(false);
+            }
+            return;
+        }
+
+        navigate(getNotificationTargetUrl(notif));
     };
 
-    const myClubs = dashboardData?.my_clubs || [];
-    const upcomingEvents = dashboardData?.upcoming_events || [];
+    const stats = dashboardData?.stats || {
+        joined_clubs: 0,
+        upcoming_events: 0,
+        pending_requests: 0,
+    };
+    const clubs = dashboardData?.clubs || [];
+    const events = dashboardData?.upcoming_events || [];
     const recentNotifications = dashboardData?.recent_notifications || [];
-    const recentAnnouncements = dashboardData?.recent_announcements || [];
-    const unreadCount = dashboardData?.unread_count || 0;
+    const unreadCount = dashboardData?.unread_notifications_count || 0;
 
     return (
         <MainLayout>
-            {/* Header banner */}
-            <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#1c1b1b] p-6 sm:p-8 rounded-3xl text-white shadow-xs border border-[#30312e]">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-2 font-heading">
-                        Welcome back, {user?.name}
-                    </h1>
-                    <p className="text-[#cbc6bd] text-xs sm:text-sm mt-1 font-sans">
-                        Here's your central portal overview for campus clubs, events, and notifications.
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <Link
-                        to="/profile"
-                        className="px-4 py-2 bg-[#e8e2d9] hover:bg-[#dbdad5] text-[#1d1b16] rounded-full text-xs font-bold transition-colors flex items-center gap-2 shadow-xs"
-                    >
-                        <User className="w-4 h-4 text-[#615e57]" />
-                        View Profile
-                    </Link>
-                </div>
-            </div>
-
-            {error && (
-                <div className="mb-6 p-4 bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb59f] rounded-2xl text-sm font-semibold">
-                    {error}
-                </div>
-            )}
-
             {loading ? (
-                <div className="py-12 text-center text-[#615e57] font-medium animate-pulse">
-                    Loading dashboard details...
-                </div>
+                <LoadingSpinner />
+            ) : error ? (
+                <div className="bg-[#ffdbd0] text-[#ba1a1a] p-4 rounded-xl text-sm font-semibold">{error}</div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                    {/* Left 2 Columns */}
-                    <div className="lg:col-span-2 space-y-6">
-
-                        {/* My Clubs */}
-                        <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-base font-bold text-[#1b1c19] flex items-center gap-2 font-heading">
-                                    <Building2 className="w-5 h-5 text-[#d95e36]" /> My Clubs ({myClubs.length})
-                                </h2>
-                                <Link to="/clubs" className="text-xs font-bold text-[#1c1b1b] hover:text-[#d95e36] flex items-center gap-1">
-                                    Explore More <ArrowRight className="w-3.5 h-3.5" />
-                                </Link>
+                <div className="space-y-8">
+                    {/* Welcome Banner */}
+                    <div className="bg-gradient-to-r from-[#1c1b1b] to-[#30312e] rounded-3xl p-6 sm:p-8 text-white shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                        <div className="space-y-2 max-w-xl">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-semibold text-[#ffb59f] backdrop-blur-sm">
+                                <GraduationCap className="w-4 h-4" /> Student Portal
                             </div>
-
-                            {myClubs.length === 0 ? (
-                                <div className="text-center py-6 bg-[#f5f3ee] rounded-2xl border border-dashed border-[#cbc6bd]">
-                                    <p className="text-xs text-[#615e57] mb-3">You haven't joined any clubs yet.</p>
-                                    <button
-                                        onClick={() => navigate('/clubs')}
-                                        className="px-4 py-2 bg-[#1c1b1b] text-white text-xs font-bold rounded-full hover:bg-[#30312e] transition-colors shadow-xs"
-                                    >
-                                        Browse Clubs Directory
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {myClubs.map((item) => {
-                                        const club = item.club;
-                                        if (!club) return null;
-                                        return (
-                                            <div
-                                                key={item.id || club.id}
-                                                onClick={() => navigate(`/clubs/${club.id}`)}
-                                                className="p-4 bg-[#f5f3ee] border border-[#e4e2dd] rounded-2xl hover:border-[#1c1b1b] hover:shadow-xs cursor-pointer transition-all flex items-center justify-between group"
-                                            >
-                                                <div>
-                                                    <h3 className="font-bold text-[#1b1c19] text-sm group-hover:text-[#d95e36] transition-colors font-heading">
-                                                        {club.name}
-                                                    </h3>
-                                                    <p className="text-xs text-[#615e57] mt-0.5">{club.category || club.department || 'General Club'}</p>
-                                                    <span className="inline-block mt-2 text-[11px] font-bold text-[#1d1b16] bg-[#e8e2d9] px-2.5 py-0.5 rounded-full capitalize">
-                                                        {item.role ? item.role.replace('_', ' ') : 'Member'}
-                                                    </span>
-                                                </div>
-                                                <ArrowRight className="w-4 h-4 text-[#615e57] group-hover:translate-x-1 transition-transform" />
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
+                            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
+                                Welcome back, {user?.name}!
+                            </h1>
+                            <p className="text-sm text-gray-300">
+                                Here's your central portal overview for campus clubs, events, and notifications.
+                            </p>
                         </div>
-
-                        {/* Upcoming Events */}
-                        <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-base font-bold text-[#1b1c19] flex items-center gap-2 font-heading">
-                                    <Calendar className="w-5 h-5 text-[#d95e36]" /> Upcoming Events
-                                </h2>
-                                <Link to="/events" className="text-xs font-bold text-[#1c1b1b] hover:text-[#d95e36] flex items-center gap-1">
-                                    Browse Events <ArrowRight className="w-3.5 h-3.5" />
-                                </Link>
-                            </div>
-
-                            {upcomingEvents.length === 0 ? (
-                                <div className="text-center py-6 bg-[#f5f3ee] rounded-2xl border border-dashed border-[#cbc6bd]">
-                                    <p className="text-xs text-[#615e57] mb-3">You are not registered for any upcoming events.</p>
-                                    <button
-                                        onClick={() => navigate('/events')}
-                                        className="px-4 py-2 bg-[#1c1b1b] text-white text-xs font-bold rounded-full hover:bg-[#30312e] transition-colors shadow-xs"
-                                    >
-                                        Explore Upcoming Events
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {upcomingEvents.map((reg) => {
-                                        const event = reg.event;
-                                        if (!event) return null;
-                                        return (
-                                            <div
-                                                key={reg.id}
-                                                onClick={() => navigate(`/events/${event.id}`)}
-                                                className="p-3.5 bg-[#f5f3ee] border border-[#e4e2dd] rounded-2xl hover:border-[#1c1b1b] cursor-pointer transition-all flex items-center justify-between"
-                                            >
-                                                <div className="pr-2 min-w-0">
-                                                    <h4 className="font-bold text-[#1b1c19] text-sm truncate font-heading">
-                                                        {event.title}
-                                                    </h4>
-                                                    <div className="flex items-center gap-2 text-xs text-[#615e57] mt-1">
-                                                        <span className="text-[#d95e36] font-semibold">{event.club?.name}</span>
-                                                        <span>&bull;</span>
-                                                        <span>{formatDate(event.start_time || event.starts_at)}</span>
-                                                    </div>
-                                                </div>
-                                                <span className="shrink-0 text-xs font-bold text-[#1d1b16] bg-[#e8e2d9] px-3 py-1 rounded-full border border-[#cbc6bd]">
-                                                    Registered
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
+                        <div className="flex flex-wrap gap-3">
+                            <Link
+                                to="/clubs"
+                                className="px-4 py-2.5 bg-white text-[#1c1b1b] hover:bg-gray-100 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2"
+                            >
+                                <Building2 className="w-4 h-4" /> Explore Clubs
+                            </Link>
+                            <Link
+                                to="/events"
+                                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all backdrop-blur-sm flex items-center gap-2 border border-white/15"
+                            >
+                                <Calendar className="w-4 h-4" /> View Events
+                            </Link>
                         </div>
-
-                        {/* Recent Announcements */}
-                        <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-base font-bold text-[#1b1c19] flex items-center gap-2 font-heading">
-                                    <Megaphone className="w-5 h-5 text-[#d95e36]" /> Recent Announcements
-                                </h2>
-                                <Link to="/announcements" className="text-xs font-bold text-[#1c1b1b] hover:text-[#d95e36] flex items-center gap-1">
-                                    View All <ArrowRight className="w-3.5 h-3.5" />
-                                </Link>
-                            </div>
-
-                            {recentAnnouncements.length === 0 ? (
-                                <p className="text-xs text-[#615e57] py-2">No recent announcements posted in your clubs.</p>
-                            ) : (
-                                <div className="space-y-3 divide-y divide-[#f0eee9]">
-                                    {recentAnnouncements.map((anc) => (
-                                        <div key={anc.id} className="pt-3 first:pt-0">
-                                            <div className="flex items-center justify-between text-xs mb-1">
-                                                <span className="font-bold text-[#d95e36]">{anc.club?.name}</span>
-                                                <span className="text-[#615e57]">{new Date(anc.created_at).toLocaleDateString()}</span>
-                                            </div>
-                                            <h4 className="font-bold text-[#1b1c19] text-sm font-heading">{anc.title}</h4>
-                                            <p className="text-xs text-[#444748] line-clamp-2 mt-0.5">{anc.body}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
                     </div>
 
-                    {/* Right 1 Column */}
-                    <div className="space-y-6">
-
-                        {/* Quick Actions */}
-                        <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs">
-                            <h2 className="text-base font-bold text-[#1b1c19] mb-4 font-heading">
-                                Quick Actions
-                            </h2>
-                            <div className="grid grid-cols-2 gap-2.5">
-                                {quickActions.map((item) => {
-                                    const Icon = item.icon;
-                                    return (
-                                        <button
-                                            key={item.label}
-                                            onClick={item.action}
-                                            className="flex flex-col items-center justify-center p-3 rounded-2xl bg-[#f5f3ee] border border-[#e4e2dd] text-xs font-semibold text-[#1b1c19] hover:bg-[#e8e2d9] hover:border-[#1c1b1b] transition-all gap-2"
-                                        >
-                                            <Icon className="w-5 h-5 text-[#d95e36]" />
-                                            <span>{item.label}</span>
-                                        </button>
-                                    );
-                                })}
+                    {/* Stats Overview */}
+                    <div className={`grid grid-cols-1 ${isAdmin() ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-4`}>
+                        <div className="bg-white p-5 rounded-2xl border border-[#e4e2dd] shadow-xs flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-[#e8e2d9] text-[#1c1b1b] flex items-center justify-center font-bold">
+                                <Building2 className="w-6 h-6 text-[#1c1b1b]" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-extrabold text-[#1b1c19] font-heading">{stats.joined_clubs}</div>
+                                <div className="text-xs font-semibold text-[#615e57]">Joined Clubs</div>
                             </div>
                         </div>
 
-                        {/* Recent Notifications */}
-                        <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-base font-bold text-[#1b1c19] flex items-center gap-2 font-heading">
-                                    <Bell className="w-5 h-5 text-[#d95e36]" /> Notifications
-                                </h2>
-                                {unreadCount > 0 && (
-                                    <span className="bg-[#ba1a1a] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                        {unreadCount} new
-                                    </span>
+                        <div className="bg-white p-5 rounded-2xl border border-[#e4e2dd] shadow-xs flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-[#e8e2d9] text-[#1c1b1b] flex items-center justify-center font-bold">
+                                <Calendar className="w-6 h-6 text-[#1c1b1b]" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-extrabold text-[#1b1c19] font-heading">{stats.upcoming_events}</div>
+                                <div className="text-xs font-semibold text-[#615e57]">Upcoming Events</div>
+                            </div>
+                        </div>
+
+                        {isAdmin() && (
+                            <div className="bg-white p-5 rounded-2xl border border-[#e4e2dd] shadow-xs flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-[#e8e2d9] text-[#1c1b1b] flex items-center justify-center font-bold">
+                                    <Target className="w-6 h-6 text-[#1c1b1b]" />
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-extrabold text-[#1b1c19] font-heading">{stats.pending_requests}</div>
+                                    <div className="text-xs font-semibold text-[#615e57]">Pending Approvals</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Content Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Main Column (2 cols) */}
+                        <div className="lg:col-span-2 space-y-8">
+                            {/* My Clubs */}
+                            <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-lg font-bold text-[#1b1c19] flex items-center gap-2 font-heading">
+                                        <Building2 className="w-5 h-5 text-[#d95e36]" /> My Clubs
+                                    </h2>
+                                    <Link to="/clubs" className="text-xs font-bold text-[#d95e36] hover:underline flex items-center gap-1">
+                                        View All <ArrowRight className="w-3.5 h-3.5" />
+                                    </Link>
+                                </div>
+
+                                {clubs.length === 0 ? (
+                                    <div className="p-6 text-center bg-[#f5f3ee] rounded-xl border border-dashed border-[#cbc6bd] space-y-2">
+                                        <p className="text-xs font-semibold text-[#615e57]">You haven't joined any clubs yet.</p>
+                                        <Link
+                                            to="/clubs"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1c1b1b] text-white text-xs font-bold rounded-lg hover:bg-[#30312e] transition-colors"
+                                        >
+                                            <Plus className="w-3.5 h-3.5" /> Join a Club
+                                        </Link>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {clubs.map((c) => (
+                                            <Link
+                                                key={c.id}
+                                                to={`/clubs/${c.id}`}
+                                                className="p-4 rounded-xl border border-[#e4e2dd] bg-[#f5f3ee] hover:bg-[#eae8e3] transition-colors flex items-center gap-3 group"
+                                            >
+                                                <div className="w-10 h-10 bg-[#1c1b1b] text-white rounded-lg flex items-center justify-center font-bold text-sm shrink-0 group-hover:scale-105 transition-transform">
+                                                    {c.logo_url ? (
+                                                        <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover rounded-lg" />
+                                                    ) : (
+                                                        c.name.charAt(0)
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="font-bold text-xs text-[#1b1c19] truncate group-hover:text-[#d95e36] transition-colors">
+                                                        {c.name}
+                                                    </div>
+                                                    <div className="text-[11px] text-[#615e57] capitalize">{c.pivot?.role || 'Member'}</div>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
                                 )}
                             </div>
 
-                            {recentNotifications.length === 0 ? (
-                                <p className="text-xs text-[#615e57] py-2">No notifications yet.</p>
-                            ) : (
-                                <div className="space-y-3">
-                                    {recentNotifications.map((notif) => (
-                                        <div
-                                            key={notif.id}
-                                            onClick={() => {
-                                                if (!notif.is_read) {
-                                                    notificationService.markRead(notif.id).catch(() => {});
-                                                }
-                                                navigate(getNotificationTargetUrl(notif));
-                                            }}
-                                            className={`p-3 rounded-2xl border text-xs cursor-pointer transition hover:shadow-xs ${
-                                                notif.is_read ? 'bg-[#f5f3ee] border-[#e4e2dd] hover:bg-[#eae8e3]' : 'bg-[#ffdbd0]/40 border-[#ffb59f] font-semibold hover:bg-[#ffdbd0]/70'
-                                            }`}
-                                        >
-                                            <div className="font-bold text-[#1b1c19]">{notif.title || notif.type}</div>
-                                            <div className="text-[#444748] line-clamp-2 mt-0.5">{notif.message}</div>
-                                            <div className="text-[10px] text-[#615e57] mt-1">{new Date(notif.created_at).toLocaleString()}</div>
-                                        </div>
-                                    ))}
-                                    <Link
-                                        to="/notifications"
-                                        className="block text-center text-xs font-bold text-[#d95e36] hover:underline pt-2"
-                                    >
-                                        View All Notifications &rarr;
+                            {/* Upcoming Events */}
+                            <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-lg font-bold text-[#1b1c19] flex items-center gap-2 font-heading">
+                                        <Calendar className="w-5 h-5 text-[#d95e36]" /> Upcoming Campus Events
+                                    </h2>
+                                    <Link to="/events" className="text-xs font-bold text-[#d95e36] hover:underline flex items-center gap-1">
+                                        View All <ArrowRight className="w-3.5 h-3.5" />
                                     </Link>
                                 </div>
-                            )}
+
+                                {events.length === 0 ? (
+                                    <p className="text-xs text-[#615e57]">No upcoming events scheduled.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {events.map((ev) => (
+                                            <Link
+                                                key={ev.id}
+                                                to={`/events/${ev.id}`}
+                                                className="p-4 rounded-xl border border-[#e4e2dd] hover:border-[#cbc6bd] hover:shadow-xs transition-all flex items-start justify-between gap-4 block"
+                                            >
+                                                <div className="space-y-1">
+                                                    <h3 className="text-sm font-bold text-[#1b1c19]">{ev.title}</h3>
+                                                    <p className="text-xs text-[#615e57] line-clamp-1">{ev.description}</p>
+                                                    <div className="flex items-center gap-3 text-[11px] text-[#615e57] pt-1">
+                                                        <span className="font-semibold text-[#d95e36]">
+                                                            {new Date(ev.start_time).toLocaleDateString()}
+                                                        </span>
+                                                        <span>•</span>
+                                                        <span>{ev.location}</span>
+                                                    </div>
+                                                </div>
+                                                {ev.club && (
+                                                    <span className="px-2.5 py-1 bg-[#e8e2d9] text-[#1b1c19] text-[10px] font-bold rounded-full shrink-0">
+                                                        {ev.club.name}
+                                                    </span>
+                                                )}
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                    </div>
+                        {/* Right Sidebar Column */}
+                        <div className="space-y-6">
+                            {/* Recent Notifications */}
+                            <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-base font-bold text-[#1b1c19] flex items-center gap-2 font-heading">
+                                        <Bell className="w-5 h-5 text-[#d95e36]" /> Notifications
+                                    </h2>
+                                    {unreadCount > 0 && (
+                                        <span className="bg-[#ba1a1a] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                            {unreadCount} new
+                                        </span>
+                                    )}
+                                </div>
 
+                                {recentNotifications.length === 0 ? (
+                                    <p className="text-xs text-[#615e57] py-2">No notifications yet.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {recentNotifications.map((notif) => {
+                                            const isAnnounce = isAnnouncementNotification(notif);
+                                            return (
+                                                <div
+                                                    key={notif.id}
+                                                    onClick={() => handleNotificationClick(notif)}
+                                                    className={`p-3 rounded-2xl border text-xs cursor-pointer transition hover:shadow-xs ${
+                                                        notif.is_read
+                                                            ? 'bg-[#f5f3ee] border-[#e4e2dd] hover:bg-[#eae8e3]'
+                                                            : 'bg-[#ffdbd0]/40 border-[#ffb59f] font-semibold hover:bg-[#ffdbd0]/70'
+                                                    }`}
+                                                >
+                                                    <div className="font-bold text-[#1b1c19] flex items-center gap-1.5">
+                                                        {isAnnounce && <Megaphone className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                                                        <span>{notif.title || notif.type}</span>
+                                                    </div>
+                                                    <div className="text-[#444748] line-clamp-2 mt-0.5">{notif.message}</div>
+                                                    <div className="text-[10px] text-[#615e57] mt-1">
+                                                        {new Date(notif.created_at).toLocaleString()}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        <Link
+                                            to="/notifications"
+                                            className="block text-center text-xs font-bold text-[#d95e36] hover:underline pt-2"
+                                        >
+                                            View All Notifications &rarr;
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
+
+            {/* Announcement Dialog Box Modal */}
+            <Modal
+                isOpen={isDialogOpen}
+                onClose={() => setIsDialogOpen(false)}
+                title="Announcement Details"
+            >
+                {isDialogLoading ? (
+                    <div className="py-8">
+                        <LoadingSpinner />
+                    </div>
+                ) : selectedAnnouncement ? (
+                    <div className="space-y-4">
+                        <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                            <div className="p-2.5 bg-amber-100 rounded-xl text-amber-700">
+                                <Megaphone className="w-6 h-6" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-lg font-bold text-[#0b1c30]">
+                                    {selectedAnnouncement.title}
+                                </h3>
+                                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                                    {selectedAnnouncement.author && (
+                                        <span className="flex items-center gap-1">
+                                            <User className="w-3.5 h-3.5 text-slate-400" />
+                                            {selectedAnnouncement.author.name}
+                                        </span>
+                                    )}
+                                    {(selectedAnnouncement.club?.name || selectedAnnouncement.target_club?.name) && (
+                                        <span className="flex items-center gap-1">
+                                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                            {selectedAnnouncement.club?.name || selectedAnnouncement.target_club?.name}
+                                        </span>
+                                    )}
+                                    {selectedAnnouncement.created_at && (
+                                        <span className="flex items-center gap-1">
+                                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                            {new Date(selectedAnnouncement.created_at).toLocaleString()}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <p className="text-sm text-slate-800 whitespace-pre-line leading-relaxed">
+                                {selectedAnnouncement.body}
+                            </p>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                            <button
+                                onClick={() => setIsDialogOpen(false)}
+                                className="px-4 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors shadow-xs"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                ) : null}
+            </Modal>
         </MainLayout>
     );
 };

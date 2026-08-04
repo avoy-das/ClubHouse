@@ -19,22 +19,28 @@ class ClubController extends Controller
     public function store(CreateClubRequest $request)
     {
         $logoPath = null;
+        $permissionDocPath = null;
 
         if ($request->hasFile('logo')) {
             $logoPath = $request->file('logo')->store('logos', 'public');
         }
 
+        if ($request->hasFile('permission_document')) {
+            $permissionDocPath = $request->file('permission_document')->store('club_permissions', 'public');
+        }
+
         $club = Club::create([
-            'name'          => $request->name,
-            'category'      => $request->category,
-            'description'   => $request->description,
-            'department'    => $request->department,
-            'contact_email' => $request->contact_email,
-            'contact_phone' => $request->contact_phone,
-            'logo_path'     => $logoPath,
-            'reason'        => $request->reason,
-            'status'        => 'pending',
-            'created_by'    => $request->user()->id,
+            'name'                => $request->name,
+            'category'            => $request->category,
+            'description'         => $request->description,
+            'department'          => $request->department,
+            'contact_email'       => $request->contact_email,
+            'contact_phone'       => $request->contact_phone,
+            'logo_path'           => $logoPath,
+            'permission_doc_path' => $permissionDocPath,
+            'reason'              => $request->reason,
+            'status'              => 'pending',
+            'created_by'          => $request->user()->id,
         ]);
 
         AuditService::log('club.created', $club);
@@ -54,9 +60,13 @@ class ClubController extends Controller
         ], 201);
     }
 
-    // Any authenticated user can view approved clubs
-    public function index()
+    // Any authenticated user can view approved clubs (or executive-scoped clubs if requested)
+    public function index(Request $request): JsonResponse
     {
+        if ($request->query('scope') === 'executive') {
+            return response()->json($request->user()->getExecutiveClubs());
+        }
+
         $clubs = Club::where('status', 'approved')
             ->with('creator:id,name')
             ->withCount('members')
@@ -66,14 +76,23 @@ class ClubController extends Controller
         return response()->json($clubs);
     }
 
-    // Any authenticated user can view a single approved club
-    public function show(Club $club)
+    // Authenticated user gets list of clubs where they are an executive
+    public function executiveClubs(Request $request): JsonResponse
     {
-        if ($club->status !== 'approved') {
+        return response()->json($request->user()->getExecutiveClubs());
+    }
+
+    // Any authenticated user can view an approved club (or admins/members/creators for pending/suspended clubs)
+    public function show(Request $request, Club $club)
+    {
+        $user = $request->user();
+        $isMemberOrExec = $user && ClubMember::where('club_id', $club->id)->where('user_id', $user->id)->exists();
+
+        if ($club->status !== 'approved' && (!$user || (!$user->is_admin && $club->created_by !== $user->id && !$isMemberOrExec))) {
             return response()->json(['message' => 'Club not found.'], 404);
         }
 
-        $club->load('creator:id,name', 'members.user:id,name');
+        $club->load('creator:id,name', 'members.user:id,name', 'members.positions.position');
 
         return response()->json($club);
     }
@@ -164,13 +183,13 @@ class ClubController extends Controller
         ]);
     }
 
-    // Admin or Club Executive — update club details
+    // Admin only — update club details
     public function update(UpdateClubRequest $request, Club $club)
     {
         $user = $request->user();
 
-        if (!$this->canManageClub($user, $club)) {
-            return response()->json(['message' => 'Only club executives or admins can edit club details.'], 403);
+        if (!$user->is_admin) {
+            return response()->json(['message' => 'Only administrators can edit club details.'], 403);
         }
 
         $data = $request->validated();
@@ -185,17 +204,15 @@ class ClubController extends Controller
 
         AuditService::log('club.updated', $club);
 
-        if ($user->is_admin) {
-            NotificationService::notifyClubExecutives(
-                $club->id,
-                'club_updated',
-                'Club Details Updated',
-                "An admin has updated details for your club '{$club->name}'.",
-                Club::class,
-                $club->id,
-                $user->id
-            );
-        }
+        NotificationService::notifyClubMembers(
+            $club->id,
+            'club_updated',
+            'Club Details Updated',
+            "The details for club '{$club->name}' have been updated by an administrator.",
+            Club::class,
+            $club->id,
+            $user->id
+        );
 
         return response()->json([
             'message' => 'Club updated successfully.',
@@ -321,6 +338,28 @@ class ClubController extends Controller
             ], 404);
         }
 
+        if ($authUser->id === $user->id && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'You cannot modify your own role in the club.',
+            ], 403);
+        }
+
+        $callerRank = $authUser->getClubRank($club);
+        $targetCurrentRank = $membership->getHighestRank();
+        $newRoleRank = ClubMember::getRoleRank($newRole);
+
+        if ($targetCurrentRank >= $callerRank && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'Only higher ranks can control members of lower ranks. You cannot modify the role of a member with an equal or higher rank.',
+            ], 403);
+        }
+
+        if ($newRoleRank >= $callerRank && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'You cannot assign or promote a member to a role rank equal to or higher than your own rank.',
+            ], 403);
+        }
+
         $oldRole = $membership->role;
 
         $membership->update([
@@ -363,6 +402,21 @@ class ClubController extends Controller
             return response()->json([
                 'message' => 'This user is not a member of the club.',
             ], 404);
+        }
+
+        if ($authUser->id === $user->id && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'You cannot remove yourself from the club.',
+            ], 403);
+        }
+
+        $callerRank = $authUser->getClubRank($club);
+        $targetCurrentRank = $membership->getHighestRank();
+
+        if ($targetCurrentRank >= $callerRank && !$authUser->is_admin) {
+            return response()->json([
+                'message' => 'Only higher ranks can control members of lower ranks. You cannot remove a member with an equal or higher rank.',
+            ], 403);
         }
 
         // Prevent kicking president unless auth user is admin

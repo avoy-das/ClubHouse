@@ -23,6 +23,7 @@ class StoreEventRequest extends FormRequest
             'starts_at'      => ['required', 'date', 'after:now'],
             'ends_at'        => ['required', 'date', 'after:starts_at'],
             'capacity'       => ['required', 'integer', 'min:1'],
+            'status'         => ['nullable', 'string', 'in:draft,published,upcoming,ongoing,completed,cancelled'],
         ];
     }
 

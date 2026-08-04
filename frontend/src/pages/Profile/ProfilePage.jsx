@@ -3,6 +3,7 @@ import MainLayout from '../../layouts/MainLayout';
 import { useAuth } from '../../context/AuthContext';
 import authService from '../../services/authService';
 import clubService from '../../services/clubService';
+import api from '../../services/api';
 import { Link } from 'react-router-dom';
 
 const roleLabels = {
@@ -16,7 +17,7 @@ const roleLabels = {
 const ProfilePage = () => {
     const { user, setUser } = useAuth();
 
-    const [activeTab, setActiveTab] = useState('overview'); // overview, password, memberships
+    const [activeTab, setActiveTab] = useState('overview'); // overview, password, memberships, past_events
 
     // Edit Profile form state
     const [phone, setPhone] = useState(user?.phone || '');
@@ -37,6 +38,10 @@ const ProfilePage = () => {
     const [leavingClubId, setLeavingClubId] = useState(null);
     const [membershipToast, setMembershipToast] = useState(null);
 
+    // Past events state
+    const [pastEvents, setPastEvents] = useState([]);
+    const [loadingPastEvents, setLoadingPastEvents] = useState(true);
+
     useEffect(() => {
         if (user) {
             setPhone(user.phone || '');
@@ -47,8 +52,28 @@ const ProfilePage = () => {
     useEffect(() => {
         if (activeTab === 'memberships') {
             fetchMemberships();
+        } else if (activeTab === 'past_events') {
+            fetchPastEvents();
         }
     }, [activeTab]);
+
+    const fetchPastEvents = async () => {
+        setLoadingPastEvents(true);
+        try {
+            const res = await api.get('/events', {
+                params: {
+                    registered: 'true',
+                    date_preset: 'past',
+                }
+            });
+            const data = res.data?.data || res.data || [];
+            setPastEvents(Array.isArray(data) ? data : []);
+        } catch {
+            setPastEvents([]);
+        } finally {
+            setLoadingPastEvents(false);
+        }
+    };
 
     const fetchMemberships = async () => {
         setLoadingMemberships(true);
@@ -201,6 +226,16 @@ const ProfilePage = () => {
                         }`}
                     >
                         My Club Memberships
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('past_events')}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                            activeTab === 'past_events'
+                                ? 'bg-slate-900 text-white'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                    >
+                        Past Events
                     </button>
                 </div>
 
@@ -427,6 +462,74 @@ const ProfilePage = () => {
                                                 {leavingClubId === membership.club_id ? 'Leaving...' : 'Leave Club'}
                                             </button>
                                         </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Tab 4: Past Events */}
+                {activeTab === 'past_events' && (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+                        <div>
+                            <h2 className="text-base font-semibold text-slate-900">My Past Events</h2>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                A list of every event you registered for in the past.
+                            </p>
+                        </div>
+
+                        {loadingPastEvents ? (
+                            <p className="text-slate-400 text-sm py-4 animate-pulse">Loading past registered events...</p>
+                        ) : pastEvents.length === 0 ? (
+                            <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl">
+                                <p className="text-slate-500 text-sm mb-3">No past registered events found.</p>
+                                <Link
+                                    to="/events"
+                                    className="px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors inline-block"
+                                >
+                                    Browse Campus Events
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-slate-100">
+                                {pastEvents.map((ev) => (
+                                    <div key={ev.id} className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <Link
+                                                    to={`/events/${ev.id}`}
+                                                    className="font-bold text-slate-900 text-sm hover:text-indigo-600 transition-colors"
+                                                >
+                                                    {ev.title}
+                                                </Link>
+                                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
+                                                    ev.status === 'completed' ? 'bg-slate-100 text-slate-700' :
+                                                    ev.status === 'cancelled' ? 'bg-rose-100 text-rose-800' :
+                                                    'bg-blue-100 text-blue-800'
+                                                }`}>
+                                                    {ev.status}
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                                {ev.club && <span className="font-semibold text-blue-600">{ev.club.name}</span>}
+                                                <span>&bull;</span>
+                                                <span>{new Date(ev.starts_at).toLocaleDateString()}</span>
+                                                {ev.location_value && (
+                                                    <>
+                                                        <span>&bull;</span>
+                                                        <span>📍 {ev.location_value}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <Link
+                                            to={`/events/${ev.id}`}
+                                            className="px-3.5 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold rounded-lg transition-colors shrink-0"
+                                        >
+                                            View Event Details
+                                        </Link>
                                     </div>
                                 ))}
                             </div>

@@ -14,8 +14,9 @@ return new class extends Migration
         Schema::table('announcements', function (Blueprint $table) {
             $table->json('targets')->nullable();
         });
-        // Make club_id nullable safely
-        \Illuminate\Support\Facades\DB::statement('ALTER TABLE announcements MODIFY club_id BIGINT UNSIGNED NULL');
+        if (\Illuminate\Support\Facades\DB::getDriverName() !== 'sqlite') {
+            \Illuminate\Support\Facades\DB::statement('ALTER TABLE announcements MODIFY club_id BIGINT UNSIGNED NULL');
+        }
     }
 
     public function down(): void
@@ -23,6 +24,8 @@ return new class extends Migration
         Schema::table('announcements', function (Blueprint $table) {
             $table->dropColumn('targets');
         });
-        \Illuminate\Support\Facades\DB::statement('ALTER TABLE announcements MODIFY club_id BIGINT UNSIGNED NOT NULL');
+        if (\Illuminate\Support\Facades\DB::getDriverName() !== 'sqlite') {
+            \Illuminate\Support\Facades\DB::statement('ALTER TABLE announcements MODIFY club_id BIGINT UNSIGNED NOT NULL');
+        }
     }
 };

@@ -31,6 +31,29 @@ class NotificationService
     }
 
     /**
+     * Send notification to all registered users.
+     */
+    public static function notifyAllUsers(
+        string $type,
+        string $title,
+        string $message,
+        ?string $relatedType = null,
+        ?int $relatedId = null,
+        ?int $excludeUserId = null
+    ): void {
+        $query = User::query();
+        if ($excludeUserId) {
+            $query->where('id', '!=', $excludeUserId);
+        }
+
+        $userIds = $query->pluck('id');
+
+        foreach ($userIds as $userId) {
+            self::notifyUser($userId, $type, $title, $message, $relatedType, $relatedId);
+        }
+    }
+
+    /**
      * Send notification to all platform admins.
      */
     public static function notifyAdmins(

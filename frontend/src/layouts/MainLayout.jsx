@@ -17,6 +17,7 @@ import {
     Award,
     PanelLeft,
     PanelLeftClose,
+    Building2Icon,
 } from 'lucide-react';
 
 const MainLayout = ({ children }) => {
@@ -168,9 +169,8 @@ const MainLayout = ({ children }) => {
             <div className="flex flex-1">
                 {/* Collapsible Vertical Sidebar */}
                 <aside
-                    className={`bg-[#f5f3ee] border-r border-[#e4e2dd] transition-all duration-300 flex flex-col shrink-0 sticky top-16 h-[calc(100vh-4rem)] z-40 ${
-                        isCollapsed ? 'w-16' : 'w-60'
-                    }`}
+                    className={`bg-[#f5f3ee] border-r border-[#e4e2dd] transition-all duration-300 flex flex-col shrink-0 sticky top-16 h-[calc(100vh-4rem)] z-40 ${isCollapsed ? 'w-16' : 'w-60'
+                        }`}
                 >
                     <div className="p-3 space-y-1.5 flex-1 overflow-y-auto">
                         {navItems.map((item) => {
@@ -184,16 +184,14 @@ const MainLayout = ({ children }) => {
                                     key={item.to}
                                     to={item.to}
                                     title={isCollapsed ? item.label : undefined}
-                                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                                        active
-                                            ? 'bg-[#e8e2d9] text-[#1d1b16] shadow-xs font-bold'
-                                            : 'text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3]'
-                                    } ${isCollapsed ? 'justify-center px-0' : ''}`}
+                                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${active
+                                        ? 'bg-[#e8e2d9] text-[#1d1b16] shadow-xs font-bold'
+                                        : 'text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3]'
+                                        } ${isCollapsed ? 'justify-center px-0' : ''}`}
                                 >
                                     <Icon
-                                        className={`w-5 h-5 shrink-0 ${
-                                            active ? 'text-[#1c1b1b]' : 'text-[#615e57]'
-                                        }`}
+                                        className={`w-5 h-5 shrink-0 ${active ? 'text-[#1c1b1b]' : 'text-[#615e57]'
+                                            }`}
                                     />
                                     {!isCollapsed && <span className="truncate">{item.label}</span>}
                                 </Link>

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreAnnouncementRequest;
-use App\Http\Requests\UpdateAnnouncementRequest;
 use App\Models\Announcement;
 use App\Models\Club;
+use App\Models\ClubMember;
+use App\Models\User;
 use App\Models\Notification;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
@@ -14,162 +14,237 @@ use Illuminate\Support\Facades\DB;
 
 class AnnouncementController extends Controller
 {
-    private function filterForUser($query, $user)
-    {
-        $userClubIds = \App\Models\ClubMember::where('user_id', $user->id)
-            ->where('status', 'active')
-            ->pluck('club_id');
-
-        $query->where(function($q) use ($user, $userClubIds) {
-            // 1. all_users
-            $q->whereJsonContains('targets->types', 'all_users');
-            
-            // 2. entire_club
-            $q->orWhere(function($subQ) use ($userClubIds) {
-                $subQ->whereJsonContains('targets->types', 'entire_club');
-                $subQ->where(function($clubQ) use ($userClubIds) {
-                    foreach ($userClubIds as $cId) {
-                        $clubQ->orWhereJsonContains('targets->club_ids', $cId);
-                    }
-                    $clubQ->orWhere(function($fallbackQ) use ($userClubIds) {
-                        $fallbackQ->whereIn('club_id', $userClubIds);
-                    });
-                });
-            });
-
-            // 3. single_user or single_club_member
-            $q->orWhere(function($subQ) use ($user) {
-                $subQ->where(function($typeQ) {
-                    $typeQ->whereJsonContains('targets->types', 'single_user')
-                          ->orWhereJsonContains('targets->types', 'single_club_member');
-                })
-                ->whereJsonContains('targets->user_ids', $user->id);
-            });
-            
-            // 4. Backward compatibility
-            $q->orWhere(function($subQ) use ($userClubIds) {
-                $subQ->whereNull('targets')
-                     ->whereIn('club_id', $userClubIds);
-            });
-            
-            // 5. Posted by self
-            $q->orWhere('posted_by', $user->id);
-        });
-
-        return $query;
-    }
-
     public function index(Request $request, Club $club): JsonResponse
     {
-        $query = Announcement::where('club_id', $club->id)
-            ->with('author')
-            ->orderBy('is_pinned', 'desc')
-            ->latest();
-            
-        $this->filterForUser($query, $request->user());
+        $user = $request->user();
+        $userId = $user ? $user->id : null;
 
-        return response()->json($query->get());
+        $unpinnedAnnouncementIds = DB::table('announcement_recipients')
+            ->where('user_id', $userId)
+            ->where('is_unpinned', true)
+            ->pluck('announcement_id')
+            ->toArray();
+
+        $announcements = Announcement::where('club_id', $club->id)
+            ->orWhere('target_club_id', $club->id)
+            ->with(['author', 'club', 'targetClub', 'targetUser'])
+            ->latest()
+            ->get();
+
+        $transformed = $announcements->map(function ($announcement) use ($unpinnedAnnouncementIds) {
+            $arr = $announcement->toArray();
+            $isUnpinnedByMe = in_array($announcement->id, $unpinnedAnnouncementIds);
+            $arr['is_pinned_for_me'] = (bool) ($announcement->is_pinned && !$isUnpinnedByMe);
+            return $arr;
+        })->sortByDesc(fn($a) => $a['is_pinned_for_me'] ? 1 : 0)->values();
+
+        return response()->json($transformed);
     }
 
-    public function storeGlobal(StoreAnnouncementRequest $request): JsonResponse
+    public function allAnnouncements(Request $request): JsonResponse
     {
-        return $this->processAnnouncementCreation($request->validated(), clone $request->user(), null);
+        $user = $request->user();
+        $userId = $user ? $user->id : null;
+
+        $unpinnedAnnouncementIds = DB::table('announcement_recipients')
+            ->where('user_id', $userId)
+            ->where('is_unpinned', true)
+            ->pluck('announcement_id')
+            ->toArray();
+
+        if ($user->is_admin) {
+            $announcements = Announcement::with(['club', 'author', 'targetClub', 'targetUser'])
+                ->latest()
+                ->get();
+        } else {
+            $userClubIds = ClubMember::where('user_id', $user->id)
+                ->where('status', 'active')
+                ->pluck('club_id');
+
+            $announcements = Announcement::where('target_type', 'all_users')
+                ->orWhere('posted_by', $user->id)
+                ->orWhereHas('recipients', function ($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                })
+                ->orWhereIn('club_id', $userClubIds)
+                ->orWhereIn('target_club_id', $userClubIds)
+                ->with(['club', 'author', 'targetClub', 'targetUser'])
+                ->latest()
+                ->get()
+                ->unique('id')
+                ->values();
+        }
+
+        $transformed = $announcements->map(function ($announcement) use ($unpinnedAnnouncementIds) {
+            $arr = $announcement->toArray();
+            $isUnpinnedByMe = in_array($announcement->id, $unpinnedAnnouncementIds);
+            $arr['is_pinned_for_me'] = (bool) ($announcement->is_pinned && !$isUnpinnedByMe);
+            return $arr;
+        })->sortByDesc(fn($a) => $a['is_pinned_for_me'] ? 1 : 0)->values();
+
+        return response()->json($transformed);
     }
 
-    public function store(StoreAnnouncementRequest $request, Club $club): JsonResponse
+    public function creationContext(Request $request): JsonResponse
     {
-        $this->authorize('create', [Announcement::class, $club]);
-        return $this->processAnnouncementCreation($request->validated(), clone $request->user(), $club->id);
+        $user = $request->user();
+        $execClubs = $user->getExecutiveClubs();
+        $canCreate = $user->is_admin || $execClubs->count() > 0;
+
+        return response()->json([
+            'is_admin'    => (bool) $user->is_admin,
+            'can_create'  => $canCreate,
+            'exec_clubs'  => $execClubs,
+            'all_clubs'   => $user->is_admin ? Club::where('status', 'approved')->get(['id', 'name']) : [],
+            'all_users'   => $user->is_admin ? User::select('id', 'name', 'student_id', 'email')->get() : [],
+        ]);
     }
 
-    private function processAnnouncementCreation(array $data, $user, ?int $clubId): JsonResponse
+    public function clubMembers(Request $request, Club $club): JsonResponse
     {
-        $targets = $data['targets'] ?? ['types' => [$clubId ? 'entire_club' : 'all_users']];
-        
-        $announcement = Announcement::create([
-            'club_id'   => $clubId,
-            'title'     => $data['title'],
-            'body'      => $data['body'],
-            'posted_by' => $user->id,
-            'is_pinned' => $data['is_pinned'] ?? false,
-            'targets'   => $targets,
+        $members = User::whereHas('clubMemberships', function ($q) use ($club) {
+            $q->where('club_id', $club->id)->where('status', 'active');
+        })->select('id', 'name', 'student_id', 'email')->get();
+
+        return response()->json($members);
+    }
+
+    public function store(Request $request, ?Club $club = null): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'title'          => 'required|string|max:255',
+            'body'           => 'required|string',
+            'is_pinned'      => 'boolean',
+            'target_type'    => 'required|string|in:all_users,specific_user,club_members,club_executives,specific_club_member',
+            'target_club_id' => 'nullable|exists:clubs,id',
+            'target_user_id' => 'nullable|exists:users,id',
         ]);
 
-        $userIdsToNotify = [];
-        $types = $targets['types'] ?? [];
+        if ($club && empty($validated['target_club_id'])) {
+            $validated['target_club_id'] = $club->id;
+        }
 
-        if (in_array('all_users', $types)) {
-            $userIdsToNotify = \App\Models\User::pluck('id')->toArray();
-        } else {
-            if (in_array('entire_club', $types)) {
-                $cIds = $targets['club_ids'] ?? [];
-                if (empty($cIds) && $clubId) {
-                    $cIds = [$clubId];
-                }
-                if (!empty($cIds)) {
-                    $clubMembers = \App\Models\ClubMember::whereIn('club_id', $cIds)
-                        ->where('status', 'active')
-                        ->pluck('user_id')->toArray();
-                    $userIdsToNotify = array_merge($userIdsToNotify, $clubMembers);
-                }
-            }
-            if (in_array('single_user', $types) || in_array('single_club_member', $types)) {
-                if (!empty($targets['user_ids'])) {
-                    $userIdsToNotify = array_merge($userIdsToNotify, $targets['user_ids']);
+        // Authorization check
+        $execClubs = $user->getExecutiveClubs();
+        if (!$user->is_admin && $execClubs->count() === 0) {
+            return response()->json(['message' => 'Unauthorized. Only Administrators and Club Executives can create announcements.'], 403);
+        }
+
+        // Non-admin rules enforcement
+        if (!$user->is_admin) {
+            if (in_array($validated['target_type'], ['club_members', 'club_executives', 'specific_club_member'])) {
+                if (empty($validated['target_club_id']) || !$execClubs->pluck('id')->contains($validated['target_club_id'])) {
+                    return response()->json(['message' => 'You can only select clubs where you are an executive.'], 403);
                 }
             }
+
+            if ($validated['target_type'] === 'specific_club_member') {
+                if (empty($validated['target_user_id'])) {
+                    return response()->json(['message' => 'Target user is required for specific member announcements.'], 422);
+                }
+                $isMember = ClubMember::where('club_id', $validated['target_club_id'])
+                    ->where('user_id', $validated['target_user_id'])
+                    ->where('status', 'active')
+                    ->exists();
+
+                if (!$isMember) {
+                    return response()->json(['message' => 'The selected user is not an active member of your club.'], 422);
+                }
+            }
         }
 
-        $userIdsToNotify = array_unique($userIdsToNotify);
-        $userIdsToNotify = array_diff($userIdsToNotify, [$user->id]);
-
-        $notifications = [];
-        foreach ($userIdsToNotify as $recipientId) {
-            $notifications[] = [
-                'user_id' => $recipientId,
-                'type' => 'announcement_posted',
-                'title' => 'New Announcement',
-                'message' => "New announcement: {$announcement->title}",
-                'related_type' => Announcement::class,
-                'related_id' => $announcement->id,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-        }
-        
-        if (!empty($notifications)) {
-            Notification::insert($notifications);
+        if ($validated['target_type'] === 'specific_user' && empty($validated['target_user_id'])) {
+            return response()->json(['message' => 'Target user is required.'], 422);
         }
 
-        \App\Services\AuditService::log('announcement_created', $announcement, [
-            'title' => $announcement->title,
-            'target_types' => $types,
-            'recipient_count' => count($userIdsToNotify)
-        ], $user->id);
+        if (in_array($validated['target_type'], ['club_members', 'club_executives', 'specific_club_member']) && empty($validated['target_club_id'])) {
+            return response()->json(['message' => 'Target club is required.'], 422);
+        }
 
-        return response()->json($announcement->load('author'), 201);
+        $announcement = Announcement::create([
+            'club_id'        => $validated['target_club_id'] ?? ($club ? $club->id : null),
+            'title'          => $validated['title'],
+            'body'           => $validated['body'],
+            'posted_by'      => $user->id,
+            'is_pinned'      => $validated['is_pinned'] ?? false,
+            'target_type'    => $validated['target_type'],
+            'target_club_id' => $validated['target_club_id'] ?? null,
+            'target_user_id' => $validated['target_user_id'] ?? null,
+        ]);
+
+        // Resolve recipients
+        $recipientUserIds = [];
+
+        switch ($validated['target_type']) {
+            case 'all_users':
+                $recipientUserIds = User::pluck('id')->toArray();
+                break;
+            case 'specific_user':
+                $recipientUserIds = [$validated['target_user_id']];
+                break;
+            case 'club_members':
+                $recipientUserIds = ClubMember::where('club_id', $validated['target_club_id'])
+                    ->where('status', 'active')
+                    ->pluck('user_id')
+                    ->toArray();
+                break;
+            case 'club_executives':
+                $recipientUserIds = ClubMember::where('club_id', $validated['target_club_id'])
+                    ->where('status', 'active')
+                    ->where(function ($q) {
+                        $q->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
+                          ->orWhereHas('positions', function ($p) {
+                              $p->where(function ($p2) {
+                                  $p2->whereNull('ends_at')->orWhere('ends_at', '>', now());
+                              })->whereHas('position', fn ($q3) => $q3->where('can_manage_announcements', true));
+                          });
+                    })
+                    ->pluck('user_id')
+                    ->toArray();
+                break;
+            case 'specific_club_member':
+                $recipientUserIds = [$validated['target_user_id']];
+                break;
+        }
+
+        $recipientUserIds = array_unique($recipientUserIds);
+        $announcement->recipients()->syncWithoutDetaching($recipientUserIds);
+
+        // Notify recipients
+        foreach ($recipientUserIds as $recipientId) {
+            NotificationService::notifyUser(
+                $recipientId,
+                'announcement_posted',
+                'New Announcement',
+                "New announcement: '{$announcement->title}'",
+                Announcement::class,
+                $announcement->id
+            );
+        }
+
+        return response()->json($announcement->load(['club', 'author', 'targetClub', 'targetUser']), 201);
     }
 
-    public function show(Request $request, Announcement $announcement): JsonResponse
+    public function show(Announcement $announcement): JsonResponse
     {
-        return response()->json($announcement->load(['club', 'author']));
+        return response()->json($announcement->load(['club', 'author', 'targetClub', 'targetUser']));
     }
 
-    public function update(UpdateAnnouncementRequest $request, Announcement $announcement): JsonResponse
+    public function update(Request $request, Announcement $announcement): JsonResponse
     {
         $this->authorize('update', $announcement);
 
-        $data = $request->validated();
-        if (isset($data['targets'])) {
-            $announcement->targets = $data['targets'];
-        }
-        $announcement->update($data);
-        
-        \App\Services\AuditService::log('announcement_updated', $announcement, [
-            'title' => $announcement->title,
-        ], $request->user()->id);
+        $validated = $request->validate([
+            'title'     => 'sometimes|string|max:255',
+            'body'      => 'sometimes|string',
+            'is_pinned' => 'sometimes|boolean',
+        ]);
 
-        return response()->json($announcement->load('author'));
+        $announcement->update($validated);
+
+        return response()->json($announcement->load(['club', 'author', 'targetClub', 'targetUser']));
     }
 
     public function destroy(Request $request, Announcement $announcement): JsonResponse
@@ -187,23 +262,29 @@ class AnnouncementController extends Controller
             );
         }
 
-        \App\Services\AuditService::log('announcement_deleted', $announcement, [
-            'title' => $announcement->title,
-        ], $request->user()->id);
-
         $announcement->delete();
 
         return response()->json(['message' => 'Announcement deleted successfully.']);
     }
 
-    public function allAnnouncements(Request $request): JsonResponse
+    public function unpin(Request $request, Announcement $announcement): JsonResponse
     {
-        $query = Announcement::with(['club:id,name', 'author:id,name'])
-            ->orderBy('is_pinned', 'desc')
-            ->latest();
-            
-        $this->filterForUser($query, $request->user());
+        $user = $request->user();
 
-        return response()->json($query->get());
+        DB::table('announcement_recipients')->updateOrInsert(
+            [
+                'announcement_id' => $announcement->id,
+                'user_id'         => $user->id,
+            ],
+            [
+                'is_unpinned' => true,
+                'updated_at'  => now(),
+            ]
+        );
+
+        return response()->json([
+            'message'      => 'Announcement unpinned for you successfully.',
+            'announcement' => $announcement,
+        ]);
     }
 }

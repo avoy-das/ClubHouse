@@ -11,7 +11,7 @@ class UserController extends Controller
 {
     public function index(): JsonResponse
     {
-        $users = User::with(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,name,title'])
+        $users = User::with(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,title,is_executive'])
             ->latest()
             ->get();
 
@@ -20,7 +20,7 @@ class UserController extends Controller
 
     public function show(User $user): JsonResponse
     {
-        $user->load(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,name,title']);
+        $user->load(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,title,is_executive']);
         return response()->json($user);
     }
 
@@ -52,7 +52,7 @@ class UserController extends Controller
             ]);
         }
 
-        $user->load(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,name,title']);
+        $user->load(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,title,is_executive']);
 
         return response()->json($user);
     }
