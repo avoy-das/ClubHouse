@@ -53,6 +53,6 @@ class Announcement extends Model
 
     public function recipients(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'announcement_recipients')->withTimestamps();
+        return $this->belongsToMany(User::class, 'announcement_recipients')->withPivot('is_unpinned')->withTimestamps();
     }
 }

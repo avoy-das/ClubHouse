@@ -25,6 +25,8 @@ class EventController extends Controller
     // -------------------------------------------------------
     public function index(Request $request): JsonResponse
     {
+        self::syncEventStatuses();
+
         $user       = Auth::user();
         $clubId     = $request->query('club_id');
         $status     = strtolower($request->query('status', ''));
@@ -42,6 +44,14 @@ class EventController extends Controller
         // Scope to specific club if requested
         if ($clubId) {
             $query->where('club_id', $clubId);
+        }
+
+        // Draft event visibility: drafted events aren't shown to members (only seen by club execs & admins)
+        if (!$user->is_admin) {
+            $isExecOfClub = $clubId ? $this->isExec($user->id, (int)$clubId) : false;
+            if (!$isExecOfClub) {
+                $query->where('status', '!=', 'draft');
+            }
         }
 
         // Scope by status
@@ -105,13 +115,50 @@ class EventController extends Controller
     }
 
     // -------------------------------------------------------
+    // GET /api/events/schedule
+    //
+    // Returns read-only list of ongoing and upcoming active events
+    // for conflict checking.
+    // -------------------------------------------------------
+    public function schedule(Request $request): JsonResponse
+    {
+        self::syncEventStatuses();
+
+        $user = Auth::user();
+
+        $query = Event::with('club:id,name')
+            ->whereIn('status', ['published', 'upcoming', 'ongoing'])
+            ->where(function ($q) {
+                $q->where('ends_at', '>=', now())
+                  ->orWhere('starts_at', '>=', now());
+            });
+
+        if (!$user->is_admin) {
+            $query->where(function ($q) use ($user) {
+                $q->where('visibility', 'public')
+                  ->orWhereHas('club', function ($clubQuery) use ($user) {
+                      $clubQuery->whereHas('members', function ($memberQuery) use ($user) {
+                          $memberQuery->where('user_id', $user->id);
+                      });
+                  });
+            });
+        }
+
+        $events = $query->orderBy('starts_at', 'asc')->get();
+
+        return response()->json($events);
+    }
+
+    // -------------------------------------------------------
     // POST /api/events
     //
-    // Exec-only. Creates event in draft status.
-    // Runs conflict warning check before saving.
+    // Exec-only. Creates event in draft status by default.
+    // Runs venue conflict check before saving/publishing.
     // -------------------------------------------------------
     public function store(StoreEventRequest $request): JsonResponse
     {
+        self::syncEventStatuses();
+
         $user = Auth::user();
         $data = $request->validated();
 
@@ -120,6 +167,17 @@ class EventController extends Controller
             return response()->json([
                 'message' => 'Only club executives can create events.',
             ], 403);
+        }
+
+        $targetStatus = $data['status'] ?? 'draft';
+
+        if ($targetStatus === 'published') {
+            $venueConflict = $this->checkVenueConflict($data['location_value'] ?? null, $data['starts_at'], $data['ends_at']);
+            if ($venueConflict) {
+                return response()->json([
+                    'message' => "Venue conflict: Cannot publish event. Another event ('{$venueConflict->title}') is already published at '{$data['location_value']}' during this time window.",
+                ], 422);
+            }
         }
 
         // Conflict warning: check for overlapping events in the same club
@@ -132,7 +190,7 @@ class EventController extends Controller
         $event = Event::create([
             ...$data,
             'created_by' => $user->id,
-            'status'     => 'draft',
+            'status'     => $targetStatus,
         ]);
 
         AuditService::log('event.created', $event, [
@@ -141,15 +199,19 @@ class EventController extends Controller
             'starts_at'=> $event->starts_at,
         ]);
 
-        NotificationService::notifyClubMembers(
-            $event->club_id,
-            'event_created',
-            'New Event Created',
-            "A new event '{$event->title}' was created in your club.",
-            Event::class,
-            $event->id,
-            $user->id
-        );
+        if ($targetStatus === 'published') {
+            $this->sendEventNotification($event, 'published', $user->id);
+        } else {
+            NotificationService::notifyClubMembers(
+                $event->club_id,
+                'event_created',
+                'New Event Created',
+                "A new event '{$event->title}' was created in your club.",
+                Event::class,
+                $event->id,
+                $user->id
+            );
+        }
 
         if (!$user->is_admin) {
             NotificationService::notifyAdmins(
@@ -184,7 +246,15 @@ class EventController extends Controller
     // -------------------------------------------------------
     public function show(Event $event): JsonResponse
     {
+        self::syncEventStatuses();
+
         $user = Auth::user();
+
+        if ($event->status === 'draft') {
+            if (!$user->is_admin && !$this->isExec($user->id, $event->club_id)) {
+                return response()->json(['message' => 'Drafted events can only be viewed by club executives.'], 403);
+            }
+        }
 
         if (!$this->canView($user, $event)) {
             return response()->json(['message' => 'This event is members only.'], 403);
@@ -215,6 +285,8 @@ class EventController extends Controller
     // -------------------------------------------------------
     public function update(UpdateEventRequest $request, Event $event): JsonResponse
     {
+        self::syncEventStatuses();
+
         $user = Auth::user();
 
         if (!$user->is_admin && !$this->isExec($user->id, $event->club_id)) {
@@ -231,10 +303,22 @@ class EventController extends Controller
 
         $data = $request->validated();
 
+        $targetStatus  = $data['status'] ?? $event->status;
+        $locationValue = $data['location_value'] ?? $event->location_value;
+        $startsAt      = $data['starts_at'] ?? $event->starts_at;
+        $endsAt        = $data['ends_at']   ?? $event->ends_at;
+
+        if ($targetStatus === 'published' || ($event->status === 'published' && (isset($data['location_value']) || isset($data['starts_at']) || isset($data['ends_at'])))) {
+            $venueConflict = $this->checkVenueConflict($locationValue, $startsAt, $endsAt, $event->id);
+            if ($venueConflict) {
+                return response()->json([
+                    'message' => "Venue conflict: Cannot publish event. Another event ('{$venueConflict->title}') is already published at '{$locationValue}' during this time window.",
+                ], 422);
+            }
+        }
+
         // Re-run conflict check if either time field changed
         $response = [];
-        $startsAt = $data['starts_at'] ?? $event->starts_at;
-        $endsAt   = $data['ends_at']   ?? $event->ends_at;
 
         if (isset($data['starts_at']) || isset($data['ends_at'])) {
             $conflicts = $this->getConflicts(
@@ -260,6 +344,12 @@ class EventController extends Controller
 
         AuditService::log('event.updated', $event, ['changed_fields' => array_keys($data)]);
 
+        $updatedEvent = $event->fresh()->load(['club:id,name', 'creator:id,name']);
+
+        if ($updatedEvent->status !== 'draft') {
+            $this->sendEventNotification($updatedEvent, 'updated', $user->id);
+        }
+
         NotificationService::notifyEventAttendees(
             $event->id,
             'event_updated',
@@ -281,7 +371,7 @@ class EventController extends Controller
             );
         }
 
-        $response['event'] = $event->fresh()->load(['club:id,name', 'creator:id,name']);
+        $response['event'] = $updatedEvent;
 
         return response()->json($response);
     }
@@ -293,6 +383,8 @@ class EventController extends Controller
     // -------------------------------------------------------
     public function updateStatus(UpdateEventStatusRequest $request, Event $event): JsonResponse
     {
+        self::syncEventStatuses();
+
         $user      = Auth::user();
         $newStatus = $request->validated()['status'];
 
@@ -309,6 +401,15 @@ class EventController extends Controller
             ], 422);
         }
 
+        if ($newStatus === 'published') {
+            $venueConflict = $this->checkVenueConflict($event->location_value, $event->starts_at, $event->ends_at, $event->id);
+            if ($venueConflict) {
+                return response()->json([
+                    'message' => "Venue conflict: Cannot publish event. Another event ('{$venueConflict->title}') is already published at '{$event->location_value}' during this time window.",
+                ], 422);
+            }
+        }
+
         $oldStatus = $event->status;
         $event->update(['status' => $newStatus]);
 
@@ -318,6 +419,7 @@ class EventController extends Controller
         ]);
 
         if ($newStatus === 'cancelled') {
+            // Notify registered members/attendees
             NotificationService::notifyEventAttendees(
                 $event->id,
                 'event_cancelled',
@@ -325,6 +427,17 @@ class EventController extends Controller
                 "The event '{$event->title}' has been cancelled.",
                 Event::class,
                 $event->id
+            );
+
+            // Notify club executives when published event is cancelled
+            NotificationService::notifyClubExecutives(
+                $event->club_id,
+                'event_cancelled',
+                'Event Cancelled',
+                "The event '{$event->title}' has been cancelled.",
+                Event::class,
+                $event->id,
+                $user->id
             );
 
             if ($user->is_admin && $event->created_by !== $user->id) {
@@ -338,15 +451,7 @@ class EventController extends Controller
                 );
             }
         } elseif (in_array($newStatus, ['published', 'upcoming', 'ongoing'])) {
-            NotificationService::notifyClubMembers(
-                $event->club_id,
-                'event_created',
-                'Event Now Active',
-                "The event '{$event->title}' is now {$newStatus}!",
-                Event::class,
-                $event->id,
-                $user->id
-            );
+            $this->sendEventNotification($event->fresh(), 'published', $user->id);
         }
 
         return response()->json([
@@ -462,6 +567,51 @@ class EventController extends Controller
         return in_array($to, $allowed);
     }
 
+    /**
+     * Automatically update event statuses based on set start/end times.
+     */
+    public static function syncEventStatuses(): void
+    {
+        $now = now();
+
+        // C. Drafted event automatically goes to cancelled if set time is reached without being published
+        Event::where('status', 'draft')
+            ->where('starts_at', '<=', $now)
+            ->update(['status' => 'cancelled']);
+
+        // B. Published event automatically goes to ongoing when set time starts
+        Event::where('status', 'published')
+            ->where('starts_at', '<=', $now)
+            ->where('ends_at', '>', $now)
+            ->update(['status' => 'ongoing']);
+
+        // B. Published or ongoing event automatically goes to completed when set time ends
+        Event::whereIn('status', ['published', 'ongoing'])
+            ->where('ends_at', '<=', $now)
+            ->update(['status' => 'completed']);
+    }
+
+    /**
+     * Check if another published/ongoing event exists at the exact same venue with overlapping time window.
+     */
+    private function checkVenueConflict(?string $locationValue, $startsAt, $endsAt, ?int $exceptId = null): ?Event
+    {
+        if (empty($locationValue)) {
+            return null;
+        }
+
+        $loc = strtolower(trim($locationValue));
+        $startsAtStr = \Carbon\Carbon::parse($startsAt)->toDateTimeString();
+        $endsAtStr   = \Carbon\Carbon::parse($endsAt)->toDateTimeString();
+
+        return Event::whereIn('status', ['published', 'ongoing'])
+            ->whereRaw('LOWER(TRIM(location_value)) = ?', [$loc])
+            ->where('starts_at', '<', $endsAtStr)
+            ->where('ends_at', '>', $startsAtStr)
+            ->when($exceptId, fn($q) => $q->where('id', '!=', $exceptId))
+            ->first();
+    }
+
     private function validTransitionsFrom(string $status): array
     {
         return match($status) {
@@ -470,5 +620,37 @@ class EventController extends Controller
             'ongoing'   => ['completed', 'cancelled'],
             default     => [], // completed, cancelled — terminal
         };
+    }
+
+    /**
+     * Send event notification in plain English.
+     * Public events notify all users; members-only events notify club members.
+     */
+    private function sendEventNotification(Event $event, string $actionType, ?int $excludeUserId = null): void
+    {
+        $event->loadMissing('club');
+        $clubName = $event->club ? $event->club->name : 'Club';
+        $location = $event->location_value ?: ($event->venue ?: 'TBA');
+        $startTime = $event->starts_at ? \Carbon\Carbon::parse($event->starts_at)->format('M d, Y \a\t g:i A') : 'TBA';
+
+        if ($actionType === 'published') {
+            $title = $event->visibility === 'public' ? "New Public Event: {$event->title}" : "New Event: {$event->title}";
+            $message = "The event '{$event->title}' hosted by {$clubName} is now published. Location: {$location}, Start Time: {$startTime}.";
+
+            if ($event->visibility === 'public') {
+                NotificationService::notifyAllUsers('event_created', $title, $message, Event::class, $event->id, $excludeUserId);
+            } else {
+                NotificationService::notifyClubMembers($event->club_id, 'event_created', $title, $message, Event::class, $event->id, $excludeUserId);
+            }
+        } elseif ($actionType === 'updated') {
+            $title = "Event Updated: {$event->title}";
+            $message = "The event '{$event->title}' hosted by {$clubName} has been updated. Location: {$location}, Start Time: {$startTime}.";
+
+            if ($event->visibility === 'public') {
+                NotificationService::notifyAllUsers('event_updated', $title, $message, Event::class, $event->id, $excludeUserId);
+            } else {
+                NotificationService::notifyClubMembers($event->club_id, 'event_updated', $title, $message, Event::class, $event->id, $excludeUserId);
+            }
+        }
     }
 }

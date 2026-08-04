@@ -168,8 +168,8 @@ const EventDetailContent = () => {
                         <div>
                             <span className="text-slate-400 text-xs uppercase tracking-wide block font-medium">Date & Time</span>
                             <span className="font-semibold text-[#0b1c30]">
-                                {new Date(eventData.start_at).toLocaleString()}
-                                {eventData.end_at && ` - ${new Date(eventData.end_at).toLocaleTimeString()}`}
+                                {(eventData.starts_at || eventData.start_at) ? new Date(eventData.starts_at || eventData.start_at).toLocaleString() : 'TBA'}
+                                {(eventData.ends_at || eventData.end_at) && ` - ${new Date(eventData.ends_at || eventData.end_at).toLocaleTimeString()}`}
                             </span>
                         </div>
                         {eventData.registration_deadline && (

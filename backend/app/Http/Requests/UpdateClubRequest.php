@@ -13,8 +13,11 @@ class UpdateClubRequest extends FormRequest
 
     public function rules(): array
     {
+        $clubParam = $this->route('club');
+        $clubId = $clubParam instanceof \App\Models\Club ? $clubParam->id : $clubParam;
+
         return [
-            'name'          => 'sometimes|string|max:255|unique:clubs,name,' . $this->route('club'),
+            'name'          => 'sometimes|string|max:255|unique:clubs,name,' . $clubId,
             'category'      => 'sometimes|in:Academic,Technology,Cultural,Sports,Arts & Media,Business & Entrepreneurship,Community Service,Environment,Health & Wellness,Recreation & Hobby,Other',
             'description'   => 'sometimes|string',
             'department'    => 'nullable|string|max:255',

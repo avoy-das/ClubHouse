@@ -15,6 +15,7 @@ const announcementService = {
     getClubMembers: async (clubId) => (await api.get(`/clubs/${clubId}/announcement-members`)).data,
     update: async (announcementId, data) => (await api.put(`/announcements/${announcementId}`, data)).data,
     remove: async (announcementId) => (await api.delete(`/announcements/${announcementId}`)).data,
+    unpin: async (announcementId) => (await api.post(`/announcements/${announcementId}/unpin`)).data,
 };
 
 export default announcementService;

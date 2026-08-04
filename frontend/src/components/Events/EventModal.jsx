@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
 import { AlertTriangle, Calendar } from 'lucide-react';
+import { formatForDatetimeLocal, datetimeLocalToISO, formatDisplayDateTime } from '../../utils/dateUtils';
 
 const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClubId = '', isLockedClub = false }) => {
     const isEdit = Boolean(eventToEdit);
@@ -24,18 +25,10 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
     const [error, setError] = useState(null);
     const [warning, setWarning] = useState(null);
 
-    // Format ISO string for datetime-local input (YYYY-MM-DDTHH:mm)
-    const formatForInput = (isoStr) => {
-        if (!isoStr) return '';
-        const d = new Date(isoStr);
-        const pad = (num) => String(num).padStart(2, '0');
-        const year = d.getFullYear();
-        const month = pad(d.getMonth() + 1);
-        const day = pad(d.getDate());
-        const hours = pad(d.getHours());
-        const mins = pad(d.getMinutes());
-        return `${year}-${month}-${day}T${hours}:${mins}`;
-    };
+    // Schedule state for conflict checking
+    const [showSchedule, setShowSchedule] = useState(false);
+    const [scheduleEvents, setScheduleEvents] = useState([]);
+    const [loadingSchedule, setLoadingSchedule] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -75,8 +68,8 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     location_type: eventToEdit.location_type || 'physical',
                     location_value: eventToEdit.location_value || '',
                     capacity: eventToEdit.capacity || 50,
-                    starts_at: formatForInput(eventToEdit.starts_at),
-                    ends_at: formatForInput(eventToEdit.ends_at),
+                    starts_at: formatForDatetimeLocal(eventToEdit.starts_at),
+                    ends_at: formatForDatetimeLocal(eventToEdit.ends_at),
                 });
             } else {
                 // Default start time: 1 day from now at 10:00 AM
@@ -93,8 +86,8 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     location_type: 'physical',
                     location_value: '',
                     capacity: 50,
-                    starts_at: formatForInput(defaultStart.toISOString()),
-                    ends_at: formatForInput(defaultEnd.toISOString()),
+                    starts_at: formatForDatetimeLocal(defaultStart),
+                    ends_at: formatForDatetimeLocal(defaultEnd),
                 }));
             }
         }
@@ -123,6 +116,8 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
         const payload = {
             ...formData,
             capacity: Number(formData.capacity),
+            starts_at: datetimeLocalToISO(formData.starts_at),
+            ends_at: datetimeLocalToISO(formData.ends_at),
         };
 
         try {
@@ -336,6 +331,85 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb]"
                             />
                         </div>
+                    </div>
+
+                    {/* Read-Only Schedule & Overlap Checker */}
+                    <div className="pt-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const nextState = !showSchedule;
+                                setShowSchedule(nextState);
+                                if (nextState && scheduleEvents.length === 0) {
+                                    setLoadingSchedule(true);
+                                    eventService.getSchedule()
+                                        .then(res => setScheduleEvents(res.data || []))
+                                        .catch(() => {})
+                                        .finally(() => setLoadingSchedule(false));
+                                }
+                            }}
+                            className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-between transition-colors"
+                        >
+                            <span className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-blue-600" />
+                                {showSchedule ? 'Hide Scheduled Events' : '📋 View Scheduled Events (Conflict Check)'}
+                            </span>
+                            <span className="text-xs text-slate-400 font-bold">{showSchedule ? '▲' : '▼'}</span>
+                        </button>
+
+                        {showSchedule && (
+                            <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                                <div className="flex items-center justify-between border-b border-slate-200 pb-1.5 font-bold text-slate-800">
+                                    <span>Ongoing & Upcoming Events ({scheduleEvents.length})</span>
+                                    <span className="text-[10px] text-slate-500 font-normal">Read-only Schedule</span>
+                                </div>
+
+                                {loadingSchedule ? (
+                                    <div className="py-4 text-center text-slate-400 animate-pulse">Loading schedule...</div>
+                                ) : scheduleEvents.length === 0 ? (
+                                    <div className="py-3 text-center text-slate-400">No upcoming or ongoing events scheduled.</div>
+                                ) : (
+                                    <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                                        {scheduleEvents.map(evt => {
+                                            const curStart = formData.starts_at ? new Date(formData.starts_at).getTime() : null;
+                                            const curEnd = formData.ends_at ? new Date(formData.ends_at).getTime() : null;
+                                            const evtStart = new Date(evt.starts_at).getTime();
+                                            const evtEnd = new Date(evt.ends_at).getTime();
+                                            const isSelf = isEdit && eventToEdit && eventToEdit.id === evt.id;
+
+                                            const isOverlapping = !isSelf && curStart && curEnd && evtStart < curEnd && evtEnd > curStart;
+
+                                            return (
+                                                <div
+                                                    key={evt.id}
+                                                    className={`p-2.5 rounded-lg border text-xs transition-colors ${
+                                                        isOverlapping
+                                                            ? 'bg-amber-50 border-amber-300 text-amber-900'
+                                                            : 'bg-white border-slate-200 text-slate-700'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <span className="font-bold text-[#0b1c30]">{evt.title}</span>
+                                                        {isOverlapping && (
+                                                            <span className="px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded font-semibold text-[10px] shrink-0 flex items-center gap-1">
+                                                                <AlertTriangle className="w-3 h-3 text-amber-700" /> Overlap
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                                                        <span><strong>Club:</strong> {evt.club?.name || 'Club #' + evt.club_id}</span>
+                                                        <span><strong>Venue:</strong> {evt.location_value || evt.venue || 'TBA'}</span>
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 mt-0.5">
+                                                        <strong>Time:</strong> {formatDisplayDateTime(evt.starts_at)} – {formatDisplayDateTime(evt.ends_at)}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Footer Buttons */}

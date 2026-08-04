@@ -22,6 +22,7 @@ class UpdateEventRequest extends FormRequest
             'starts_at'      => ['sometimes', 'date', 'after:now'],
             'ends_at'        => ['sometimes', 'date', 'after:starts_at'],
             'capacity'       => ['sometimes', 'integer', 'min:1'],
+            'status'         => ['sometimes', 'string', 'in:draft,published,upcoming,ongoing,completed,cancelled'],
         ];
     }
 

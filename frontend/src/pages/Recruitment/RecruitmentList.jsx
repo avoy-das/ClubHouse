@@ -12,6 +12,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import Modal from '../../components/ui/Modal';
 import { Target, Calendar, Clock, Plus, ArrowLeft, ArrowRight, Pencil, Trash, ClipboardList, Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { formatForDateInput, dateInputToStartOfDayISO, dateInputToEndOfDayISO } from '../../utils/dateUtils';
 
 const RecruitmentListContent = () => {
     const { clubId } = useParams();
@@ -200,10 +201,8 @@ const RecruitmentListContent = () => {
         const now = new Date();
         const twoWeeks = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
         
-        const formatForInput = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-        
-        setOpensAt(formatForInput(now));
-        setClosesAt(formatForInput(twoWeeks));
+        setOpensAt(formatForDateInput(now));
+        setClosesAt(formatForDateInput(twoWeeks));
         setIsModalOpen(true);
     };
 
@@ -217,14 +216,8 @@ const RecruitmentListContent = () => {
         setRequirements(notice.requirements || '');
         setCustomFields(Array.isArray(notice.custom_fields) ? notice.custom_fields : []);
         
-        const formatForInput = (dateString) => {
-            if (!dateString) return '';
-            const d = new Date(dateString);
-            return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-        };
-        
-        setOpensAt(formatForInput(notice.opens_at));
-        setClosesAt(formatForInput(notice.closes_at));
+        setOpensAt(formatForDateInput(notice.opens_at));
+        setClosesAt(formatForDateInput(notice.closes_at));
         setIsModalOpen(true);
     };
 
@@ -233,11 +226,6 @@ const RecruitmentListContent = () => {
         setSubmitting(true);
         setError(null);
         try {
-            const toUTC = (localDateString) => {
-                if (!localDateString) return null;
-                return new Date(localDateString).toISOString();
-            };
-
             const targetClubObj = availableClubs.find(c => String(c.id) === String(selectedClubId)) || currentClub;
             const defaultTitle = targetClubObj ? `${targetClubObj.name} Recruitment` : 'Club Recruitment';
 
@@ -247,8 +235,8 @@ const RecruitmentListContent = () => {
                 description,
                 requirements,
                 custom_fields: customFields,
-                opens_at: toUTC(opensAt),
-                closes_at: toUTC(closesAt),
+                opens_at: dateInputToStartOfDayISO(opensAt),
+                closes_at: dateInputToEndOfDayISO(closesAt),
                 status,
             };
             
@@ -572,9 +560,9 @@ const RecruitmentListContent = () => {
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Opens At</label>
+                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Starting Date (Starts 12:00 AM)</label>
                             <input
-                                type="datetime-local"
+                                type="date"
                                 required
                                 className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
                                 value={opensAt}
@@ -582,9 +570,9 @@ const RecruitmentListContent = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Closes At</label>
+                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Ending Date (Ends 11:59 PM)</label>
                             <input
-                                type="datetime-local"
+                                type="date"
                                 required
                                 className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
                                 value={closesAt}

@@ -123,7 +123,7 @@ const Dashboard = () => {
                     </div>
 
                     {/* Stats Overview */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className={`grid grid-cols-1 ${isAdmin() ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-4`}>
                         <div className="bg-white p-5 rounded-2xl border border-[#e4e2dd] shadow-xs flex items-center gap-4">
                             <div className="w-12 h-12 rounded-xl bg-[#e8e2d9] text-[#1c1b1b] flex items-center justify-center font-bold">
                                 <Building2 className="w-6 h-6 text-[#1c1b1b]" />
@@ -144,15 +144,17 @@ const Dashboard = () => {
                             </div>
                         </div>
 
-                        <div className="bg-white p-5 rounded-2xl border border-[#e4e2dd] shadow-xs flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-[#e8e2d9] text-[#1c1b1b] flex items-center justify-center font-bold">
-                                <Target className="w-6 h-6 text-[#1c1b1b]" />
+                        {isAdmin() && (
+                            <div className="bg-white p-5 rounded-2xl border border-[#e4e2dd] shadow-xs flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-[#e8e2d9] text-[#1c1b1b] flex items-center justify-center font-bold">
+                                    <Target className="w-6 h-6 text-[#1c1b1b]" />
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-extrabold text-[#1b1c19] font-heading">{stats.pending_requests}</div>
+                                    <div className="text-xs font-semibold text-[#615e57]">Pending Approvals</div>
+                                </div>
                             </div>
-                            <div>
-                                <div className="text-2xl font-extrabold text-[#1b1c19] font-heading">{stats.pending_requests}</div>
-                                <div className="text-xs font-semibold text-[#615e57]">Pending Approvals</div>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Content Grid */}

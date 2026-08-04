@@ -53,6 +53,24 @@ const clubService = {
         api.put(`/admin/clubs/${id}`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         }),
+
+    // Club Edit Requests
+    submitEditRequest: (clubId, formData) =>
+        api.post(`/clubs/${clubId}/edit-requests`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }),
+
+    getPendingEditRequest: (clubId) =>
+        api.get(`/clubs/${clubId}/edit-requests/pending`),
+
+    adminGetEditRequests: () =>
+        api.get('/admin/club-edit-requests'),
+
+    adminApproveEditRequest: (requestId) =>
+        api.post(`/admin/club-edit-requests/${requestId}/approve`),
+
+    adminRejectEditRequest: (requestId, reason) =>
+        api.post(`/admin/club-edit-requests/${requestId}/reject`, { rejection_reason: reason }),
 };
 
 export default clubService;

@@ -29,8 +29,8 @@ const AdminAuditLogs = () => {
                 ...(userId && { user_id: userId }),
                 ...(clubId && { club_id: clubId }),
                 ...(action && { action }),
-                ...(fromDate && { from: fromDate }),
-                ...(toDate && { to: toDate }),
+                ...(fromDate && { from: `${fromDate} 00:00:00` }),
+                ...(toDate && { to: `${toDate} 23:59:59` }),
             };
             const res = await adminService.getAuditLogs(params);
             const data = res.data ? res : { data: res };

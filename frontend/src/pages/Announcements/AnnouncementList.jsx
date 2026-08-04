@@ -207,8 +207,17 @@ const AnnouncementListContent = () => {
 
     if (loading) return <LoadingSpinner />;
 
-    const pinned = announcements.filter((a) => a.is_pinned);
-    const regular = announcements.filter((a) => !a.is_pinned);
+    const handleUnpin = async (id) => {
+        try {
+            await announcementService.unpin(id);
+            setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, is_pinned_for_me: false } : a));
+        } catch {
+            // ignore
+        }
+    };
+
+    const pinned = announcements.filter((a) => a.is_pinned_for_me ?? a.is_pinned);
+    const regular = announcements.filter((a) => !(a.is_pinned_for_me ?? a.is_pinned));
 
     // Available target options depending on role
     const adminOptions = [
@@ -306,16 +315,23 @@ const AnnouncementListContent = () => {
                                 </div>
                             </div>
                             <p className="text-slate-700 text-sm whitespace-pre-line leading-relaxed">{item.body}</p>
-                            {canDelete(item) && (
-                                <div className="pt-3 flex justify-end border-t border-amber-200/60">
+                            <div className="pt-3 flex items-center justify-between border-t border-amber-200/60">
+                                <button
+                                    onClick={() => handleUnpin(item.id)}
+                                    className="px-3 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 border border-amber-300"
+                                    title="Unpin announcement"
+                                >
+                                    <Pin className="w-3.5 h-3.5 rotate-45" /> Unpin
+                                </button>
+                                {canDelete(item) && (
                                     <button
                                         onClick={() => handleDelete(item.id)}
                                         className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" /> Delete
                                     </button>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     ))}
 

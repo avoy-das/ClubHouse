@@ -82,14 +82,17 @@ class ClubController extends Controller
         return response()->json($request->user()->getExecutiveClubs());
     }
 
-    // Any authenticated user can view a single approved club
-    public function show(Club $club)
+    // Any authenticated user can view an approved club (or admins/members/creators for pending/suspended clubs)
+    public function show(Request $request, Club $club)
     {
-        if ($club->status !== 'approved') {
+        $user = $request->user();
+        $isMemberOrExec = $user && ClubMember::where('club_id', $club->id)->where('user_id', $user->id)->exists();
+
+        if ($club->status !== 'approved' && (!$user || (!$user->is_admin && $club->created_by !== $user->id && !$isMemberOrExec))) {
             return response()->json(['message' => 'Club not found.'], 404);
         }
 
-        $club->load('creator:id,name', 'members.user:id,name');
+        $club->load('creator:id,name', 'members.user:id,name', 'members.positions.position');
 
         return response()->json($club);
     }
@@ -180,13 +183,13 @@ class ClubController extends Controller
         ]);
     }
 
-    // Admin or Club Executive — update club details
+    // Admin only — update club details
     public function update(UpdateClubRequest $request, Club $club)
     {
         $user = $request->user();
 
-        if (!$this->canManageClub($user, $club)) {
-            return response()->json(['message' => 'Only club executives or admins can edit club details.'], 403);
+        if (!$user->is_admin) {
+            return response()->json(['message' => 'Only administrators can edit club details.'], 403);
         }
 
         $data = $request->validated();
@@ -201,17 +204,15 @@ class ClubController extends Controller
 
         AuditService::log('club.updated', $club);
 
-        if ($user->is_admin) {
-            NotificationService::notifyClubExecutives(
-                $club->id,
-                'club_updated',
-                'Club Details Updated',
-                "An admin has updated details for your club '{$club->name}'.",
-                Club::class,
-                $club->id,
-                $user->id
-            );
-        }
+        NotificationService::notifyClubMembers(
+            $club->id,
+            'club_updated',
+            'Club Details Updated',
+            "The details for club '{$club->name}' have been updated by an administrator.",
+            Club::class,
+            $club->id,
+            $user->id
+        );
 
         return response()->json([
             'message' => 'Club updated successfully.',

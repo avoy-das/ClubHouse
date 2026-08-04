@@ -6,6 +6,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\ClubController;
+use App\Http\Controllers\ClubEditRequestController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ClubGalleryController;
 use App\Http\Controllers\ClubMemberController;
@@ -54,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Events — any authenticated user (visibility filtered in controller)
     Route::get('/events',                  [EventController::class, 'index']);
+    Route::get('/events/schedule',         [EventController::class, 'schedule']);
     Route::get('/events/{event}',          [EventController::class, 'show']);
     Route::post('/events',                 [EventController::class, 'store']);
     Route::put('/events/{event}',          [EventController::class, 'update']);
@@ -66,6 +68,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/events/{event}/register',                            [EventRegistrationController::class, 'cancel']);
     Route::patch('/events/{event}/registrations/{user}/attendance',      [EventRegistrationController::class, 'updateAttendance']);
     Route::get('/events/{event}/attendance-report',                      [EventRegistrationController::class, 'attendanceReport']);
+
+    // Club Edit Requests
+    Route::post('/clubs/{club}/edit-requests',              [ClubEditRequestController::class, 'store']);
+    Route::get('/clubs/{club}/edit-requests/pending',      [ClubEditRequestController::class, 'pendingForClub']);
 
     // Admin only
     Route::middleware('is_admin')->group(function () {
@@ -81,6 +87,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/clubs/{club}/approve', [ClubController::class, 'approve']);
         Route::post('/admin/clubs/{club}/reject',  [ClubController::class, 'reject']);
         Route::post('/admin/clubs/{club}/suspend', [ClubController::class, 'suspend']);
+
+        Route::get('/admin/club-edit-requests',                            [ClubEditRequestController::class, 'indexAdmin']);
+        Route::post('/admin/club-edit-requests/{clubEditRequest}/approve', [ClubEditRequestController::class, 'approve']);
+        Route::post('/admin/club-edit-requests/{clubEditRequest}/reject',  [ClubEditRequestController::class, 'reject']);
 
         Route::get('/admin/reports/clubs/{club}', [ReportController::class, 'clubReport']);
 
@@ -110,6 +120,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/announcements', [AnnouncementController::class, 'allAnnouncements']);
     Route::get('/announcements/creation-context', [AnnouncementController::class, 'creationContext']);
     Route::post('/announcements', [AnnouncementController::class, 'store']);
+    Route::post('/announcements/{announcement}/unpin', [AnnouncementController::class, 'unpin']);
     Route::get('/clubs/{club}/announcement-members', [AnnouncementController::class, 'clubMembers']);
     Route::apiResource('clubs.announcements', AnnouncementController::class)->shallow();
 

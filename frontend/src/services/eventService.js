@@ -48,6 +48,10 @@ const eventService = {
     // Get attendance metrics summary report (Exec/Admin)
     getAttendanceReport: (eventId) =>
         api.get(`/events/${eventId}/attendance-report`),
+
+    // Get schedule of all ongoing and upcoming events for overlap/conflict checking
+    getSchedule: () =>
+        api.get('/events/schedule'),
 };
 
 export default eventService;

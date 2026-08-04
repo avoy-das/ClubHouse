@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import clubService from '../../services/clubService';
+import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import EditClubModal from '../../components/Clubs/EditClubModal';
 import ClubAuditLogModal from '../../components/Clubs/ClubAuditLogModal';
@@ -58,6 +59,11 @@ const ClubDetail = () => {
     const [leaving, setLeaving] = useState(false);
     const [toast, setToast] = useState(null);
 
+    // Club events & edit request state
+    const [clubEvents, setClubEvents] = useState([]);
+    const [loadingEvents, setLoadingEvents] = useState(true);
+    const [pendingEditRequest, setPendingEditRequest] = useState(null);
+
     // Modal states
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isLogsOpen, setIsLogsOpen] = useState(false);
@@ -93,8 +99,27 @@ const ClubDetail = () => {
             .finally(() => setLoading(false));
     };
 
+    const fetchPendingEditRequest = () => {
+        clubService.getPendingEditRequest(id)
+            .then(res => setPendingEditRequest(res.data?.pending_request || null))
+            .catch(() => setPendingEditRequest(null));
+    };
+
+    const fetchClubEvents = () => {
+        setLoadingEvents(true);
+        api.get('/events', { params: { club_id: id } })
+            .then(res => {
+                const data = res.data?.data || res.data || [];
+                setClubEvents(Array.isArray(data) ? data : []);
+            })
+            .catch(() => setClubEvents([]))
+            .finally(() => setLoadingEvents(false));
+    };
+
     useEffect(() => {
         fetchClubDetails();
+        fetchClubEvents();
+        fetchPendingEditRequest();
     }, [id]);
 
     // Handle API contextual member search with ?q=
@@ -247,13 +272,28 @@ const ClubDetail = () => {
                 </div>
             )}
 
-            {/* Executive Management Control Suite Toolbar */}
-            {isExec && (
+            {/* Pending Edit Request Banner */}
+            {pendingEditRequest && (
+                <div className="mb-6 bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl p-4 shadow-xs flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-200/80 rounded-xl text-amber-800 font-bold shrink-0">⏳</div>
+                        <div>
+                            <p className="text-xs font-bold text-amber-950 uppercase tracking-wider">Club Edit Request Under Review</p>
+                            <p className="text-xs text-amber-900 mt-0.5">
+                                Updated information submitted by <strong className="font-bold">{pendingEditRequest.requested_by?.name || 'Executive'}</strong> is currently pending administrator review and approval.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Executive & Admin Management Control Suite Toolbar */}
+            {(isExec || isAdmin()) && (
                 <div className="mb-6 bg-[#0f172a] text-white rounded-2xl p-5 shadow-xs border border-slate-800">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                             <span className="text-xs font-semibold uppercase tracking-wider text-[#eab308]">
-                                Club Executive Control Suite
+                                {isAdmin() ? 'Administrator Control Suite' : 'Club Executive Control Suite'}
                             </span>
                             <h3 className="text-lg font-bold text-white mt-0.5">
                                 Club & Roster Management
@@ -261,18 +301,20 @@ const ClubDetail = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
-                            <button
-                                onClick={() => setIsCreateEventOpen(true)}
-                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
-                            >
-                                <Calendar className="w-4 h-4" /> Create Event
-                            </button>
+                            {isExec && (
+                                <button
+                                    onClick={() => setIsCreateEventOpen(true)}
+                                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
+                                >
+                                    <Calendar className="w-4 h-4" /> Create Event
+                                </button>
+                            )}
 
                             <button
                                 onClick={() => setIsEditOpen(true)}
                                 className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
                             >
-                                <Edit className="w-4 h-4" /> Edit Club Details
+                                <Edit className="w-4 h-4" /> {isAdmin() ? 'Edit Club Details (Direct)' : 'Edit Club Details'}
                             </button>
 
                             <button
@@ -367,6 +409,70 @@ const ClubDetail = () => {
                         <Target className="w-4 h-4" /> Recruitment
                     </button>
                 </div>
+            </div>
+
+            {/* Club Events Directory */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-base font-semibold text-[#0b1c30] flex items-center gap-2">
+                            <Calendar className="w-5 h-5 text-[#2563eb]" /> Club Events ({clubEvents.length})
+                        </h2>
+                        <p className="text-xs text-slate-500 mt-0.5">All events organized by {club.name}</p>
+                    </div>
+                    {isExec && (
+                        <button
+                            onClick={() => setIsCreateEventOpen(true)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-xs flex items-center gap-1"
+                        >
+                            + Create Event
+                        </button>
+                    )}
+                </div>
+
+                {loadingEvents ? (
+                    <div className="py-6 text-center text-slate-400 text-sm animate-pulse">Loading club events...</div>
+                ) : clubEvents.length === 0 ? (
+                    <div className="p-6 text-center bg-[#f8f9ff] rounded-xl border border-dashed border-slate-300 space-y-1">
+                        <p className="text-xs font-semibold text-slate-600">No events found for this club.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {clubEvents.map(ev => (
+                            <div
+                                key={ev.id}
+                                onClick={() => navigate(`/events/${ev.id}`)}
+                                className="p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-xs transition-all cursor-pointer bg-[#f8f9ff] hover:bg-white space-y-2.5 flex flex-col justify-between"
+                            >
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-bold text-[#0b1c30] truncate">{ev.title}</span>
+                                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase shrink-0 ${
+                                            ev.status === 'published' ? 'bg-emerald-100 text-emerald-800' :
+                                            ev.status === 'ongoing'   ? 'bg-blue-100 text-blue-800' :
+                                            ev.status === 'completed' ? 'bg-slate-100 text-slate-700' :
+                                            ev.status === 'cancelled' ? 'bg-rose-100 text-rose-800' :
+                                            'bg-amber-100 text-amber-800'
+                                        }`}>
+                                            {ev.status}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 line-clamp-2">{ev.description}</p>
+                                </div>
+
+                                <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-600 space-y-1">
+                                    <div className="flex items-center gap-1 text-[#2563eb] font-semibold">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        {new Date(ev.starts_at).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                                    </div>
+                                    {ev.location_value && (
+                                        <div className="text-slate-500 truncate">📍 {ev.location_value}</div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Contextual Member Search Roster */}

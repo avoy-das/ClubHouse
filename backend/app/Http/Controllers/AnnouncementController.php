@@ -10,52 +10,79 @@ use App\Models\Notification;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AnnouncementController extends Controller
 {
-    public function index(Club $club): JsonResponse
+    public function index(Request $request, Club $club): JsonResponse
     {
+        $user = $request->user();
+        $userId = $user ? $user->id : null;
+
+        $unpinnedAnnouncementIds = DB::table('announcement_recipients')
+            ->where('user_id', $userId)
+            ->where('is_unpinned', true)
+            ->pluck('announcement_id')
+            ->toArray();
+
         $announcements = Announcement::where('club_id', $club->id)
             ->orWhere('target_club_id', $club->id)
             ->with(['author', 'club', 'targetClub', 'targetUser'])
-            ->orderBy('is_pinned', 'desc')
             ->latest()
             ->get();
 
-        return response()->json($announcements);
+        $transformed = $announcements->map(function ($announcement) use ($unpinnedAnnouncementIds) {
+            $arr = $announcement->toArray();
+            $isUnpinnedByMe = in_array($announcement->id, $unpinnedAnnouncementIds);
+            $arr['is_pinned_for_me'] = (bool) ($announcement->is_pinned && !$isUnpinnedByMe);
+            return $arr;
+        })->sortByDesc(fn($a) => $a['is_pinned_for_me'] ? 1 : 0)->values();
+
+        return response()->json($transformed);
     }
 
     public function allAnnouncements(Request $request): JsonResponse
     {
         $user = $request->user();
+        $userId = $user ? $user->id : null;
+
+        $unpinnedAnnouncementIds = DB::table('announcement_recipients')
+            ->where('user_id', $userId)
+            ->where('is_unpinned', true)
+            ->pluck('announcement_id')
+            ->toArray();
 
         if ($user->is_admin) {
             $announcements = Announcement::with(['club', 'author', 'targetClub', 'targetUser'])
-                ->orderBy('is_pinned', 'desc')
                 ->latest()
                 ->get();
-            return response()->json($announcements);
+        } else {
+            $userClubIds = ClubMember::where('user_id', $user->id)
+                ->where('status', 'active')
+                ->pluck('club_id');
+
+            $announcements = Announcement::where('target_type', 'all_users')
+                ->orWhere('posted_by', $user->id)
+                ->orWhereHas('recipients', function ($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                })
+                ->orWhereIn('club_id', $userClubIds)
+                ->orWhereIn('target_club_id', $userClubIds)
+                ->with(['club', 'author', 'targetClub', 'targetUser'])
+                ->latest()
+                ->get()
+                ->unique('id')
+                ->values();
         }
 
-        $userClubIds = ClubMember::where('user_id', $user->id)
-            ->where('status', 'active')
-            ->pluck('club_id');
+        $transformed = $announcements->map(function ($announcement) use ($unpinnedAnnouncementIds) {
+            $arr = $announcement->toArray();
+            $isUnpinnedByMe = in_array($announcement->id, $unpinnedAnnouncementIds);
+            $arr['is_pinned_for_me'] = (bool) ($announcement->is_pinned && !$isUnpinnedByMe);
+            return $arr;
+        })->sortByDesc(fn($a) => $a['is_pinned_for_me'] ? 1 : 0)->values();
 
-        $announcements = Announcement::where('target_type', 'all_users')
-            ->orWhere('posted_by', $user->id)
-            ->orWhereHas('recipients', function ($q) use ($user) {
-                $q->where('user_id', $user->id);
-            })
-            ->orWhereIn('club_id', $userClubIds)
-            ->orWhereIn('target_club_id', $userClubIds)
-            ->with(['club', 'author', 'targetClub', 'targetUser'])
-            ->orderBy('is_pinned', 'desc')
-            ->latest()
-            ->get()
-            ->unique('id')
-            ->values();
-
-        return response()->json($announcements);
+        return response()->json($transformed);
     }
 
     public function creationContext(Request $request): JsonResponse
@@ -238,5 +265,26 @@ class AnnouncementController extends Controller
         $announcement->delete();
 
         return response()->json(['message' => 'Announcement deleted successfully.']);
+    }
+
+    public function unpin(Request $request, Announcement $announcement): JsonResponse
+    {
+        $user = $request->user();
+
+        DB::table('announcement_recipients')->updateOrInsert(
+            [
+                'announcement_id' => $announcement->id,
+                'user_id'         => $user->id,
+            ],
+            [
+                'is_unpinned' => true,
+                'updated_at'  => now(),
+            ]
+        );
+
+        return response()->json([
+            'message'      => 'Announcement unpinned for you successfully.',
+            'announcement' => $announcement,
+        ]);
     }
 }
