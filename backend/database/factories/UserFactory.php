@@ -29,6 +29,7 @@ class UserFactory extends Factory
             'student_id' => 'ASH' . fake()->unique()->numberBetween(1000000, 9999999) . 'M',
             'email'      => fake()->unique()->safeEmail(),
             'department' => 'CSTE',
+            'session'    => 25,
             'email_verified_at' => now(),
             'password'   => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),

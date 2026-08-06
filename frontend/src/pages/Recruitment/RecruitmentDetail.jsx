@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { CheckCircle2, ShieldCheck, FileCheck } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, FileCheck, AlertCircle } from 'lucide-react';
 import MainLayout from '../../layouts/MainLayout';
 import recruitmentService from '../../services/recruitmentService';
 import { ClubPermissionsProvider } from '../../context/ClubPermissionsContext';
@@ -10,6 +10,7 @@ import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
+import { formatSessionLabel } from '../../utils/sessionUtils';
 
 const RecruitmentDetailContent = () => {
     const { clubId, noticeId, id } = useParams();
@@ -93,6 +94,14 @@ const RecruitmentDetailContent = () => {
     const isAlreadyMember = notice.is_member || notice.club?.members?.some(m => m.user_id === user?.id && m.status === 'active');
     const hasApplied = Boolean(notice.my_application);
 
+    // Target sessions check
+    const hasTargetSessions = Array.isArray(notice.target_sessions) && notice.target_sessions.length > 0;
+    const isUserInTargetSession = !hasTargetSessions || (
+        user?.session !== null && 
+        user?.session !== undefined && 
+        notice.target_sessions.map(Number).includes(Number(user.session))
+    );
+
     return (
         <div className="space-y-6">
             <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border space-y-4">
@@ -165,6 +174,24 @@ const RecruitmentDetailContent = () => {
                                     <h4 className="font-bold text-sm text-amber-900">Already a Club Member</h4>
                                     <p className="text-xs text-amber-700 mt-1 leading-relaxed">
                                         You are already an active member of {notice.club?.name || 'this club'}. Recruitment is reserved for new applicants.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : !isUserInTargetSession ? (
+                            <div className="bg-rose-50 border border-rose-200 text-rose-900 p-5 rounded-xl flex items-start gap-3.5">
+                                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <h4 className="font-bold text-sm text-rose-900">Application Restricted to Target Student Sessions</h4>
+                                    <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+                                        This recruitment campaign is open exclusively for students belonging to session(s):{' '}
+                                        <span className="font-bold">
+                                            {notice.target_sessions.map(s => formatSessionLabel(s) || s).join(', ')}
+                                        </span>.
+                                        {user?.session !== null && user?.session !== undefined ? (
+                                            <> Your registered profile session is <span className="font-bold">{formatSessionLabel(user.session)}</span>.</>
+                                        ) : (
+                                            <> You currently have no session specified on your profile.</>
+                                        )}
                                     </p>
                                 </div>
                             </div>

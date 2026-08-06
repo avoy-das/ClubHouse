@@ -12,6 +12,7 @@ use App\Services\AuditService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Schema;
 
 class ClubController extends Controller
 {
@@ -54,6 +55,15 @@ class ClubController extends Controller
             $request->user()->id
         );
 
+        NotificationService::notifyUser(
+            $request->user()->id,
+            'club_creation_request_submitted',
+            'Club Creation Request Submitted',
+            "Your request to create the club '{$club->name}' has been submitted and is currently pending approval.",
+            Club::class,
+            $club->id
+        );
+
         return response()->json([
             'message' => 'Club creation request submitted successfully.',
             'club'    => $club,
@@ -67,8 +77,28 @@ class ClubController extends Controller
             return response()->json($request->user()->getExecutiveClubs());
         }
 
-        $clubs = Club::where('status', 'approved')
-            ->with('creator:id,name')
+        $user = $request->user();
+
+        $query = Club::query();
+
+        if ($user) {
+            if ($user->is_admin) {
+                // Admins see approved, pending, and suspended clubs on the main page (excluding rejected)
+                $query->where('status', '!=', 'rejected');
+            } else {
+                $query->where(function ($q) use ($user) {
+                    $q->where('status', 'approved')
+                      ->orWhere(function ($q2) use ($user) {
+                          $q2->where('created_by', $user->id)
+                             ->where('status', '!=', 'rejected');
+                      });
+                });
+            }
+        } else {
+            $query->where('status', 'approved');
+        }
+
+        $clubs = $query->with('creator:id,name')
             ->withCount('members')
             ->latest()
             ->get();
@@ -236,6 +266,34 @@ class ClubController extends Controller
         return response()->json(['message' => 'Club suspended.']);
     }
 
+    // Admin only — activate a suspended club
+    public function activate(Club $club)
+    {
+        if ($club->status !== 'suspended') {
+            return response()->json(['message' => 'Only suspended clubs can be activated.'], 422);
+        }
+
+        $club->update(['status' => 'approved']);
+
+        AuditService::log('club.activated', $club, [
+            'previous_status' => 'suspended',
+        ]);
+
+        NotificationService::notifyClubMembers(
+            $club->id,
+            'club_reactivated',
+            'Club Reactivated',
+            "The club '{$club->name}' has been reactivated by an administrator.",
+            Club::class,
+            $club->id
+        );
+
+        return response()->json([
+            'message' => 'Club activated successfully.',
+            'club'    => $club->fresh(),
+        ]);
+    }
+
     // Authenticated user leaves a club
     public function leave(Request $request, Club $club)
     {
@@ -283,7 +341,11 @@ class ClubController extends Controller
         $q = trim($request->input('q', ''));
 
         $membersQuery = ClubMember::where('status', 'active')
-            ->with(['user:id,name,student_id,email,department', 'club:id,name']);
+            ->with([
+                'user:id,name,student_id,email,department,phone,session',
+                'club:id,name',
+                'positions.position:id,title,is_executive'
+            ]);
 
         if ($q !== '') {
             $escaped = '%' . addcslashes($q, '%_\\') . '%';
@@ -303,6 +365,36 @@ class ClubController extends Controller
         }
 
         $members = $membersQuery->get();
+
+        // Attach joining details (recruitment application / membership request info) for executives/admins
+        $isExecOrAdmin = $user && ($user->is_admin || ClubMember::where('club_id', $club->id)->where('user_id', $user->id)->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer'])->exists());
+
+        if ($isExecOrAdmin) {
+            $userIds = $members->pluck('user_id')->unique();
+
+            // Fetch recruitment applications for this club's notices
+            $recruitmentNoticeIds = \App\Models\RecruitmentNotice::where('club_id', $club->id)->pluck('id');
+            $recruitmentApps = \App\Models\RecruitmentApplication::whereIn('recruitment_notice_id', $recruitmentNoticeIds)
+                ->whereIn('user_id', $userIds)
+                ->with('recruitmentNotice:id,title,session')
+                ->latest()
+                ->get()
+                ->keyBy('user_id');
+
+            // Fetch direct membership requests
+            $membershipReqs = \App\Models\MembershipRequest::where('club_id', $club->id)
+                ->whereIn('user_id', $userIds)
+                ->latest()
+                ->get()
+                ->keyBy('user_id');
+
+            $members->transform(function ($member) use ($recruitmentApps, $membershipReqs) {
+                $memberArray = $member->toArray();
+                $memberArray['recruitment_application'] = $recruitmentApps->get($member->user_id);
+                $memberArray['membership_request'] = $membershipReqs->get($member->user_id);
+                return $memberArray;
+            });
+        }
 
         return response()->json($members);
     }
@@ -440,8 +532,8 @@ class ClubController extends Controller
 
     /**
      * GET /api/clubs/{club}/audit-logs
-     *
-     * Exec-only read-only activity logs scoped strictly to this club.
+     * Exec-only read-only activity feed scoped strictly to this club.
+     * Excludes authentication logs and system admin overrides.
      */
     public function auditLogs(Request $request, Club $club): JsonResponse
     {
@@ -453,22 +545,43 @@ class ClubController extends Controller
             ], 403);
         }
 
-        $logs = AuditLog::with('user:id,name,email')
-            ->where(function ($query) use ($club) {
-                $query->where(function ($q) use ($club) {
-                    $q->where('target_type', 'Club')
-                      ->where('target_id', $club->id);
-                })
-                ->orWhere(function ($q) use ($club) {
-                    $q->where('target_type', 'Event')
-                      ->whereIn('target_id', function ($sub) use ($club) {
-                          $sub->select('id')->from('events')->where('club_id', $club->id);
-                      });
-                })
-                ->orWhereRaw("JSON_EXTRACT(metadata, '$.club_id') = ?", [$club->id]);
+        $hasClubIdColumn = Schema::hasColumn('audit_logs', 'club_id');
+
+        $query = AuditLog::with(['user:id,name,email', 'target'])
+            ->where(function ($query) use ($club, $hasClubIdColumn) {
+                if ($hasClubIdColumn) {
+                    $query->where('club_id', $club->id)
+                          ->orWhere(function ($q) use ($club) {
+                              $q->where('target_type', 'Club')
+                                ->where('target_id', $club->id);
+                          });
+                } else {
+                    $query->where(function ($q) use ($club) {
+                        $q->where('target_type', 'Club')
+                          ->where('target_id', $club->id);
+                    })
+                    ->orWhere(function ($q) use ($club) {
+                        $q->where('target_type', 'Event')
+                          ->whereIn('target_id', function ($sub) use ($club) {
+                              $sub->select('id')->from('events')->where('club_id', $club->id);
+                          });
+                    })
+                    ->orWhereRaw("JSON_EXTRACT(metadata, '$.club_id') = ?", [$club->id]);
+                }
             })
-            ->latest('id')
-            ->paginate(30);
+            // Exclude authentication and system admin override logs
+            ->where('action', 'not like', 'auth.%')
+            ->where('action', 'not like', 'admin.%');
+
+        // Optional date range filtering for executives (read-only activity feed)
+        if ($request->filled('from')) {
+            $query->where('created_at', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $query->where('created_at', '<=', $request->input('to'));
+        }
+
+        $logs = $query->latest('id')->paginate(30);
 
         return response()->json($logs);
     }

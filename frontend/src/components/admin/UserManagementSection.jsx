@@ -6,6 +6,7 @@ import SuccessBanner from '../ui/SuccessBanner';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { Shield, Users, Search, Trash2, Eye, UserCheck, Building } from 'lucide-react';
+import { formatSessionLabel, generateSessionOptions } from '../../utils/sessionUtils';
 
 const UserManagementSection = () => {
     const [users, setUsers] = useState([]);
@@ -21,6 +22,7 @@ const UserManagementSection = () => {
     const [editForm, setEditForm] = useState({
         name: '',
         department: '',
+        session: '',
         phone: '',
         is_admin: false,
     });
@@ -50,6 +52,7 @@ const UserManagementSection = () => {
         setEditForm({
             name: user.name || '',
             department: user.department || '',
+            session: user.session !== undefined && user.session !== null ? String(user.session) : '',
             phone: user.phone || '',
             is_admin: Boolean(user.is_admin),
         });
@@ -63,7 +66,11 @@ const UserManagementSection = () => {
         setError(null);
         setSuccess(null);
         try {
-            const updated = await adminService.updateUser(selectedUser.id, editForm);
+            const payload = {
+                ...editForm,
+                session: editForm.session !== '' ? parseInt(editForm.session, 10) : null,
+            };
+            const updated = await adminService.updateUser(selectedUser.id, payload);
             setSuccess(`User profile for "${updated.name || selectedUser.name}" updated successfully.`);
             setIsInspectOpen(false);
             loadUsers();
@@ -229,7 +236,7 @@ const UserManagementSection = () => {
                                             <td className="p-3.5 text-xs">
                                                 <div className="font-medium text-slate-800">{u.email}</div>
                                                 <div className="text-slate-500">
-                                                    {u.department || 'N/A'} {u.phone ? `• ${u.phone}` : ''}
+                                                    {u.department || 'N/A'} {u.session !== null && u.session !== undefined ? `• Session: ${formatSessionLabel(u.session)}` : ''} {u.phone ? `• ${u.phone}` : ''}
                                                 </div>
                                             </td>
 
@@ -355,6 +362,23 @@ const UserManagementSection = () => {
                                 onChange={(e) => setEditForm((prev) => ({ ...prev, department: e.target.value }))}
                                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
+                        </div>
+
+                        {/* Edit Session */}
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Academic Session</label>
+                            <select
+                                value={editForm.session}
+                                onChange={(e) => setEditForm((prev) => ({ ...prev, session: e.target.value }))}
+                                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            >
+                                <option value="">None / Not Specified</option>
+                                {generateSessionOptions().map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* Edit Phone */}

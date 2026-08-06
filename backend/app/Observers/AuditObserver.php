@@ -11,6 +11,20 @@ use Illuminate\Support\Facades\Request;
 
 class AuditObserver
 {
+    /**
+     * Per-model allowlist of auditable attributes to prevent PII exposure or noisy fields.
+     */
+    protected array $auditableFields = [
+        \App\Models\User::class                   => ['name', 'email', 'role', 'is_active'],
+        \App\Models\Club::class                   => ['name', 'category', 'status', 'description'],
+        \App\Models\Event::class                  => ['title', 'status', 'capacity', 'event_date'],
+        \App\Models\ClubMember::class             => ['role', 'status'],
+        \App\Models\MembershipRequest::class      => ['status'],
+        \App\Models\EventRegistration::class     => ['status', 'attendance'],
+        \App\Models\RecruitmentNotice::class      => ['title', 'status'],
+        \App\Models\RecruitmentApplication::class => ['status'],
+    ];
+
     protected function action(Model $model, string $event): string
     {
         $shortClass = class_basename($model);
@@ -27,6 +41,12 @@ class AuditObserver
             $dirty = $model->getDirty();
             // Exclude noisy timestamps
             unset($dirty['updated_at'], $dirty['created_at']);
+
+            $modelClass = get_class($model);
+            if (isset($this->auditableFields[$modelClass])) {
+                $allowed = $this->auditableFields[$modelClass];
+                $dirty = array_intersect_key($dirty, array_flip($allowed));
+            }
 
             $original = [];
             foreach (array_keys($dirty) as $field) {

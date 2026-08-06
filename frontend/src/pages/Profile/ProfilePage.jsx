@@ -5,6 +5,7 @@ import authService from '../../services/authService';
 import clubService from '../../services/clubService';
 import api from '../../services/api';
 import { Link } from 'react-router-dom';
+import { formatSessionLabel, generateSessionOptions } from '../../utils/sessionUtils';
 
 const roleLabels = {
     president:      'President',
@@ -22,6 +23,7 @@ const ProfilePage = () => {
     // Edit Profile form state
     const [phone, setPhone] = useState(user?.phone || '');
     const [department, setDepartment] = useState(user?.department || '');
+    const [session, setSession] = useState(user?.session !== undefined && user?.session !== null ? String(user.session) : '');
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [profileToast, setProfileToast] = useState(null);
 
@@ -46,6 +48,7 @@ const ProfilePage = () => {
         if (user) {
             setPhone(user.phone || '');
             setDepartment(user.department || '');
+            setSession(user.session !== undefined && user.session !== null ? String(user.session) : '');
         }
     }, [user]);
 
@@ -93,7 +96,8 @@ const ProfilePage = () => {
         setProfileToast(null);
 
         try {
-            const res = await authService.updateProfile({ phone, department });
+            const sessionVal = session !== '' ? parseInt(session, 10) : null;
+            const res = await authService.updateProfile({ phone, department, session: sessionVal });
             if (setUser && res.user) {
                 setUser(res.user);
             }
@@ -189,6 +193,12 @@ const ProfilePage = () => {
                                 <span>ID: <strong>{user?.student_id || 'N/A'}</strong></span>
                                 <span>&bull;</span>
                                 <span>{user?.department || 'Department not specified'}</span>
+                                {user?.session !== null && user?.session !== undefined && (
+                                    <>
+                                        <span>&bull;</span>
+                                        <span>Session: <strong>{formatSessionLabel(user.session)}</strong></span>
+                                    </>
+                                )}
                             </p>
                             <p className="text-xs text-slate-400 mt-0.5">{user?.email}</p>
                         </div>
@@ -245,7 +255,7 @@ const ProfilePage = () => {
                         <div>
                             <h2 className="text-base font-semibold text-slate-900">Personal Information</h2>
                             <p className="text-xs text-slate-500 mt-0.5">
-                                You can update your phone number and department. Student ID and email cannot be edited.
+                                You can update your phone number, department, and session. Student ID and email cannot be edited.
                             </p>
                         </div>
 
@@ -304,8 +314,25 @@ const ProfilePage = () => {
                                     />
                                 </div>
 
+                                {/* Session (Editable) */}
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-700 mb-1">Academic Session</label>
+                                    <select
+                                        value={session}
+                                        onChange={(e) => setSession(e.target.value)}
+                                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
+                                    >
+                                        <option value="">None / Not Specified</option>
+                                        {generateSessionOptions().map((opt) => (
+                                            <option key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 {/* Phone (Editable) */}
-                                <div className="sm:col-span-2">
+                                <div>
                                     <label className="block text-xs font-medium text-slate-700 mb-1">Phone Number</label>
                                     <input
                                         type="text"

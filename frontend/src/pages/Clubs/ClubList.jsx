@@ -20,7 +20,7 @@ const categoryColors = {
 };
 
 const ClubList = () => {
-    const { isAdmin } = useAuth();
+    const { user, isAdmin } = useAuth();
     const [clubs, setClubs]       = useState([]);
     const [loading, setLoading]   = useState(true);
     const [error, setError]       = useState(null);
@@ -117,9 +117,22 @@ const ClubList = () => {
                                 <div
                                     key={club.id}
                                     onClick={() => navigate(`/clubs/${club.id}`)}
-                                    className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-xs hover:border-blue-400 transition-all flex flex-col justify-between"
+                                    className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-xs hover:border-blue-400 transition-all flex flex-col justify-between relative overflow-hidden"
                                 >
                                     <div>
+                                        {club.status === 'pending' && (
+                                            <div className="mb-2.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold flex items-center justify-between">
+                                                <span>{club.created_by === user?.id ? 'Requested by you' : `Requested by ${club.creator?.name || 'User'}`}</span>
+                                                <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-200/60 px-1.5 py-0.5 rounded">Waiting for approval</span>
+                                            </div>
+                                        )}
+
+                                        {club.status === 'suspended' && (
+                                            <div className="mb-2.5 px-3 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-between">
+                                                <span>System Status</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded">Suspended</span>
+                                            </div>
+                                        )}
                                         <div className="flex items-start justify-between mb-3">
                                             <h3 className="font-semibold text-[#0b1c30] text-base leading-tight">
                                                 {club.name}

@@ -62,6 +62,21 @@ const AdminClubs = () => {
         }
     };
 
+    const handleActivate = async (id) => {
+        setActionId(id);
+        setError(null);
+        setSuccess(null);
+        try {
+            await clubService.adminActivate(id);
+            setSuccess('Club activated successfully.');
+            loadClubs();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to activate club.');
+        } finally {
+            setActionId(null);
+        }
+    };
+
     const handleDelete = async (id) => {
         if (!window.confirm('Are you sure you want to permanently delete this club?')) return;
         setActionId(id);
@@ -155,9 +170,9 @@ const AdminClubs = () => {
                                                 variant="primary"
                                                 size="sm"
                                                 disabled={actionId === c.id}
-                                                onClick={() => handleApprove(c.id)}
+                                                onClick={() => handleActivate(c.id)}
                                             >
-                                                Re-Approve
+                                                Activate
                                             </Button>
                                         )}
                                         <Button

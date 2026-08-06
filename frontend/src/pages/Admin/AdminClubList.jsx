@@ -105,6 +105,19 @@ const AdminClubList = () => {
         }
     };
 
+    const handleActivate = async (id) => {
+        if (!window.confirm('Make this club active again?')) return;
+        setActionLoading(true);
+        try {
+            await clubService.adminActivate(id);
+            fetchClubs();
+        } catch {
+            alert('Failed to activate club.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     return (
         <MainLayout>
             <div className="space-y-8">
@@ -233,7 +246,9 @@ const AdminClubList = () => {
                                         {clubs.map(club => (
                                             <tr key={club.id} className="hover:bg-[#f8f9ff]/60 transition-colors">
                                                 <td className="px-5 py-4">
-                                                    <p className="font-semibold text-[#0b1c30]">{club.name}</p>
+                                                    <Link to={`/clubs/${club.id}`} className="font-semibold text-[#0b1c30] hover:text-blue-600 transition-colors">
+                                                        {club.name}
+                                                    </Link>
                                                     {club.department && <p className="text-xs text-slate-400 mt-0.5">{club.department}</p>}
                                                 </td>
                                                 <td className="px-5 py-4 text-slate-600">{club.category}</td>
@@ -286,7 +301,16 @@ const AdminClubList = () => {
                                                                 Suspend
                                                             </button>
                                                         )}
-                                                        {(club.status === 'rejected' || club.status === 'suspended') && (
+                                                        {club.status === 'suspended' && (
+                                                            <button
+                                                                onClick={() => handleActivate(club.id)}
+                                                                disabled={actionLoading}
+                                                                className="px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                                                            >
+                                                                Activate
+                                                            </button>
+                                                        )}
+                                                        {club.status === 'rejected' && (
                                                             <span className="text-xs text-slate-400">No actions</span>
                                                         )}
                                                     </div>

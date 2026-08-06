@@ -9,6 +9,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
 import { Check, X, ArrowLeft, Users, FileText } from 'lucide-react';
+import { formatSessionLabel } from '../../utils/sessionUtils';
 
 const ApplicationPhaseStepper = ({ status }) => {
     // Determine active phase step index: 0 = Application, 1 = Interview, 2 = Result
@@ -160,7 +161,23 @@ const RecruitmentApplicationsContent = () => {
                                         <h4 className="font-bold text-[#0b1c30] text-base">
                                             {app.user?.name || `Applicant #${app.user_id}`}
                                         </h4>
-                                        <span className="text-xs text-slate-500">{app.user?.email}</span>
+                                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-0.5">
+                                            <span>{app.user?.email}</span>
+                                            {app.user?.department && (
+                                                <>
+                                                    <span>&bull;</span>
+                                                    <span className="font-medium text-slate-700">{app.user.department}</span>
+                                                </>
+                                            )}
+                                            {app.user?.session !== null && app.user?.session !== undefined && (
+                                                <>
+                                                    <span>&bull;</span>
+                                                    <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                                                        Session: {formatSessionLabel(app.user.session)}
+                                                    </span>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         {app.status && <Badge status={app.status} />}

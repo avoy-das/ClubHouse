@@ -87,6 +87,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/clubs/{club}/approve', [ClubController::class, 'approve']);
         Route::post('/admin/clubs/{club}/reject',  [ClubController::class, 'reject']);
         Route::post('/admin/clubs/{club}/suspend', [ClubController::class, 'suspend']);
+        Route::post('/admin/clubs/{club}/activate', [ClubController::class, 'activate']);
 
         Route::get('/admin/club-edit-requests',                            [ClubEditRequestController::class, 'indexAdmin']);
         Route::post('/admin/club-edit-requests/{clubEditRequest}/approve', [ClubEditRequestController::class, 'approve']);
@@ -101,6 +102,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/clubs/{club}/approve', [ClubController::class, 'approve'])->middleware('is_admin');
     Route::post('/clubs/{club}/reject',  [ClubController::class, 'reject'])->middleware('is_admin');
     Route::post('/clubs/{club}/suspend', [ClubController::class, 'suspend'])->middleware('is_admin');
+    Route::post('/clubs/{club}/activate', [ClubController::class, 'activate'])->middleware('is_admin');
 
     // Club positions (executive role catalogue per club)
     Route::apiResource('clubs.positions', ClubPositionController::class)->shallow();

@@ -49,6 +49,9 @@ const clubService = {
     adminSuspend: (id) =>
         api.post(`/admin/clubs/${id}/suspend`),
 
+    adminActivate: (id) =>
+        api.post(`/admin/clubs/${id}/activate`),
+
     adminUpdate: (id, formData) =>
         api.put(`/admin/clubs/${id}`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },

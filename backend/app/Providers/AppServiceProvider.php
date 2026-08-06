@@ -7,8 +7,11 @@ use App\Models\ClubMember;
 use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\MembershipRequest;
+use App\Models\ClubEditRequest;
+use App\Models\RecruitmentApplication;
+use App\Models\RecruitmentNotice;
 use App\Models\User;
-use App\Observers\AuditObserver;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -26,19 +29,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Attach the universal audit observer to all key models.
-        // Any create / update / delete on these will produce an audit_logs row.
-        $models = [
-            Event::class,
-            Club::class,
-            User::class,
-            ClubMember::class,
-            MembershipRequest::class,
-            EventRegistration::class,
-        ];
+        // Define explicit morph map for stable audit target_type strings across class refactors
+        Relation::morphMap([
+            'Club'                   => Club::class,
+            'Event'                  => Event::class,
+            'User'                   => User::class,
+            'ClubMember'             => ClubMember::class,
+            'MembershipRequest'      => MembershipRequest::class,
+            'EventRegistration'      => EventRegistration::class,
+            'RecruitmentNotice'      => RecruitmentNotice::class,
+            'RecruitmentApplication' => RecruitmentApplication::class,
+            'ClubEditRequest'        => ClubEditRequest::class,
+        ]);
 
-        foreach ($models as $model) {
-            $model::observe(AuditObserver::class);
-        }
+        // Explicit domain logging is handled via AuditService::log() in Controllers/Requests.
+        // Universal Observer auto-registration is disabled to eliminate the Dual-Write bug.
     }
 }

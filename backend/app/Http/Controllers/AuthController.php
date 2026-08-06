@@ -94,6 +94,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'phone'      => ['nullable', 'string', 'max:20'],
             'department' => ['sometimes', 'string', 'max:255'],
+            'session'    => ['nullable', 'integer', 'min:0', 'max:99'],
         ]);
 
         $user->update($validated);
