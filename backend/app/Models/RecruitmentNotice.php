@@ -15,6 +15,7 @@ class RecruitmentNotice extends Model
         'club_id',
         'title',
         'session',
+        'target_sessions',
         'description',
         'requirements',
         'custom_fields',
@@ -25,9 +26,10 @@ class RecruitmentNotice extends Model
     ];
 
     protected $casts = [
-        'custom_fields' => 'array',
-        'opens_at'      => 'datetime',
-        'closes_at'     => 'datetime',
+        'target_sessions' => 'array',
+        'custom_fields'   => 'array',
+        'opens_at'        => 'datetime',
+        'closes_at'       => 'datetime',
     ];
 
     public function club(): BelongsTo

@@ -10,19 +10,20 @@ class AuditLogController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = AuditLog::with(['user:id,name,email', 'actor:id,name,email']);
+        $query = AuditLog::with(['user:id,name,email', 'actor:id,name,email', 'target']);
 
         // Filter by user
         if ($request->filled('user_id')) {
             $query->where('user_id', $request->input('user_id'));
         }
-        // Filter by club (target_type=Club and target_id, or metadata->club_id)
+        // Filter by club (uses indexed club_id column, fallback to target lookup)
         if ($request->filled('club_id')) {
             $clubId = $request->input('club_id');
             $query->where(function ($q) use ($clubId) {
-                $q->where(function ($inner) use ($clubId) {
-                    $inner->where('target_type', 'Club')->where('target_id', $clubId);
-                })->orWhereRaw("JSON_EXTRACT(metadata, '$.club_id') = ?", [$clubId]);
+                $q->where('club_id', $clubId)
+                  ->orWhere(function ($inner) use ($clubId) {
+                      $inner->where('target_type', 'Club')->where('target_id', $clubId);
+                  });
             });
         }
         // Filter by action prefix

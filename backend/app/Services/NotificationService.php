@@ -54,6 +54,32 @@ class NotificationService
     }
 
     /**
+     * Send notification to users belonging to specific student sessions.
+     */
+    public static function notifyUsersBySessions(
+        array $sessions,
+        string $type,
+        string $title,
+        string $message,
+        ?string $relatedType = null,
+        ?int $relatedId = null,
+        ?int $excludeUserId = null
+    ): void {
+        if (empty($sessions)) return;
+
+        $query = User::whereIn('session', $sessions);
+        if ($excludeUserId) {
+            $query->where('id', '!=', $excludeUserId);
+        }
+
+        $userIds = $query->pluck('id');
+
+        foreach ($userIds as $userId) {
+            self::notifyUser($userId, $type, $title, $message, $relatedType, $relatedId);
+        }
+    }
+
+    /**
      * Send notification to all platform admins.
      */
     public static function notifyAdmins(

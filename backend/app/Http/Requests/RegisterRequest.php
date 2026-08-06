@@ -30,6 +30,7 @@ class RegisterRequest extends FormRequest
             'email'      => ['required', 'email', 'ends_with:@student.nstu.edu.bd', 'unique:users,email'],
             'password'   => ['required', 'string', 'min:8', 'confirmed'],
             'department' => ['required', 'string', 'max:255'],
+            'session'    => ['nullable', 'integer', 'min:0', 'max:99'],
             'phone'      => ['nullable', 'string', 'max:20'],
         ];
     }

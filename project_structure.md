@@ -1,38 +1,43 @@
-# ClubHouse — Project File Structure Summary
+# ClubHouse — Project File Structure & Architecture Summary
 
-A university/organization club management platform with a **Laravel (PHP)** backend and a **React (Vite + Tailwind)** frontend.
+A complete, production-ready university/organization club management platform built with a **Laravel 12 (PHP 8.2+)** RESTful backend and a **React 19 (Vite + Tailwind CSS)** single-page application frontend.
 
 ---
 
-## Backend (Laravel)
+## 1. Backend File Structure (`backend/`)
 
 ```
 backend/
 ├── app/
 │   ├── Http/
-│   │   ├── Controllers/            # 19 controllers
+│   │   ├── Controllers/                  # 22 RESTful Controllers
+│   │   │   ├── AnnouncementController.php
+│   │   │   ├── AuditLogController.php
 │   │   │   ├── AuthController.php
+│   │   │   ├── CertificateController.php
 │   │   │   ├── ClubController.php
+│   │   │   ├── ClubEditRequestController.php
+│   │   │   ├── ClubGalleryController.php
 │   │   │   ├── ClubMemberController.php
 │   │   │   ├── ClubMemberPositionController.php
 │   │   │   ├── ClubPositionController.php
-│   │   │   ├── ClubGalleryController.php
+│   │   │   ├── Controller.php           # Base controller
+│   │   │   ├── DashboardController.php
 │   │   │   ├── EventController.php
-│   │   │   ├── EventRegistrationController.php
 │   │   │   ├── EventFeedbackController.php
-│   │   │   ├── AnnouncementController.php
-│   │   │   ├── CertificateController.php
+│   │   │   ├── EventRegistrationController.php
 │   │   │   ├── MembershipRequestController.php
-│   │   │   ├── RecruitmentNoticeController.php
-│   │   │   ├── RecruitmentApplicationController.php
 │   │   │   ├── NotificationController.php
-│   │   │   ├── AuditLogController.php
+│   │   │   ├── RecruitmentApplicationController.php
+│   │   │   ├── RecruitmentNoticeController.php
 │   │   │   ├── ReportController.php
-│   │   │   ├── UserController.php
-│   │   │   └── Controller.php            # Base controller
+│   │   │   ├── SearchController.php
+│   │   │   └── UserController.php
+│   │   │
 │   │   ├── Middleware/
-│   │   │   └── IsAdmin.php                # Admin role guard
-│   │   └── Requests/              # 16 form request validators
+│   │   │   └── IsAdmin.php               # Admin privilege guard
+│   │   │
+│   │   └── Requests/                     # 16 Form Request classes
 │   │       ├── LoginRequest.php
 │   │       ├── RegisterRequest.php
 │   │       ├── StoreClubRequest.php
@@ -49,39 +54,45 @@ backend/
 │   │       ├── StoreRecruitmentNoticeRequest.php
 │   │       ├── UpdateRecruitmentNoticeRequest.php
 │   │       └── StoreRecruitmentApplicationRequest.php
-│   ├── Models/                    # 16 Eloquent models
-│   │   ├── User.php
+│   │
+│   ├── Models/                           # 17 Eloquent Domain Models
+│   │   ├── Announcement.php
+│   │   ├── AuditLog.php
+│   │   ├── Certificate.php
 │   │   ├── Club.php
+│   │   ├── ClubEditRequest.php
+│   │   ├── ClubGallery.php
 │   │   ├── ClubMember.php
 │   │   ├── ClubMemberPosition.php
 │   │   ├── ClubPosition.php
-│   │   ├── ClubGallery.php
 │   │   ├── Event.php
-│   │   ├── EventRegistration.php
 │   │   ├── EventFeedback.php
-│   │   ├── Announcement.php
-│   │   ├── Certificate.php
+│   │   ├── EventRegistration.php
 │   │   ├── MembershipRequest.php
-│   │   ├── RecruitmentNotice.php
-│   │   ├── RecruitmentApplication.php
 │   │   ├── Notification.php
-│   │   └── AuditLog.php
+│   │   ├── RecruitmentApplication.php
+│   │   ├── RecruitmentNotice.php
+│   │   └── User.php
+│   │
 │   ├── Observers/
-│   │   └── AuditObserver.php              # Audit trail logging
-│   ├── Policies/                  # 7 authorization policies
+│   │   └── AuditObserver.php             # Automated model audit logging
+│   │
+│   ├── Policies/                         # 7 Authorization Policies
+│   │   ├── AnnouncementPolicy.php
 │   │   ├── ClubPolicy.php
 │   │   ├── EventPolicy.php
 │   │   ├── EventRegistrationPolicy.php
-│   │   ├── AnnouncementPolicy.php
 │   │   ├── MembershipRequestPolicy.php
-│   │   ├── RecruitmentNoticePolicy.php
-│   │   └── RecruitmentApplicationPolicy.php
+│   │   ├── RecruitmentApplicationPolicy.php
+│   │   └── RecruitmentNoticePolicy.php
+│   │
 │   ├── Providers/
 │   │   └── AppServiceProvider.php
+│   │
 │   └── Services/
-│       └── ClubMembershipService.php      # Membership business logic
+│       └── ClubMembershipService.php     # Membership & permission rules logic
 │
-├── config/                        # 12 config files
+├── config/                               # 12 Configuration Files
 │   ├── app.php
 │   ├── auth.php
 │   ├── cache.php
@@ -91,179 +102,132 @@ backend/
 │   ├── logging.php
 │   ├── mail.php
 │   ├── queue.php
-│   ├── sanctum.php                        # API token auth
+│   ├── sanctum.php                       # API token authentication setup
 │   ├── services.php
 │   └── session.php
 │
 ├── database/
-│   ├── database.sqlite                    # SQLite dev database
-│   ├── factories/
-│   ├── seeders/
-│   └── migrations/                # 20 migrations
-│       ├── *_create_users_table
-│       ├── *_create_cache_table
-│       ├── *_create_jobs_table
-│       ├── *_create_personal_access_tokens_table
-│       ├── *_create_clubs_table
-│       ├── *_create_club_positions_table
-│       ├── *_create_club_members_table
-│       ├── *_create_club_member_positions_table
-│       ├── *_create_membership_requests_table
-│       ├── *_create_events_table
-│       ├── *_create_event_registrations_table
-│       ├── *_create_certificates_table
-│       ├── *_create_announcements_table
-│       ├── *_create_recruitment_notices_table
-│       ├── *_create_recruitment_applications_table
-│       ├── *_create_event_feedback_table
-│       ├── *_create_notifications_table
-│       ├── *_create_audit_logs_table
-│       ├── *_create_club_galleries_table
-│       └── *_add_is_members_only_to_events_table
+│   ├── database.sqlite                   # SQLite development database file
+│   ├── factories/                        # Model factories for testing
+│   ├── seeders/                          # Database seeders
+│   └── migrations/                       # 41 Schema migrations
 │
 ├── routes/
-│   ├── api.php                    # API route definitions
-│   ├── web.php                    # Web routes (minimal)
-│   └── console.php                # Artisan console routes
+│   ├── api.php                           # Complete API endpoint routes
+│   ├── console.php                       # Console command routes
+│   └── web.php                           # Base web route
 │
-├── public/                        # Public assets
-├── resources/                     # Blade views / assets
-├── storage/                       # Logs, cache, uploads
-├── tests/                         # PHPUnit tests
-├── bootstrap/                     # Framework bootstrap
-├── vendor/                        # Composer dependencies
-│
-├── .env / .env.example
+├── public/                               # Public assets & index.php entry
+├── storage/                              # Uploaded files, logs, and cache
+├── tests/                                # Feature and unit test suites
+├── bootstrap/                            # Framework bootstrap & middleware configuration
 ├── composer.json / composer.lock
 ├── artisan
 ├── phpunit.xml
 └── vite.config.js
 ```
 
-### Key Backend Patterns
-
-| Concept | Details |
-|---|---|
-| **Auth** | Laravel Sanctum (token-based API auth) |
-| **Authorization** | Policy-based (`Policies/`) + `IsAdmin` middleware |
-| **Validation** | Dedicated Form Request classes (`Requests/`) |
-| **Auditing** | Observer-based audit logging (`AuditObserver`) |
-| **Database** | SQLite (dev), 20 migrations covering all domain tables |
-
 ---
 
-## Frontend (React + Vite + Tailwind CSS)
+## 2. Frontend File Structure (`frontend/`)
 
 ```
 frontend/
 ├── src/
-│   ├── App.jsx                    # Root app component with routing
-│   ├── App.css                    # Global styles
-│   ├── main.jsx                   # Vite entry point
-│   ├── index.css                  # Tailwind base imports
+│   ├── App.jsx                           # Main application router with route protection
+│   ├── main.jsx                          # React application entry point
+│   ├── index.css                         # Tailwind CSS base directive imports
 │   │
-│   ├── components/
+│   ├── components/                       # Shared UI & layout components
 │   │   ├── layout/
-│   │   │   ├── AppLayout.jsx              # Main layout wrapper
-│   │   │   └── Navbar.jsx                 # Top navigation bar
-│   │   ├── ui/                    # Reusable UI primitives
+│   │   │   ├── AppLayout.jsx             # Main layout shell with header and sidebar
+│   │   │   └── Navbar.jsx                # Navigation bar with user dropdown & unread badge
+│   │   ├── ui/                           # Reusable UI elements
 │   │   │   ├── Badge.jsx
 │   │   │   ├── Button.jsx
 │   │   │   ├── Card.jsx
-│   │   │   ├── Modal.jsx
 │   │   │   ├── ErrorBanner.jsx
-│   │   │   ├── SuccessBanner.jsx
-│   │   │   └── LoadingSpinner.jsx
-│   │   ├── clubs/                 # Club-specific components
-│   │   │   ├── ClubCard.jsx
-│   │   │   ├── MembershipRequestList.jsx
-│   │   │   └── PositionAssignment.jsx
-│   │   ├── Button/                # (legacy/alternate Button)
-│   │   ├── Modal/                 # (legacy/alternate Modal)
-│   │   ├── Navbar/                # (legacy/alternate Navbar)
-│   │   └── Sidebar/               # Sidebar component
+│   │   │   ├── LoadingSpinner.jsx
+│   │   │   ├── Modal.jsx
+│   │   │   └── SuccessBanner.jsx
+│   │   └── clubs/                        # Club specific components
+│   │       ├── ClubCard.jsx
+│   │       ├── MembershipRequestList.jsx
+│   │       └── PositionAssignment.jsx
 │   │
-│   ├── pages/                     # 12 page modules
-│   │   ├── Admin/
-│   │   ├── Announcements/
-│   │   ├── Certificates/
-│   │   ├── Clubs/
-│   │   ├── Dashboard/
-│   │   ├── Events/
-│   │   ├── Login/
-│   │   ├── Register/
-│   │   ├── Profile/
-│   │   ├── Notifications/
-│   │   ├── Recruitment/
-│   │   └── Users/
+│   ├── context/                          # React Context Providers
+│   │   ├── AuthContext.jsx               # Auth state, login, logout, user profile
+│   │   └── ClubPermissionsContext.jsx    # Club-level executive permission resolver
 │   │
-│   ├── services/                  # API service layer (10 files)
-│   │   ├── api.js                         # Axios instance config
-│   │   ├── authService.js
-│   │   ├── clubService.js
-│   │   ├── eventService.js
-│   │   ├── membershipService.js
-│   │   ├── announcementService.js
-│   │   ├── certificateService.js
-│   │   ├── recruitmentService.js
-│   │   ├── notificationService.js
-│   │   └── adminService.js
+│   ├── pages/                            # 13 Page Feature Folders
+│   │   ├── Admin/                        # AdminClubList, AdminUsers, AdminAuditLogs, AdminReports
+│   │   ├── Announcements/                # AnnouncementList
+│   │   ├── Certificates/                 # MyCertificates
+│   │   ├── Clubs/                        # ClubList, ClubDetail, CreateClub, ClubEditForm, ClubMembers
+│   │   ├── Dashboard/                    # Dashboard
+│   │   ├── Events/                       # EventsPage, EventDetailPage, EventAttendance, EventForm
+│   │   ├── Login/                        # Login
+│   │   ├── Notifications/                # NotificationList
+│   │   ├── Profile/                      # ProfilePage
+│   │   ├── Recruitment/                  # RecruitmentList, RecruitmentDetail, RecruitmentApplications
+│   │   ├── Register/                     # Register
+│   │   ├── Search/                       # SearchPage
+│   │   └── Users/                        # User administration components
 │   │
-│   ├── context/                   # React Context providers
-│   │   ├── AuthContext.jsx                # Auth state management
-│   │   └── ClubPermissionsContext.jsx     # Club-level permissions
+│   ├── routes/                           # Route Protection Guards
+│   │   ├── ProtectedRoute.jsx            # Authentication guard
+│   │   ├── AdminRoute.jsx                # Platform Admin guard
+│   │   └── ClubExecutiveRoute.jsx        # Club Executive guard
 │   │
-│   ├── routes/                    # Route guards
-│   │   ├── ProtectedRoute.jsx             # Auth-required guard
-│   │   ├── AdminROute.jsx                 # Admin-only guard
-│   │   └── ClubExecutiveRoute.jsx         # Club executive guard
-│   │
-│   ├── hooks/                     # (empty — custom hooks)
-│   ├── utils/                     # (empty — utilities)
-│   └── assets/                    # Static assets
+│   └── services/                         # 11 Service Layer Modules
+│       ├── adminService.js
+│       ├── announcementService.js
+│       ├── api.js                        # Axios instance with Bearer token interceptor
+│       ├── authService.js
+│       ├── certificateService.js
+│       ├── clubService.js
+│       ├── eventService.js
+│       ├── membershipService.js
+│       ├── notificationService.js
+│       ├── recruitmentService.js
+│       └── searchService.js
 │
-├── public/                        # Public static files
-├── node_modules/                  # npm dependencies
-│
-├── index.html                     # Vite HTML entry
+├── public/                               # Static public assets
 ├── package.json / package-lock.json
-├── vite.config.js
 ├── tailwind.config.js
 ├── postcss.config.js
-└── .oxlintrc.json                 # Linter config
+├── vite.config.js
+└── .oxlintrc.json
 ```
-
-### Key Frontend Patterns
-
-| Concept | Details |
-|---|---|
-| **Build Tool** | Vite |
-| **Styling** | Tailwind CSS |
-| **API Layer** | Axios-based service modules (`services/`) |
-| **Auth** | React Context (`AuthContext`) + Sanctum tokens |
-| **Routing** | React Router with 3 route guards (Protected, Admin, Club Executive) |
-| **State** | Context API for auth & club permissions |
 
 ---
 
-## Domain Model Overview
+## 3. Entity Relationship Diagram (ERD)
 
 ```mermaid
 erDiagram
-    User ||--o{ ClubMember : joins
-    User ||--o{ MembershipRequest : submits
-    User ||--o{ EventRegistration : registers
-    User ||--o{ RecruitmentApplication : applies
-    Club ||--o{ ClubMember : has
-    Club ||--o{ ClubPosition : defines
-    Club ||--o{ Event : hosts
-    Club ||--o{ Announcement : publishes
-    Club ||--o{ RecruitmentNotice : posts
-    Club ||--o{ ClubGallery : has
-    ClubMember ||--o{ ClubMemberPosition : holds
-    ClubPosition ||--o{ ClubMemberPosition : assigned_to
-    Event ||--o{ EventRegistration : tracks
-    Event ||--o{ EventFeedback : receives
-    Event ||--o{ Certificate : issues
-    RecruitmentNotice ||--o{ RecruitmentApplication : collects
+    User ||--o{ ClubMember : "joins"
+    User ||--o{ MembershipRequest : "submits"
+    User ||--o{ EventRegistration : "registers"
+    User ||--o{ RecruitmentApplication : "applies"
+    User ||--o{ AuditLog : "triggers"
+    User ||--o{ Notification : "receives"
+    User ||--o{ ClubEditRequest : "requests"
+    
+    Club ||--o{ ClubMember : "has"
+    Club ||--o{ ClubPosition : "defines"
+    Club ||--o{ Event : "hosts"
+    Club ||--o{ Announcement : "publishes"
+    Club ||--o{ RecruitmentNotice : "posts"
+    Club ||--o{ ClubGallery : "contains"
+    Club ||--o{ ClubEditRequest : "receives_edits"
+
+    ClubMember ||--o{ ClubMemberPosition : "holds"
+    ClubPosition ||--o{ ClubMemberPosition : "assigned_to"
+
+    Event ||--o{ EventRegistration : "tracks"
+    Event ||--o{ EventFeedback : "receives"
+    EventRegistration ||--o| Certificate : "issues"
+
+    RecruitmentNotice ||--o{ RecruitmentApplication : "collects"
 ```

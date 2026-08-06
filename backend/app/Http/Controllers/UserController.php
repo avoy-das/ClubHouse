@@ -29,6 +29,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name'       => ['sometimes', 'string', 'max:255'],
             'department' => ['sometimes', 'string', 'max:255'],
+            'session'    => ['sometimes', 'nullable', 'integer', 'min:0', 'max:99'],
             'phone'      => ['sometimes', 'nullable', 'string', 'max:20'],
             'is_admin'   => ['sometimes', 'boolean'],
         ]);

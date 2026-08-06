@@ -35,7 +35,7 @@ export const getNotificationTargetUrl = (notification) => {
     }
 
     // 3. Recruitment Notices & Applications
-    if (relatedType.includes('Recruitment') || type.includes('recruitment')) {
+    if (relatedType.includes('RecruitmentNotice') || relatedType.includes('Recruitment') || type.includes('recruitment')) {
         if (type === 'recruitment_application_submitted') {
             return relatedId ? `/recruitment/${relatedId}/applications` : '/recruitment';
         }

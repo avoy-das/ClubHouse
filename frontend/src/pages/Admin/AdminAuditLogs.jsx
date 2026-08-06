@@ -4,7 +4,8 @@ import MainLayout from '../../layouts/MainLayout';
 import adminService from '../../services/adminService';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
-import { Shield, FileText, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Shield, FileText, ArrowLeft, ArrowRight, X, Info, Clock, User as UserIcon, Tag } from 'lucide-react';
+import { actionLabels, renderMetaSummary } from '../../utils/auditLogUtils';
 
 const AdminAuditLogs = () => {
     const [logs, setLogs] = useState([]);
@@ -12,6 +13,7 @@ const AdminAuditLogs = () => {
     const [lastPage, setLastPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedLog, setSelectedLog] = useState(null);
 
     // Filters
     const [userId, setUserId] = useState('');
@@ -64,6 +66,18 @@ const AdminAuditLogs = () => {
         loadAuditLogs(1);
     };
 
+    const formatDate = (isoStr) => {
+        if (!isoStr) return '-';
+        return new Date(isoStr).toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+    };
+
     return (
         <MainLayout>
             <div className="space-y-6">
@@ -72,7 +86,7 @@ const AdminAuditLogs = () => {
                         <h1 className="text-2xl font-bold text-[#0b1c30] flex items-center gap-2">
                             <Shield className="w-6 h-6 text-amber-500" /> Admin — System Audit Logs
                         </h1>
-                        <p className="text-slate-500 text-sm mt-0.5">Security and administrative action trail across the platform.</p>
+                        <p className="text-slate-500 text-sm mt-0.5">Security and administrative action trail across the platform. Click any log entry for detailed breakdown.</p>
                     </div>
                     <div className="flex space-x-2 text-xs font-semibold">
                         <Link to="/admin/clubs" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
@@ -100,17 +114,18 @@ const AdminAuditLogs = () => {
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Action Prefix</label>
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Action Category</label>
                         <select
                             value={action}
                             onChange={(e) => setAction(e.target.value)}
                             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-[#2563eb] outline-none bg-white"
                         >
                             <option value="">All Actions</option>
-                            <option value="auth.">auth.*</option>
-                            <option value="club.">club.*</option>
-                            <option value="event.">event.*</option>
-                            <option value="admin.">admin.*</option>
+                            <option value="auth.">auth.* (Authentication)</option>
+                            <option value="club.">club.* (Club Management)</option>
+                            <option value="event.">event.* (Events)</option>
+                            <option value="recruitment.">recruitment.* (Recruitment)</option>
+                            <option value="admin.">admin.* (Administrative)</option>
                         </select>
                     </div>
                     <div>
@@ -147,8 +162,11 @@ const AdminAuditLogs = () => {
                     <LoadingSpinner />
                 ) : (
                     <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-200 font-bold text-[#0b1c30] flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-blue-600" /> Action History
+                        <div className="p-4 border-b border-slate-200 font-bold text-[#0b1c30] flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-blue-600" /> Action History
+                            </div>
+                            <span className="text-xs font-normal text-slate-400">Showing {logs.length} entries &bull; Click row for details</span>
                         </div>
                         {logs.length === 0 ? (
                             <p className="p-6 text-slate-500 text-sm text-center">No audit logs recorded matching criteria.</p>
@@ -158,30 +176,59 @@ const AdminAuditLogs = () => {
                                     <thead className="bg-[#f8f9ff] text-[#0b1c30] uppercase text-xs font-semibold">
                                         <tr>
                                             <th className="p-3.5">Timestamp</th>
-                                            <th className="p-3.5">Actor / User</th>
+                                            <th className="p-3.5">Actor</th>
                                             <th className="p-3.5">Action</th>
-                                            <th className="p-3.5">Subject / Target</th>
-                                            <th className="p-3.5">Meta Info</th>
+                                            <th className="p-3.5">Target</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {logs.map((log) => (
-                                            <tr key={log.id} className="hover:bg-[#f8f9ff]/60 transition-colors">
-                                                <td className="p-3.5 text-xs text-slate-500 whitespace-nowrap">
-                                                    {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
-                                                </td>
-                                                <td className="p-3.5 font-semibold text-[#0b1c30]">
-                                                    {log.user?.name || log.actor?.name || (log.user_id ? `User #${log.user_id}` : 'System')}
-                                                </td>
-                                                <td className="p-3.5 font-semibold text-blue-700">{log.action}</td>
-                                                <td className="p-3.5">
-                                                    {log.target_type || log.subject_type ? `${log.target_type || log.subject_type} #${log.target_id || log.subject_id || ''}` : 'N/A'}
-                                                </td>
-                                                <td className="p-3.5 text-xs font-mono bg-slate-50 max-w-xs truncate rounded">
-                                                    {log.metadata || log.meta ? JSON.stringify(log.metadata || log.meta) : '-'}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {logs.map((log) => {
+                                            const humanAction = actionLabels[log.action] || log.action;
+                                            const actorName = log.user?.name || log.actor?.name || (log.user_id ? `User #${log.user_id}` : 'System');
+                                            const actorEmail = log.user?.email || log.actor?.email;
+
+                                            return (
+                                                <tr
+                                                    key={log.id}
+                                                    onClick={() => setSelectedLog(log)}
+                                                    className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
+                                                >
+                                                    <td className="p-3.5 text-xs text-slate-500 whitespace-nowrap">
+                                                        {formatDate(log.created_at)}
+                                                    </td>
+                                                    <td className="p-3.5">
+                                                        <div className="font-semibold text-[#0b1c30] group-hover:text-blue-600 transition-colors">
+                                                            {actorName}
+                                                        </div>
+                                                        {actorEmail && (
+                                                            <div className="text-[11px] text-slate-400 font-mono">{actorEmail}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3.5">
+                                                        <span className="font-semibold text-slate-900 block">{humanAction}</span>
+                                                        <span className="text-[11px] text-slate-400 font-mono">{log.action}</span>
+                                                    </td>
+                                                    <td className="p-3.5">
+                                                        {log.target_label ? (
+                                                            <div>
+                                                                <span className="font-semibold text-slate-900 block">{log.target_label}</span>
+                                                                {(log.target_type || log.subject_type) && (
+                                                                    <span className="text-[11px] text-slate-400 font-mono">
+                                                                        {log.target_type || log.subject_type} #{log.target_id || log.subject_id || ''}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            log.target_type || log.subject_type ? (
+                                                                <span className="font-mono text-slate-700">{`${log.target_type || log.subject_type} #${log.target_id || log.subject_id || ''}`}</span>
+                                                            ) : (
+                                                                <span className="text-slate-400 text-xs">System</span>
+                                                            )
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
@@ -210,6 +257,118 @@ const AdminAuditLogs = () => {
                     </div>
                 )}
             </div>
+
+            {/* Audit Log Detail Modal */}
+            {selectedLog && (
+                <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full p-6 relative animate-in fade-in zoom-in-95 duration-150">
+                        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                            <div>
+                                <span className="text-xs font-semibold uppercase tracking-wider text-blue-600">Audit Log Record #{selectedLog.id}</span>
+                                <h2 className="text-lg font-bold text-slate-900 mt-0.5">
+                                    {actionLabels[selectedLog.action] || selectedLog.action}
+                                </h2>
+                            </div>
+                            <button
+                                onClick={() => setSelectedLog(null)}
+                                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="py-4 space-y-4 text-xs">
+                            {/* Summary Sentence Card */}
+                            {renderMetaSummary(selectedLog) && (
+                                <div className="p-3.5 bg-blue-50/70 border border-blue-100 rounded-xl text-blue-900 flex items-start gap-2.5">
+                                    <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <span className="font-semibold block text-[11px] uppercase tracking-wider text-blue-700">Summary</span>
+                                        <p className="text-xs font-medium text-slate-800 mt-0.5">{renderMetaSummary(selectedLog)}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Details Grid */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
+                                        <UserIcon className="w-3 h-3 text-slate-400" /> Actor
+                                    </span>
+                                    <p className="font-bold text-slate-900">
+                                        {selectedLog.user?.name || selectedLog.actor?.name || (selectedLog.user_id ? `User #${selectedLog.user_id}` : 'System / Guest')}
+                                    </p>
+                                    {(selectedLog.user?.email || selectedLog.actor?.email) && (
+                                        <p className="text-slate-500 font-mono text-[11px] truncate">{selectedLog.user?.email || selectedLog.actor?.email}</p>
+                                    )}
+                                </div>
+
+                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
+                                        <Tag className="w-3 h-3 text-slate-400" /> Target
+                                    </span>
+                                    <p className="font-bold text-slate-900">
+                                        {selectedLog.target_label || (selectedLog.target_type ? `${selectedLog.target_type} #${selectedLog.target_id}` : 'System Resource')}
+                                    </p>
+                                    {selectedLog.target_type && (
+                                        <p className="text-slate-500 font-mono text-[11px]">{selectedLog.target_type} #{selectedLog.target_id}</p>
+                                    )}
+                                </div>
+
+                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 col-span-2 sm:col-span-1">
+                                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
+                                        <Clock className="w-3 h-3 text-slate-400" /> Timestamp
+                                    </span>
+                                    <p className="font-semibold text-slate-800">{formatDate(selectedLog.created_at)}</p>
+                                </div>
+
+                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 col-span-2 sm:col-span-1">
+                                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
+                                        <Shield className="w-3 h-3 text-slate-400" /> Action Code
+                                    </span>
+                                    <p className="font-mono text-slate-800 font-medium">{selectedLog.action}</p>
+                                </div>
+                            </div>
+
+                            {/* Structured Field Changes if present */}
+                            {selectedLog.metadata?.changed && selectedLog.metadata?.previous && (
+                                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                                    <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 font-bold text-slate-700 text-xs">
+                                        Attribute Changes
+                                    </div>
+                                    <table className="w-full text-left text-xs">
+                                        <thead className="bg-slate-100 text-slate-600 uppercase text-[10px] font-semibold">
+                                            <tr>
+                                                <th className="p-2.5">Field</th>
+                                                <th className="p-2.5">Previous Value</th>
+                                                <th className="p-2.5">New Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {Object.keys(selectedLog.metadata.changed).map((field) => (
+                                                <tr key={field}>
+                                                    <td className="p-2.5 font-semibold text-slate-800">{field}</td>
+                                                    <td className="p-2.5 text-rose-700 bg-rose-50/50 font-mono">{String(selectedLog.metadata.previous[field] ?? 'None')}</td>
+                                                    <td className="p-2.5 text-emerald-700 bg-emerald-50/50 font-mono">{String(selectedLog.metadata.changed[field] ?? 'None')}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-100 flex justify-end">
+                            <button
+                                onClick={() => setSelectedLog(null)}
+                                className="px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </MainLayout>
     );
 };

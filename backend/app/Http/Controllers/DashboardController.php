@@ -30,36 +30,64 @@ class DashboardController extends Controller
             return $c;
         })->filter()->values();
 
-        // User's upcoming registered events
-        $upcomingEvents = EventRegistration::where('user_id', $user->id)
-            ->whereHas('event', function ($q) {
-                $q->where('starts_at', '>', now());
-            })
-            ->with(['event:id,title,description,starts_at,location_value,club_id', 'event.club:id,name'])
-            ->limit(5)
+        // Automatically sync event statuses based on current time
+        EventController::syncEventStatuses();
+
+        // Fetch registered event IDs for the current user
+        $registeredEventIds = EventRegistration::where('user_id', $user->id)
+            ->pluck('event_id')
+            ->toArray();
+
+        // Build upcoming events query (starts_at >= now(), active statuses)
+        $eventsQuery = \App\Models\Event::where('starts_at', '>=', now())
+            ->whereNotIn('status', ['draft', 'cancelled', 'completed']);
+
+        // Visibility restrictions for non-admins
+        if (!$user->is_admin) {
+            $eventsQuery->where(function ($q) use ($user) {
+                $q->where('visibility', 'public')
+                  ->orWhereHas('club', function ($clubQuery) use ($user) {
+                      $clubQuery->whereHas('members', function ($memberQuery) use ($user) {
+                          $memberQuery->where('user_id', $user->id);
+                      });
+                  });
+            });
+        }
+
+        // Upcoming campus events sorted chronologically
+        $campusEvents = $eventsQuery->with(['club:id,name'])
+            ->orderBy('starts_at', 'asc')
             ->get();
 
-        $formattedEvents = $upcomingEvents->map(function ($reg) {
-            if (!$reg->event) return null;
-            return [
-                'id'          => $reg->event->id,
-                'title'       => $reg->event->title,
-                'description' => $reg->event->description ?? '',
-                'start_time'  => $reg->event->starts_at,
-                'starts_at'   => $reg->event->starts_at,
-                'location'    => $reg->event->location_value,
-                'club'        => $reg->event->club ? ['id' => $reg->event->club->id, 'name' => $reg->event->club->name] : null,
-            ];
-        })->filter()->values();
+        $upcomingEventsCount = $campusEvents->count();
 
-        // Pending requests count
-        $pendingAppsCount = RecruitmentApplication::where('user_id', $user->id)
-            ->where('status', 'pending')
-            ->count();
-        $pendingMemReqsCount = MembershipRequest::where('user_id', $user->id)
-            ->where('status', 'pending')
-            ->count();
-        $pendingRequests = $pendingAppsCount + $pendingMemReqsCount;
+        $formattedEvents = $campusEvents->take(5)->map(function ($ev) use ($registeredEventIds) {
+            return [
+                'id'            => $ev->id,
+                'title'         => $ev->title,
+                'description'   => $ev->description ?? '',
+                'start_time'    => $ev->starts_at,
+                'starts_at'     => $ev->starts_at,
+                'ends_at'       => $ev->ends_at,
+                'location'      => $ev->location_value,
+                'is_registered' => in_array($ev->id, $registeredEventIds),
+                'club'          => $ev->club ? ['id' => $ev->club->id, 'name' => $ev->club->name] : null,
+            ];
+        })->values();
+
+        // Pending requests / approvals count based on user role
+        if ($user->is_admin) {
+            $pendingRequests = \App\Models\Club::where('status', 'pending')->count()
+                + \App\Models\ClubEditRequest::where('status', 'pending')->count();
+        } else {
+            $pendingAppsCount = RecruitmentApplication::where('user_id', $user->id)
+                ->where('status', 'pending')
+                ->count();
+            $pendingMemReqsCount = MembershipRequest::where('user_id', $user->id)
+                ->where('status', 'pending')
+                ->count();
+            $pendingRequests = $pendingAppsCount + $pendingMemReqsCount;
+        }
 
         // Recent notifications
         $recentNotifications = Notification::where('user_id', $user->id)
@@ -85,7 +113,7 @@ class DashboardController extends Controller
         return response()->json([
             'stats' => [
                 'joined_clubs'     => $myClubs->count(),
-                'upcoming_events'  => $upcomingEvents->count(),
+                'upcoming_events'  => $upcomingEventsCount,
                 'pending_requests' => $pendingRequests,
             ],
             'clubs'                      => $clubsList,

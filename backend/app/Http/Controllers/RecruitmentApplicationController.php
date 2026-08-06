@@ -39,6 +39,16 @@ class RecruitmentApplicationController extends Controller
             return response()->json(['message' => 'You are already an active member of this club. Recruitment is reserved for new applicants.'], 422);
         }
 
+        // Validate student session eligibility against campaign target_sessions
+        if (!empty($recruitmentNotice->target_sessions) && is_array($recruitmentNotice->target_sessions)) {
+            $userSession = $user->session;
+            if ($userSession === null || !in_array((int)$userSession, array_map('intval', $recruitmentNotice->target_sessions), true)) {
+                return response()->json([
+                    'message' => 'Your academic session is not eligible to apply for this recruitment campaign.'
+                ], 422);
+            }
+        }
+
         $answers = $request->input('answers', []);
         if (is_string($answers)) {
             $answers = json_decode($answers, true) ?? [];
@@ -88,8 +98,8 @@ class RecruitmentApplicationController extends Controller
             'recruitment_application_submitted',
             'Application Submitted',
             "Your recruitment application for '{$recruitmentNotice->title}' has been submitted successfully.",
-            Club::class,
-            $recruitmentNotice->club_id
+            RecruitmentNotice::class,
+            $recruitmentNotice->id
         );
 
         NotificationService::notifyClubExecutives(
@@ -97,12 +107,12 @@ class RecruitmentApplicationController extends Controller
             'recruitment_application_submitted',
             'New Recruitment Application',
             "{$user->name} submitted a recruitment application for '{$recruitmentNotice->title}'.",
-            Club::class,
-            $recruitmentNotice->club_id,
+            RecruitmentNotice::class,
+            $recruitmentNotice->id,
             $user->id
         );
 
-        \App\Services\AuditService::log('recruitment_application_submitted', $application, ['title' => $recruitmentNotice->title], $user->id);
+        \App\Services\AuditService::log('recruitment.application.submitted', $application, ['title' => $recruitmentNotice->title], $user->id);
 
         return response()->json($application, 201);
     }
@@ -152,11 +162,11 @@ class RecruitmentApplicationController extends Controller
             'type'         => 'recruitment_application_' . $status,
             'title'        => 'Recruitment Application ' . ucfirst($status),
             'message'      => $message,
-            'related_type' => Club::class,
-            'related_id'   => $application->recruitmentNotice->club_id,
+            'related_type' => RecruitmentNotice::class,
+            'related_id'   => $application->recruitment_notice_id,
         ]);
 
-        \App\Services\AuditService::log('recruitment_application_' . $status, $application, ['status' => $status], $user->id);
+        \App\Services\AuditService::log('recruitment.application.' . $status, $application, ['status' => $status], $user->id);
 
         return response()->json($application->load(['user', 'reviewer']));
     }

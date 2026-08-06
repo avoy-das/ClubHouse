@@ -1,59 +1,80 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# ClubHouse Backend API (Laravel 12)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+The RESTful API backend for the **ClubHouse** University Club Management Platform. Built on [Laravel 12](https://laravel.com) and PHP 8.2+ with token-based authentication via [Laravel Sanctum](https://laravel.com/docs/sanctum).
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🛠 Features & Capabilities
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- **Sanctum Bearer Token Auth**: Registration, login, profile management, password updates, and token revocation.
+- **Dynamic Club Executive Authorization**: Flexible, club-defined positions with granular permission flags (`can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`).
+- **Membership Lifecycle**: Join requests, executive review workflows, active member rosters, and position assignments.
+- **Events & Attendance**: Event publishing, registration capacity enforcement, attendance marking, CSV exports, and event feedback collection.
+- **Certificates**: Automated certificate generation for verified attendees with direct download links and verification codes.
+- **Targeted Announcements**: Audience targeting (all, club members, executive-only, or specific user lists) with pinning/unpinning.
+- **Recruitment Management**: Multi-notice recruitment listing, custom JSON fields for applications, attachment links, and status decisioning.
+- **Audit Logging**: Observer-based logging (`AuditObserver`) of critical model modifications into system audit logs.
+- **Admin Oversight**: Dedicated administrative endpoints for club approval/rejection/suspension, club edit request management, system user controls, and analytics reporting.
+- **Global Search API**: Fast multi-entity search endpoint across clubs, events, announcements, and recruitment.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## 📋 Prerequisites
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- PHP >= 8.2 (extensions: `pdo`, `sqlite` or `pdo_mysql`, `mbstring`, `openssl`, `bcmath`, `curl`)
+- Composer >= 2.0
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## 🚀 Installation & Setup
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+1. **Navigate to backend directory**:
+   ```bash
+   cd backend
+   ```
 
-### Premium Partners
+2. **Install PHP dependencies**:
+   ```bash
+   composer install
+   ```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+3. **Configure environment**:
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
 
-## Contributing
+4. **Run migrations and seeders**:
+   ```bash
+   # Default dev database is SQLite (database/database.sqlite)
+   touch database/database.sqlite
+   php artisan migrate --seed
+   ```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+5. **Start local development server**:
+   ```bash
+   php artisan serve
+   ```
+   The API will be live at `http://localhost:8000/api`.
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## 🧪 Testing
 
-## Security Vulnerabilities
+Run PHPUnit tests using Artisan:
+```bash
+php artisan test
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## 📂 Key Directory Layout
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+- `app/Http/Controllers/` — 22 RESTful API controllers
+- `app/Http/Requests/` — 16 Form Request validation classes
+- `app/Models/` — 17 Eloquent domain models
+- `app/Observers/` — `AuditObserver.php` for action logging
+- `app/Policies/` — 7 Laravel policy authorization classes
+- `app/Services/` — Encapsulated membership business logic
+- `database/migrations/` — 41 Schema migration files
+- `routes/api.php` — Primary RESTful API route definitions

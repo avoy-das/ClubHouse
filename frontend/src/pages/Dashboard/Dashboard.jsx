@@ -6,6 +6,7 @@ import api from '../../services/api';
 import notificationService from '../../services/notificationService';
 import announcementService from '../../services/announcementService';
 import { getNotificationTargetUrl, isAnnouncementNotification } from '../../utils/notificationUtils';
+import { formatDisplayDateTime } from '../../utils/dateUtils';
 import Modal from '../../components/ui/Modal';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Calendar, Building2, Target, GraduationCap, Plus, Shield, Bell, Megaphone, ArrowRight, User } from 'lucide-react';
@@ -235,17 +236,24 @@ const Dashboard = () => {
                                                     <p className="text-xs text-[#615e57] line-clamp-1">{ev.description}</p>
                                                     <div className="flex items-center gap-3 text-[11px] text-[#615e57] pt-1">
                                                         <span className="font-semibold text-[#d95e36]">
-                                                            {new Date(ev.start_time).toLocaleDateString()}
+                                                            {formatDisplayDateTime(ev.starts_at || ev.start_time)}
                                                         </span>
                                                         <span>•</span>
                                                         <span>{ev.location}</span>
                                                     </div>
                                                 </div>
-                                                {ev.club && (
-                                                    <span className="px-2.5 py-1 bg-[#e8e2d9] text-[#1b1c19] text-[10px] font-bold rounded-full shrink-0">
-                                                        {ev.club.name}
-                                                    </span>
-                                                )}
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    {ev.is_registered && (
+                                                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
+                                                            Registered
+                                                        </span>
+                                                    )}
+                                                    {ev.club && (
+                                                        <span className="px-2.5 py-1 bg-[#e8e2d9] text-[#1b1c19] text-[10px] font-bold rounded-full">
+                                                            {ev.club.name}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </Link>
                                         ))}
                                     </div>

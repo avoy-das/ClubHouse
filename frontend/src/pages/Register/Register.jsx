@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import authService from '../../services/authService';
 import { Users, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { generateSessionOptions } from '../../utils/sessionUtils';
 
 const Register = () => {
     const navigate = useNavigate();
@@ -14,6 +15,8 @@ const Register = () => {
         setError('');
         setLoading(true);
 
+        const sessionVal = e.target.session.value;
+
         const data = {
             name: e.target.name.value,
             student_id: e.target.student_id.value,
@@ -21,6 +24,7 @@ const Register = () => {
             password: e.target.password.value,
             password_confirmation: e.target.password_confirmation.value,
             department: e.target.department.value,
+            session: sessionVal !== '' ? parseInt(sessionVal, 10) : null,
             phone: e.target.phone.value,
         };
 
@@ -97,6 +101,25 @@ const Register = () => {
                                 placeholder="Computer Science & Engineering"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
+                        </div>
+
+                        {/* Session */}
+                        <div>
+                            <label className="block text-xs font-bold text-[#1b1c19] mb-1.5 font-heading">
+                                Session <span className="text-[#858383] font-normal">(optional)</span>
+                            </label>
+                            <select
+                                name="session"
+                                defaultValue=""
+                                className="w-full bg-[#f5f3ee] text-[#1b1c19] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all appearance-none cursor-pointer"
+                            >
+                                <option value="">Select Academic Session</option>
+                                {generateSessionOptions().map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* Email Address */}
