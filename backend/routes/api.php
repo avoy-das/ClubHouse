@@ -115,6 +115,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Club members & position assignment
     Route::delete('/clubs/{club}/members/{member}', [ClubMemberController::class, 'destroy']);
     Route::post('/club-members/{member}/positions', [ClubMemberPositionController::class, 'store']);
+    Route::post('/clubs/{club}/committee-members', [ClubMemberPositionController::class, 'storeByEmail']);
     Route::delete('/club-members/{member}/positions/{position}', [ClubMemberPositionController::class, 'destroy']);
 
     // Announcements

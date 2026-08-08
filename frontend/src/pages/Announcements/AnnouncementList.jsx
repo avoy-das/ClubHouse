@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import announcementService from '../../services/announcementService';
@@ -17,13 +17,17 @@ import {
     Users,
     Shield,
     User,
-    CheckSquare,
-    Building2
+    Paperclip,
+    X,
+    Building2,
+    Send,
+    AlertCircle
 } from 'lucide-react';
 
 const AnnouncementListContent = () => {
     const { clubId } = useParams();
     const { user, isAdmin } = useAuth();
+    const fileInputRef = useRef(null);
 
     const [announcements, setAnnouncements] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -45,10 +49,13 @@ const AnnouncementListContent = () => {
     const [body, setBody] = useState('');
     const [isPinned, setIsPinned] = useState(false);
 
-    // Recipient selection state
+    // Single From Identity state: 'admin', 'club_{id}', or '' (unselected placeholder)
+    const [fromIdentity, setFromIdentity] = useState('');
     const [targetType, setTargetType] = useState('all_users');
     const [targetClubId, setTargetClubId] = useState('');
     const [targetUserId, setTargetUserId] = useState('');
+    const [attachmentFile, setAttachmentFile] = useState(null);
+
     const [clubMembersList, setClubMembersList] = useState([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -74,7 +81,13 @@ const AnnouncementListContent = () => {
             const ctx = await announcementService.getCreationContext();
             setContext(ctx);
             if (clubId) {
-                setTargetClubId(clubId);
+                setFromIdentity(`club_${clubId}`);
+            } else if (ctx.exec_clubs.length > 1 || (ctx.is_admin && ctx.exec_clubs.length > 0)) {
+                setFromIdentity('');
+            } else if (ctx.is_admin) {
+                setFromIdentity('admin');
+            } else if (ctx.exec_clubs.length === 1) {
+                setFromIdentity(`club_${ctx.exec_clubs[0].id}`);
             }
         } catch {
             // silent fail
@@ -86,11 +99,26 @@ const AnnouncementListContent = () => {
         loadContext();
     }, [clubId]);
 
-    // Fetch club members when targetClubId changes and targetType requires a club member
+    // Handle From Identity change and update available target choices dynamically
     useEffect(() => {
-        if ((targetType === 'specific_club_member') && targetClubId) {
+        if (fromIdentity === 'admin') {
+            setTargetType('all_users');
+        } else if (fromIdentity.startsWith('club_')) {
+            setTargetType('club_members');
+        } else {
+            setTargetType('');
+        }
+    }, [fromIdentity]);
+
+    // Extract club ID if fromIdentity is a club
+    const activeFromClubId = fromIdentity.startsWith('club_') ? fromIdentity.replace('club_', '') : '';
+
+    // Fetch club members when targetType requires a club member
+    useEffect(() => {
+        const activeClubId = activeFromClubId || targetClubId;
+        if (targetType === 'specific_club_member' && activeClubId) {
             setLoadingMembers(true);
-            announcementService.getClubMembers(targetClubId)
+            announcementService.getClubMembers(activeClubId)
                 .then((members) => {
                     setClubMembersList(Array.isArray(members) ? members : []);
                 })
@@ -99,37 +127,75 @@ const AnnouncementListContent = () => {
         } else {
             setClubMembersList([]);
         }
-    }, [targetType, targetClubId]);
+    }, [targetType, activeFromClubId, targetClubId]);
 
     const openCreateModal = () => {
         setTitle('');
         setBody('');
         setIsPinned(false);
-
-        const defaultClub = clubId || (context.exec_clubs[0]?.id || context.all_clubs[0]?.id || '');
-        setTargetClubId(defaultClub ? String(defaultClub) : '');
+        setAttachmentFile(null);
         setTargetUserId('');
-        setTargetType(context.is_admin ? 'all_users' : (defaultClub ? 'club_members' : 'all_users'));
+        setTargetClubId('');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+
+        if (clubId) {
+            setFromIdentity(`club_${clubId}`);
+            setTargetType('club_members');
+        } else if (context.exec_clubs.length > 1 || (context.is_admin && context.exec_clubs.length > 0)) {
+            setFromIdentity('');
+            setTargetType('');
+        } else if (context.is_admin) {
+            setFromIdentity('admin');
+            setTargetType('all_users');
+        } else if (context.exec_clubs.length === 1) {
+            setFromIdentity(`club_${context.exec_clubs[0].id}`);
+            setTargetType('club_members');
+        } else {
+            setFromIdentity('');
+            setTargetType('');
+        }
         setIsModalOpen(true);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!fromIdentity) {
+            setError('Please select a From (Sender Role) first.');
+            return;
+        }
         setSubmitting(true);
         setError(null);
         setSuccess(null);
 
         try {
-            const payload = {
-                title,
-                body,
-                is_pinned: isPinned,
-                target_type: targetType,
-                target_club_id: targetClubId ? Number(targetClubId) : null,
-                target_user_id: targetUserId ? Number(targetUserId) : null,
-            };
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('body', body);
+            formData.append('is_pinned', isPinned ? '1' : '0');
+            formData.append('from_identity', fromIdentity);
 
-            await announcementService.create(payload, clubId || null);
+            if (fromIdentity === 'admin') {
+                formData.append('from_type', 'admin');
+            } else if (fromIdentity.startsWith('club_')) {
+                formData.append('from_type', 'club');
+                formData.append('from_club_id', activeFromClubId);
+            }
+
+            formData.append('target_type', targetType);
+            if (targetClubId) {
+                formData.append('target_club_id', targetClubId);
+            } else if (activeFromClubId) {
+                formData.append('target_club_id', activeFromClubId);
+            }
+
+            if (targetUserId) {
+                formData.append('target_user_id', targetUserId);
+            }
+            if (attachmentFile) {
+                formData.append('attachment', attachmentFile);
+            }
+
+            await announcementService.create(formData, clubId || null);
             setSuccess('Announcement published and notifications sent successfully.');
             setIsModalOpen(false);
             loadAnnouncements();
@@ -155,9 +221,19 @@ const AnnouncementListContent = () => {
 
     const canDelete = (item) => {
         if (isAdmin()) return true;
+        if (item.posted_by === user?.id) return true;
         const itemClubId = item.club_id || item.target_club_id;
         if (!itemClubId) return false;
         return context.exec_clubs.some((c) => c.id === itemClubId);
+    };
+
+    const handleUnpin = async (id) => {
+        try {
+            await announcementService.unpin(id);
+            setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, is_pinned_for_me: false } : a));
+        } catch {
+            // ignore
+        }
     };
 
     const getTargetBadge = (item) => {
@@ -169,31 +245,37 @@ const AnnouncementListContent = () => {
             case 'all_users':
                 return (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        <Globe className="w-3 h-3" /> All Users
+                        <Globe className="w-3 h-3" /> To: All Platform Users
+                    </span>
+                );
+            case 'public':
+                return (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-800 border border-sky-200">
+                        <Globe className="w-3 h-3" /> To: Public (Visitors & Members)
                     </span>
                 );
             case 'specific_user':
                 return (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200">
-                        <User className="w-3 h-3" /> Direct: {userName || 'User'}
+                        <User className="w-3 h-3" /> To: Direct User ({userName || 'User'})
                     </span>
                 );
             case 'club_members':
                 return (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-                        <Users className="w-3 h-3" /> {clubName || 'Club'} Members
+                        <Users className="w-3 h-3" /> To: All Active Members of {clubName || 'Club'}
                     </span>
                 );
             case 'club_executives':
                 return (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                        <Shield className="w-3 h-3" /> {clubName || 'Club'} Executives
+                        <Shield className="w-3 h-3" /> To: Executives of {clubName || 'Club'}
                     </span>
                 );
             case 'specific_club_member':
                 return (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                        <User className="w-3 h-3" /> {userName || 'Member'} ({clubName || 'Club'})
+                        <User className="w-3 h-3" /> To: Direct Member ({userName || 'Member'})
                     </span>
                 );
             default:
@@ -207,36 +289,13 @@ const AnnouncementListContent = () => {
 
     if (loading) return <LoadingSpinner />;
 
-    const handleUnpin = async (id) => {
-        try {
-            await announcementService.unpin(id);
-            setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, is_pinned_for_me: false } : a));
-        } catch {
-            // ignore
-        }
-    };
+    const pinned = announcements
+        .filter((a) => a.is_pinned_for_me ?? a.is_pinned)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    const pinned = announcements.filter((a) => a.is_pinned_for_me ?? a.is_pinned);
-    const regular = announcements.filter((a) => !(a.is_pinned_for_me ?? a.is_pinned));
-
-    // Available target options depending on role
-    const adminOptions = [
-        { id: 'all_users', label: 'All Users', desc: 'Send to every registered user on the platform' },
-        { id: 'specific_user', label: 'A Specific Individual User', desc: 'Select any specific platform user' },
-        { id: 'club_members', label: 'All Members of a Selected Club', desc: 'Includes both general members and executives' },
-        { id: 'club_executives', label: 'Only Executives of One Club', desc: 'Send exclusively to executive members' },
-        { id: 'specific_club_member', label: 'A Specific Member of a Selected Club', desc: 'Target one member of a chosen club' },
-    ];
-
-    const execOptions = [
-        { id: 'all_users', label: 'All Users', desc: 'Send to every registered user on the platform' },
-        { id: 'club_members', label: 'All Members of My Club', desc: 'Send to all active members of your club' },
-        { id: 'club_executives', label: 'Only Executives of My Club', desc: 'Send exclusively to executive team' },
-        { id: 'specific_club_member', label: 'A Specific Member of My Club', desc: 'Target a specific member within your club' },
-    ];
-
-    const currentOptions = context.is_admin ? adminOptions : execOptions;
-    const availableClubs = context.is_admin ? context.all_clubs : context.exec_clubs;
+    const regular = announcements
+        .filter((a) => !(a.is_pinned_for_me ?? a.is_pinned))
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     return (
         <div className="space-y-6">
@@ -284,51 +343,73 @@ const AnnouncementListContent = () => {
                     </p>
                 </div>
             ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                     {/* Pinned Announcements */}
                     {pinned.map((item) => (
                         <div
                             key={item.id}
-                            className="bg-[#fffdf5] border-2 border-amber-300/80 p-6 rounded-xl shadow-xs space-y-3 relative"
+                            className="bg-[#fffdf5] border-2 border-amber-300/80 p-4 sm:p-5 rounded-xl shadow-xs space-y-2.5 relative"
                         >
                             <div className="flex items-start justify-between gap-4">
-                                <div className="space-y-1.5">
+                                <div className="space-y-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="bg-amber-400 text-slate-900 text-[11px] px-2.5 py-0.5 rounded-full font-extrabold flex items-center gap-1">
+                                        <span className="bg-amber-400 text-slate-900 text-[10px] px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1">
                                             <Pin className="w-3 h-3 fill-slate-900" /> PINNED
                                         </span>
                                         {getTargetBadge(item)}
                                     </div>
-                                    <h3 className="font-bold text-xl text-[#0b1c30] tracking-tight">{item.title}</h3>
+                                    <h3 className="font-bold text-base sm:text-lg text-[#0b1c30] tracking-tight leading-snug">{item.title}</h3>
                                 </div>
-                                <div className="text-right shrink-0">
-                                    <span className="text-xs text-slate-500 font-medium">
+
+                                {/* Top Right: Sender section, date below it */}
+                                <div className="text-right shrink-0 space-y-0.5">
+                                    <div className="text-xs text-slate-700 font-medium">
+                                        Sender: <strong className="text-amber-950 font-bold">{item.sender_role_label || 'Administrator'}</strong>
+                                        {item.author?.name && (
+                                            <span className="text-slate-500 ml-1 font-normal">({item.author.name})</span>
+                                        )}
+                                    </div>
+                                    <div className="text-[11px] text-slate-400 font-medium">
                                         {new Date(item.created_at).toLocaleDateString(undefined, {
                                             month: 'short',
                                             day: 'numeric',
                                             year: 'numeric',
                                         })}
-                                    </span>
-                                    {item.author && (
-                                        <p className="text-xs text-slate-400 mt-0.5 font-medium">By {item.author.name}</p>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
-                            <p className="text-slate-700 text-sm whitespace-pre-line leading-relaxed">{item.body}</p>
-                            <div className="pt-3 flex items-center justify-between border-t border-amber-200/60">
+
+                            <p className="text-slate-700 text-xs sm:text-sm whitespace-pre-line leading-relaxed">{item.body}</p>
+
+                            {/* Attachment Link if present */}
+                            {item.attachment_path && (
+                                <div className="pt-1">
+                                    <a
+                                        href={`/storage/${item.attachment_path}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold border border-blue-200 transition-colors shadow-2xs"
+                                    >
+                                        <Paperclip className="w-3.5 h-3.5 text-blue-600" />
+                                        Attachment: {item.attachment_name || 'View Attached File'} ↗
+                                    </a>
+                                </div>
+                            )}
+
+                            <div className="pt-2 flex items-center justify-between border-t border-amber-200/60">
                                 <button
                                     onClick={() => handleUnpin(item.id)}
-                                    className="px-3 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 border border-amber-300"
+                                    className="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 border border-amber-300"
                                     title="Unpin announcement"
                                 >
-                                    <Pin className="w-3.5 h-3.5 rotate-45" /> Unpin
+                                    <Pin className="w-3 h-3 rotate-45" /> Unpin
                                 </button>
                                 {canDelete(item) && (
                                     <button
                                         onClick={() => handleDelete(item.id)}
-                                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                                        className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
                                     >
-                                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                                        <Trash2 className="w-3 h-3" /> Delete
                                     </button>
                                 )}
                             </div>
@@ -339,36 +420,58 @@ const AnnouncementListContent = () => {
                     {regular.map((item) => (
                         <div
                             key={item.id}
-                            className="bg-white border border-slate-200 p-6 rounded-xl shadow-xs space-y-3"
+                            className="bg-white border border-slate-200 p-4 sm:p-5 rounded-xl shadow-xs space-y-2.5"
                         >
                             <div className="flex items-start justify-between gap-4">
-                                <div className="space-y-1.5">
+                                <div className="space-y-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
                                         {getTargetBadge(item)}
                                     </div>
-                                    <h3 className="font-bold text-lg text-[#0b1c30] tracking-tight">{item.title}</h3>
+                                    <h3 className="font-bold text-base sm:text-lg text-[#0b1c30] tracking-tight leading-snug">{item.title}</h3>
                                 </div>
-                                <div className="text-right shrink-0">
-                                    <span className="text-xs text-slate-500 font-medium">
+
+                                {/* Top Right: Sender section, date below it */}
+                                <div className="text-right shrink-0 space-y-0.5">
+                                    <div className="text-xs text-slate-700 font-medium">
+                                        Sender: <strong className="text-[#0b1c30] font-bold">{item.sender_role_label || 'Administrator'}</strong>
+                                        {item.author?.name && (
+                                            <span className="text-slate-500 ml-1 font-normal">({item.author.name})</span>
+                                        )}
+                                    </div>
+                                    <div className="text-[11px] text-slate-400 font-medium">
                                         {new Date(item.created_at).toLocaleDateString(undefined, {
                                             month: 'short',
                                             day: 'numeric',
                                             year: 'numeric',
                                         })}
-                                    </span>
-                                    {item.author && (
-                                        <p className="text-xs text-slate-400 mt-0.5 font-medium">By {item.author.name}</p>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
-                            <p className="text-slate-700 text-sm whitespace-pre-line leading-relaxed">{item.body}</p>
+
+                            <p className="text-slate-700 text-xs sm:text-sm whitespace-pre-line leading-relaxed">{item.body}</p>
+
+                            {/* Attachment Link if present */}
+                            {item.attachment_path && (
+                                <div className="pt-1">
+                                    <a
+                                        href={`/storage/${item.attachment_path}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f8f9ff] text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold border border-blue-200 transition-colors shadow-2xs"
+                                    >
+                                        <Paperclip className="w-3.5 h-3.5 text-blue-600" />
+                                        Attachment: {item.attachment_name || 'View Attached File'} ↗
+                                    </a>
+                                </div>
+                            )}
+
                             {canDelete(item) && (
-                                <div className="pt-3 flex justify-end border-t border-slate-100">
+                                <div className="pt-2 flex justify-end border-t border-slate-100">
                                     <button
                                         onClick={() => handleDelete(item.id)}
-                                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                                        className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
                                     >
-                                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                                        <Trash2 className="w-3 h-3" /> Delete
                                     </button>
                                 </div>
                             )}
@@ -383,10 +486,11 @@ const AnnouncementListContent = () => {
                 onClose={() => setIsModalOpen(false)}
                 title="Publish New Announcement"
             >
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Title */}
                     <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                            Title
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                            Announcement Title
                         </label>
                         <input
                             type="text"
@@ -398,12 +502,13 @@ const AnnouncementListContent = () => {
                         />
                     </div>
 
+                    {/* Content */}
                     <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                            Content
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                            Announcement Content
                         </label>
                         <textarea
-                            rows={4}
+                            rows={3}
                             required
                             placeholder="Write your announcement content here..."
                             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
@@ -412,63 +517,127 @@ const AnnouncementListContent = () => {
                         />
                     </div>
 
-                    {/* Recipient Targeting Selection */}
-                    <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                            <CheckSquare className="w-4 h-4 text-blue-600" /> Target Recipients
-                        </label>
+                    {/* Two-Column Side-by-Side FROM & TO Section */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5 pb-2 border-b border-slate-200">
+                            <Send className="w-4 h-4 text-blue-600" /> Sender & Target Configuration
+                        </h4>
 
-                        <div className="space-y-2">
-                            {currentOptions.map((opt) => (
-                                <label
-                                    key={opt.id}
-                                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${targetType === opt.id
-                                            ? 'bg-blue-50/70 border-blue-400 ring-1 ring-blue-400'
-                                            : 'bg-white border-slate-200 hover:bg-slate-100/80'
-                                        }`}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={targetType === opt.id}
-                                        onChange={() => setTargetType(opt.id)}
-                                        className="mt-0.5 h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                                    />
-                                    <div>
-                                        <p className="text-xs font-bold text-slate-900">{opt.label}</p>
-                                        <p className="text-[11px] text-slate-500">{opt.desc}</p>
-                                    </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* FROM COLUMN (SINGLE DROPDOWN MENU) */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-slate-700">
+                                    From :
                                 </label>
-                            ))}
-                        </div>
 
-                        {/* Dependent Selectors */}
-                        {/* Club Selector */}
-                        {['club_members', 'club_executives', 'specific_club_member'].includes(targetType) && (
-                            <div className="pt-2">
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Select Club
+                                {context.is_admin || context.exec_clubs.length > 0 ? (
+                                    <select
+                                        required
+                                        value={fromIdentity}
+                                        onChange={(e) => setFromIdentity(e.target.value)}
+                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs sm:text-sm bg-white font-medium outline-none focus:border-[#2563eb]"
+                                    >
+                                        {(context.exec_clubs.length > 1 || (context.is_admin && context.exec_clubs.length > 0) || !fromIdentity) && (
+                                            <option value="">-- Select Sender Role --</option>
+                                        )}
+                                        {context.is_admin && (
+                                            <option value="admin">Admin (Platform Administrator)</option>
+                                        )}
+                                        {context.exec_clubs.map((c) => (
+                                            <option key={c.id} value={`club_${c.id}`}>
+                                                {c.name} ({c.user_role || 'Executive'})
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <div className="p-2.5 bg-amber-50 text-amber-800 text-xs rounded-lg border border-amber-200 flex items-center gap-1.5">
+                                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                                        <span>No authorized sender role available.</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* TO COLUMN (TARGET RECIPIENTS) */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-slate-700">
+                                    To :
                                 </label>
                                 <select
                                     required
-                                    value={targetClubId}
-                                    onChange={(e) => setTargetClubId(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-[#2563eb]"
+                                    disabled={!fromIdentity}
+                                    value={targetType}
+                                    onChange={(e) => setTargetType(e.target.value)}
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs sm:text-sm bg-white font-medium outline-none focus:border-[#2563eb] disabled:bg-slate-100 disabled:text-slate-400"
                                 >
-                                    <option value="">-- Choose Club --</option>
-                                    {availableClubs.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.name}
+                                    {!fromIdentity ? (
+                                        <option value="">-- Select Sender Role First --</option>
+                                    ) : fromIdentity === 'admin' ? (
+                                        <>
+                                            <option value="all_users">All Platform Users</option>
+                                            <option value="specific_user">A Specific User</option>
+                                            <option value="club_executives">Executives of a Specific Club</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="club_members">All Active Club Members</option>
+                                            <option value="specific_club_member">A Specific Club Member</option>
+                                            <option value="public">Public (Visible to All Visitors & Members)</option>
+                                        </>
+                                    )}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Dependent Selector Sub-sections */}
+                        {/* 1. Target Specific User (Admin -> Specific user) */}
+                        {fromIdentity === 'admin' && targetType === 'specific_user' && (
+                            <div className="pt-2 border-t border-slate-200">
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                    Select Target User:
+                                </label>
+                                <select
+                                    required
+                                    value={targetUserId}
+                                    onChange={(e) => setTargetUserId(e.target.value)}
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs sm:text-sm bg-white outline-none focus:border-[#2563eb]"
+                                >
+                                    <option value="">-- Choose User --</option>
+                                    {context.all_users.map((u) => (
+                                        <option key={u.id} value={u.id}>
+                                            {u.name} ({u.student_id || u.email})
                                         </option>
                                     ))}
                                 </select>
                             </div>
                         )}
 
-                        {/* Specific Member of Club Selector */}
-                        {targetType === 'specific_club_member' && (
-                            <div className="pt-2">
+                        {/* 2. Target Club Executives (Admin -> Club Executives) */}
+                        {fromIdentity === 'admin' && targetType === 'club_executives' && (
+                            <div className="pt-2 border-t border-slate-200">
                                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Select Club Member
+                                    Select Target Club:
+                                </label>
+                                <select
+                                    required
+                                    value={targetClubId}
+                                    onChange={(e) => setTargetClubId(e.target.value)}
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs sm:text-sm bg-white outline-none focus:border-[#2563eb]"
+                                >
+                                    <option value="">-- Choose Target Club --</option>
+                                    {context.all_clubs.map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                            {c.name} Executives
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* 3. Target Specific Member of Club */}
+                        {fromIdentity.startsWith('club_') && targetType === 'specific_club_member' && (
+                            <div className="pt-2 border-t border-slate-200">
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                    Select Target Club Member:
                                 </label>
                                 {loadingMembers ? (
                                     <p className="text-xs text-slate-500 italic">Loading club members...</p>
@@ -477,7 +646,7 @@ const AnnouncementListContent = () => {
                                         required
                                         value={targetUserId}
                                         onChange={(e) => setTargetUserId(e.target.value)}
-                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-[#2563eb]"
+                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs sm:text-sm bg-white outline-none focus:border-[#2563eb]"
                                     >
                                         <option value="">-- Choose Member --</option>
                                         {clubMembersList.map((m) => (
@@ -489,30 +658,37 @@ const AnnouncementListContent = () => {
                                 )}
                             </div>
                         )}
-
-                        {/* Specific Individual User Selector (Admin) */}
-                        {targetType === 'specific_user' && context.is_admin && (
-                            <div className="pt-2">
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Select User
-                                </label>
-                                <select
-                                    required
-                                    value={targetUserId}
-                                    onChange={(e) => setTargetUserId(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-[#2563eb]"
-                                >
-                                    <option value="">-- Choose User --</option>
-                                    {context.all_users.map((u) => (
-                                        <option key={u.id} value={u.id}>
-                                            {u.name} ({u.student_id || u.email})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
                     </div>
 
+                    {/* File Attachment Upload Field */}
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                            <Paperclip className="w-3.5 h-3.5 text-blue-600" /> Attach File (Optional)
+                        </label>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={(e) => setAttachmentFile(e.target.files[0] || null)}
+                                className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 rounded-lg"
+                            />
+                            {attachmentFile && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setAttachmentFile(null);
+                                        if (fileInputRef.current) fileInputRef.current.value = '';
+                                    }}
+                                    className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors shrink-0"
+                                    title="Remove attachment"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Pin checkbox */}
                     <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 pt-1">
                         <input
                             type="checkbox"
@@ -523,7 +699,8 @@ const AnnouncementListContent = () => {
                         <span>Pin this announcement to top of feed</span>
                     </label>
 
-                    <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
+                    {/* Modal Buttons */}
+                    <div className="flex justify-end space-x-3 pt-3 border-t border-slate-200">
                         <button
                             onClick={() => setIsModalOpen(false)}
                             type="button"
@@ -533,8 +710,8 @@ const AnnouncementListContent = () => {
                         </button>
                         <button
                             type="submit"
-                            disabled={submitting}
-                            className="px-5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors shadow-xs"
+                            disabled={submitting || !fromIdentity || (!context.is_admin && context.exec_clubs.length === 0)}
+                            className="px-5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors shadow-xs disabled:opacity-50"
                         >
                             {submitting ? 'Publishing...' : 'Publish Announcement'}
                         </button>

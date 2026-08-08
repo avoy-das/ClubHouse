@@ -109,6 +109,9 @@ class ClubController extends Controller
     // Authenticated user gets list of clubs where they are an executive
     public function executiveClubs(Request $request): JsonResponse
     {
+        if ($request->user()->is_admin) {
+            return response()->json(Club::where('status', 'approved')->get(['id', 'name']));
+        }
         return response()->json($request->user()->getExecutiveClubs());
     }
 

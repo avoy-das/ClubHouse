@@ -58,18 +58,27 @@ const ClubList = () => {
                     <p className="text-slate-500 text-sm mt-0.5">Browse all active clubs on ClubHouse.</p>
                 </div>
 
-                {isAdmin() && (
-                    <div className="flex space-x-2 text-xs font-semibold shrink-0">
-                        <Link to="/admin/clubs" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors flex items-center gap-1.5">
-                            <Shield className="w-3.5 h-3.5 text-amber-500" />
-                            Club Approval
-                        </Link>
-                        <Link to="/admin/reports" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors flex items-center gap-1.5">
-                            <BarChart2 className="w-3.5 h-3.5 text-blue-500" />
-                            Reports & Stats
-                        </Link>
-                    </div>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        onClick={() => navigate('/clubs/create')}
+                        className="px-4 py-2 bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                    >
+                        <Plus className="w-4 h-4 text-[#eab308]" /> Request a New Club
+                    </button>
+
+                    {isAdmin() && (
+                        <div className="flex space-x-2 text-xs font-semibold shrink-0">
+                            <Link to="/admin/clubs" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors flex items-center gap-1.5">
+                                <Shield className="w-3.5 h-3.5 text-amber-500" />
+                                Club Approval
+                            </Link>
+                            <Link to="/admin/reports" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors flex items-center gap-1.5">
+                                <BarChart2 className="w-3.5 h-3.5 text-blue-500" />
+                                Reports & Stats
+                            </Link>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Filters */}
@@ -156,16 +165,6 @@ const ClubList = () => {
                             ))}
                         </div>
                     )}
-
-                    {/* Request a Club button */}
-                    <div className="mt-10 pt-6 border-t border-slate-200 flex justify-center">
-                        <button
-                            onClick={() => navigate('/clubs/create')}
-                            className="px-6 py-3 bg-[#0f172a] hover:bg-slate-800 text-white text-sm font-medium rounded-xl transition-colors flex items-center gap-2 shadow-xs"
-                        >
-                            <Plus className="w-4 h-4 text-[#eab308]" /> Request a New Club
-                        </button>
-                    </div>
                 </>
             )}
         </MainLayout>

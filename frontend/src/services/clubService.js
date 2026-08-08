@@ -74,6 +74,25 @@ const clubService = {
 
     adminRejectEditRequest: (requestId, reason) =>
         api.post(`/admin/club-edit-requests/${requestId}/reject`, { rejection_reason: reason }),
+
+    // Positions & Committee Management
+    listPositions: (clubId) =>
+        api.get(`/clubs/${clubId}/positions`),
+
+    createPosition: (clubId, data) =>
+        api.post(`/clubs/${clubId}/positions`, data),
+
+    removePosition: (positionId) =>
+        api.delete(`/positions/${positionId}`),
+
+    assignPosition: (memberId, positionId) =>
+        api.post(`/club-members/${memberId}/positions`, { position_id: positionId }),
+
+    revokePosition: (memberId, positionId) =>
+        api.delete(`/club-members/${memberId}/positions/${positionId}`),
+
+    addCommitteeMemberByEmail: (clubId, data) =>
+        api.post(`/clubs/${clubId}/committee-members`, data),
 };
 
 export default clubService;

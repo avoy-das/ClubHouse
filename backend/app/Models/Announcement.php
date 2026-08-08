@@ -21,6 +21,10 @@ class Announcement extends Model
         'target_club_id',
         'target_user_id',
         'targets',
+        'attachment_path',
+        'attachment_name',
+        'sender_type',
+        'sender_role_label',
     ];
 
     protected function casts(): array

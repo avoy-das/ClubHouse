@@ -4,11 +4,12 @@ import clubService from '../../services/clubService';
 import { ClubPermissionsProvider, useClubPermissions } from '../../context/ClubPermissionsContext';
 import MembershipRequestList from '../../components/clubs/MembershipRequestList';
 import PositionAssignment from '../../components/clubs/PositionAssignment';
+import AddCommitteeMemberModal from '../../components/clubs/AddCommitteeMemberModal';
 import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import Modal from '../../components/ui/Modal';
-import { ArrowLeft, Users, Eye, User, Calendar, Phone, Mail, GraduationCap, FileText, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Users, Eye, User, FileText, CheckCircle2, ShieldCheck, UserCheck, PlusCircle } from 'lucide-react';
 import { formatSessionLabel } from '../../utils/sessionUtils';
 
 const ClubMembersContent = () => {
@@ -18,6 +19,12 @@ const ClubMembersContent = () => {
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Active tab: 'committee' or 'members'
+    const [activeTab, setActiveTab] = useState('committee');
+
+    // Add Committee Member Modal state
+    const [isAddCommitteeModalOpen, setIsAddCommitteeModalOpen] = useState(false);
 
     // View Member Details modal state
     const [selectedMember, setSelectedMember] = useState(null);
@@ -55,103 +62,238 @@ const ClubMembersContent = () => {
         setIsDetailsModalOpen(true);
     };
 
+    // Filter members into Committee vs Members
+    const committeeMembers = members.filter((m) => {
+        const isExecRole = ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(m.role?.toLowerCase());
+        const hasPositions = m.positions && m.positions.length > 0;
+        return isExecRole || hasPositions;
+    });
+
+    const generalMembers = members.filter((m) => {
+        const isExecRole = ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(m.role?.toLowerCase());
+        const hasPositions = m.positions && m.positions.length > 0;
+        return !isExecRole && !hasPositions;
+    });
+
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-6 rounded-xl shadow-xs border border-slate-200 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-[#0b1c30] flex items-center gap-2">
                         <Users className="w-6 h-6 text-blue-600" /> Club Members Directory
                     </h1>
-                    <p className="text-slate-500 text-sm mt-0.5">Members and executive positions.</p>
+                    <p className="text-slate-500 text-sm mt-0.5">Explore club committee leadership and general member roster.</p>
                 </div>
-                <Link to={`/clubs/${clubId}`}>
-                    <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-semibold rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5">
-                        <ArrowLeft className="w-4 h-4" /> Back to Club
-                    </button>
-                </Link>
+                <div className="flex items-center gap-3">
+                    {can('can_manage_members') && (
+                        <button
+                            onClick={() => setIsAddCommitteeModalOpen(true)}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+                        >
+                            <PlusCircle className="w-4 h-4" /> Add New Committee Member
+                        </button>
+                    )}
+                    <Link to={`/clubs/${clubId}`}>
+                        <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-semibold rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5">
+                            <ArrowLeft className="w-4 h-4" /> Back to Club
+                        </button>
+                    </Link>
+                </div>
             </div>
 
             {error && <ErrorBanner message={error} />}
 
+            {/* Navigation Tabs */}
+            <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-6 pt-3 rounded-t-xl">
+                <button
+                    onClick={() => setActiveTab('committee')}
+                    className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${
+                        activeTab === 'committee'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                >
+                    <ShieldCheck className="w-4 h-4" />
+                    Committee ({committeeMembers.length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('members')}
+                    className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${
+                        activeTab === 'members'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                >
+                    <UserCheck className="w-4 h-4" />
+                    Members ({generalMembers.length})
+                </button>
+            </div>
+
             {loading ? (
                 <LoadingSpinner />
             ) : (
-                <div className="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
-                    <h3 className="text-lg font-bold text-[#0b1c30] mb-4">Active Roster ({members.length})</h3>
-                    {members.length === 0 ? (
-                        <p className="text-slate-500 text-sm">No members in this club yet.</p>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm text-slate-600">
-                                <thead className="bg-[#f8f9ff] text-[#0b1c30] uppercase text-xs font-semibold">
-                                    <tr>
-                                        <th className="p-3">Name</th>
-                                        <th className="p-3">Email</th>
-                                        <th className="p-3">Positions</th>
-                                        <th className="p-3">Joined</th>
-                                        {can('can_manage_members') && <th className="p-3 text-right">Actions</th>}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {members.map((m) => (
-                                        <tr key={m.id} className="hover:bg-[#f8f9ff]/60 transition-colors">
-                                            <td className="p-3 font-semibold text-[#0b1c30]">
-                                                {m.user?.name || `Member #${m.id}`}
-                                            </td>
-                                            <td className="p-3">{m.user?.email || 'N/A'}</td>
-                                            <td className="p-3">
-                                                {m.positions && m.positions.length > 0 ? (
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {m.positions.map((p) => (
-                                                            <span
-                                                                key={p.id}
-                                                                className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded font-medium"
-                                                            >
-                                                                {p.title}
+                <div className="bg-white p-6 rounded-b-xl shadow-xs border border-slate-200 border-t-0">
+                    {activeTab === 'committee' ? (
+                        <div>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-base font-bold text-[#0b1c30]">Executive Committee Personnel</h3>
+                                {can('can_manage_members') && (
+                                    <button
+                                        onClick={() => setIsAddCommitteeModalOpen(true)}
+                                        className="text-xs text-blue-600 hover:underline font-bold"
+                                    >
+                                        + Manage Designations & Admit Member
+                                    </button>
+                                )}
+                            </div>
+
+                            {committeeMembers.length === 0 ? (
+                                <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">
+                                    <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                                    <p className="text-slate-500 text-sm font-medium">No committee members assigned yet.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm text-slate-600">
+                                        <thead className="bg-[#f8f9ff] text-[#0b1c30] uppercase text-xs font-semibold">
+                                            <tr>
+                                                <th className="p-3">Name</th>
+                                                <th className="p-3">Email</th>
+                                                <th className="p-3">Committee Designation</th>
+                                                <th className="p-3">Joined</th>
+                                                {can('can_manage_members') && <th className="p-3 text-right">Actions</th>}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {committeeMembers.map((m) => (
+                                                <tr key={m.id} className="hover:bg-[#f8f9ff]/60 transition-colors">
+                                                    <td className="p-3 font-semibold text-[#0b1c30]">
+                                                        {m.user?.name || `Member #${m.id}`}
+                                                    </td>
+                                                    <td className="p-3 font-mono text-xs">{m.user?.email || 'N/A'}</td>
+                                                    <td className="p-3">
+                                                        {m.positions && m.positions.length > 0 ? (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {m.positions.map((p) => (
+                                                                    <span
+                                                                        key={p.id}
+                                                                        className="bg-blue-600 text-white text-xs px-2.5 py-0.5 rounded-full font-bold shadow-2xs"
+                                                                    >
+                                                                        {p.title}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-bold capitalize">
+                                                                {m.role?.replace('_', ' ')}
                                                             </span>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-slate-400 text-xs">Member</span>
-                                                )}
-                                            </td>
-                                            <td className="p-3">
-                                                {m.joined_at || m.created_at ? new Date(m.joined_at || m.created_at).toLocaleDateString() : 'N/A'}
-                                            </td>
-                                            {can('can_manage_members') && (
-                                                <td className="p-3 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <button
-                                                            onClick={() => handleOpenDetails(m)}
-                                                            className="px-2.5 py-1 text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1"
-                                                        >
-                                                            <Eye className="w-3.5 h-3.5" /> View Member Details
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleRemoveMember(m.id)}
-                                                            className="px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
-                                                        >
-                                                            Remove
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        {m.joined_at || m.created_at ? new Date(m.joined_at || m.created_at).toLocaleDateString() : 'N/A'}
+                                                    </td>
+                                                    {can('can_manage_members') && (
+                                                        <td className="p-3 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button
+                                                                    onClick={() => handleOpenDetails(m)}
+                                                                    className="px-2.5 py-1 text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1"
+                                                                >
+                                                                    <Eye className="w-3.5 h-3.5" /> Profile Details
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleRemoveMember(m.id)}
+                                                                    className="px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div>
+                            <h3 className="text-base font-bold text-[#0b1c30] mb-4">General Members</h3>
+
+                            {generalMembers.length === 0 ? (
+                                <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">
+                                    <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                                    <p className="text-slate-500 text-sm font-medium">No general members in this club yet.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm text-slate-600">
+                                        <thead className="bg-[#f8f9ff] text-[#0b1c30] uppercase text-xs font-semibold">
+                                            <tr>
+                                                <th className="p-3">Name</th>
+                                                <th className="p-3">Email</th>
+                                                <th className="p-3">Department</th>
+                                                <th className="p-3">Joined</th>
+                                                {can('can_manage_members') && <th className="p-3 text-right">Actions</th>}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {generalMembers.map((m) => (
+                                                <tr key={m.id} className="hover:bg-[#f8f9ff]/60 transition-colors">
+                                                    <td className="p-3 font-semibold text-[#0b1c30]">
+                                                        {m.user?.name || `Member #${m.id}`}
+                                                    </td>
+                                                    <td className="p-3 font-mono text-xs">{m.user?.email || 'N/A'}</td>
+                                                    <td className="p-3">{m.user?.department || 'General'}</td>
+                                                    <td className="p-3">
+                                                        {m.joined_at || m.created_at ? new Date(m.joined_at || m.created_at).toLocaleDateString() : 'N/A'}
+                                                    </td>
+                                                    {can('can_manage_members') && (
+                                                        <td className="p-3 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button
+                                                                    onClick={() => handleOpenDetails(m)}
+                                                                    className="px-2.5 py-1 text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1"
+                                                                >
+                                                                    <Eye className="w-3.5 h-3.5" /> Details
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleRemoveMember(m.id)}
+                                                                    className="px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Executive controls */}
+            {/* Executive management tools */}
             {can('can_manage_members') && (
                 <>
                     <MembershipRequestList clubId={clubId} onRequestProcessed={loadMembers} />
                     <PositionAssignment clubId={clubId} members={members} onUpdated={loadMembers} />
                 </>
             )}
+
+            {/* Add Committee Member Side-by-Side Modal */}
+            <AddCommitteeMemberModal
+                isOpen={isAddCommitteeModalOpen}
+                onClose={() => setIsAddCommitteeModalOpen(false)}
+                clubId={clubId}
+                onMemberAdded={loadMembers}
+            />
 
             {/* View Member Details Modal */}
             {selectedMember && (
@@ -212,101 +354,6 @@ const ClubMembersContent = () => {
                                     </span>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Joining Details / Application Data */}
-                        <div className="space-y-2">
-                            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
-                                <FileText className="w-4 h-4 text-blue-600" /> Club Joining Application Data
-                            </h4>
-
-                            {selectedMember.recruitment_application ? (
-                                <div className="space-y-3 bg-[#f8f9ff] p-4 rounded-xl border border-blue-100 text-xs">
-                                    <div className="flex items-center justify-between pb-2 border-b border-blue-200/60">
-                                        <span className="font-bold text-blue-900 flex items-center gap-1">
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /> Joined via Recruitment Campaign
-                                        </span>
-                                        {selectedMember.recruitment_application.recruitment_notice && (
-                                            <span className="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                                                {selectedMember.recruitment_application.recruitment_notice.title}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {selectedMember.recruitment_application.answers?.motivation && (
-                                        <div>
-                                            <span className="font-semibold text-slate-600 block mb-1">Motivation Statement:</span>
-                                            <p className="bg-white p-2.5 rounded-lg border border-slate-200 text-slate-800 whitespace-pre-line leading-relaxed">
-                                                {selectedMember.recruitment_application.answers.motivation}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {selectedMember.recruitment_application.answers?.experience && (
-                                        <div>
-                                            <span className="font-semibold text-slate-600 block mb-1">Experience & Skills:</span>
-                                            <p className="bg-white p-2.5 rounded-lg border border-slate-200 text-slate-800 whitespace-pre-line leading-relaxed">
-                                                {selectedMember.recruitment_application.answers.experience}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {selectedMember.recruitment_application.answers?.portfolio_url && (
-                                        <div>
-                                            <span className="font-semibold text-slate-600 block mb-1">Portfolio / Link:</span>
-                                            <a
-                                                href={selectedMember.recruitment_application.answers.portfolio_url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-blue-600 hover:underline font-medium break-all"
-                                            >
-                                                {selectedMember.recruitment_application.answers.portfolio_url}
-                                            </a>
-                                        </div>
-                                    )}
-
-                                    {selectedMember.recruitment_application.answers?.custom_text &&
-                                        Object.entries(selectedMember.recruitment_application.answers.custom_text).map(([key, val]) => (
-                                            <div key={key}>
-                                                <span className="font-semibold text-slate-600 block mb-1">{key}:</span>
-                                                <p className="bg-white p-2.5 rounded-lg border border-slate-200 text-slate-800 whitespace-pre-line leading-relaxed">{val}</p>
-                                            </div>
-                                        ))}
-
-                                    {selectedMember.recruitment_application.answers?.custom_files &&
-                                        Object.entries(selectedMember.recruitment_application.answers.custom_files).map(([key, fileObj]) => (
-                                            <div key={key}>
-                                                <span className="font-semibold text-slate-600 block mb-1">{key}:</span>
-                                                <a
-                                                    href={fileObj.url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-blue-600 font-semibold hover:bg-slate-50 transition-colors"
-                                                >
-                                                    📄 {fileObj.name || 'View Uploaded Document'} ↗
-                                                </a>
-                                            </div>
-                                        ))}
-                                </div>
-                            ) : selectedMember.membership_request ? (
-                                <div className="space-y-2 bg-[#f8f9ff] p-4 rounded-xl border border-slate-200 text-xs">
-                                    <div className="font-bold text-slate-800 pb-1.5 border-b border-slate-200">
-                                        Joined via Direct Membership Request
-                                    </div>
-                                    {selectedMember.membership_request.message && (
-                                        <div>
-                                            <span className="font-semibold text-slate-600 block mb-1">Joining Request Message:</span>
-                                            <p className="bg-white p-2.5 rounded-lg border border-slate-200 text-slate-800 whitespace-pre-line leading-relaxed">
-                                                {selectedMember.membership_request.message}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <p className="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-xl border border-slate-200">
-                                    No custom joining application submission recorded (e.g. founding member or admin assigned).
-                                </p>
-                            )}
                         </div>
 
                         {/* Modal Footer */}
