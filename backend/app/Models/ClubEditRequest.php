@@ -20,6 +20,7 @@ class ClubEditRequest extends Model
         'contact_email',
         'contact_phone',
         'logo_path',
+        'banner_path',
         'reason',
         'status',
         'rejection_reason',
@@ -30,6 +31,21 @@ class ClubEditRequest extends Model
     protected $casts = [
         'reviewed_at' => 'datetime',
     ];
+
+    protected $appends = [
+        'logo_url',
+        'banner_url',
+    ];
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        return $this->logo_path ? asset('storage/' . ltrim($this->logo_path, '/')) : null;
+    }
+
+    public function getBannerUrlAttribute(): ?string
+    {
+        return $this->banner_path ? asset('storage/' . ltrim($this->banner_path, '/')) : null;
+    }
 
     public function club(): BelongsTo
     {

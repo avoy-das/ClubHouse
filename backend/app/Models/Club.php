@@ -14,6 +14,7 @@ class Club extends Model
         'contact_email',
         'contact_phone',
         'logo_path',
+        'banner_path',
         'reason',
         'status',
         'permission_doc_path',
@@ -26,6 +27,27 @@ class Club extends Model
     protected $casts = [
         'approved_at' => 'datetime',
     ];
+
+    protected $appends = [
+        'logo_url',
+        'banner_url',
+        'permission_doc_url',
+    ];
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        return $this->logo_path ? asset('storage/' . ltrim($this->logo_path, '/')) : null;
+    }
+
+    public function getBannerUrlAttribute(): ?string
+    {
+        return $this->banner_path ? asset('storage/' . ltrim($this->banner_path, '/')) : null;
+    }
+
+    public function getPermissionDocUrlAttribute(): ?string
+    {
+        return $this->permission_doc_path ? asset('storage/' . ltrim($this->permission_doc_path, '/')) : null;
+    }
 
     public function creator()
     {

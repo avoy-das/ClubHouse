@@ -11,6 +11,7 @@ import { ArrowLeft, Edit, FileText, Search, Shield, Building2, Megaphone, Target
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { formatSessionLabel } from '../../utils/sessionUtils';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const roleLabels = {
     president:      'President',
@@ -361,59 +362,74 @@ const ClubDetail = () => {
                 </div>
             )}
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6 shadow-xs">
-                <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
-                    <div className="flex items-center gap-4">
-                        {club.logo_path ? (
-                            <img
-                                src={`/storage/${club.logo_path}`}
-                                alt={club.name}
-                                className="w-14 h-14 rounded-2xl object-cover border border-slate-200"
-                            />
-                        ) : (
-                            <div className="w-14 h-14 rounded-2xl bg-[#eff4ff] text-[#2563eb] flex items-center justify-center font-extrabold text-xl border border-blue-200/60">
-                                {club.name.charAt(0)}
+            <div className="bg-white border border-slate-200 rounded-2xl mb-6 shadow-xs overflow-hidden">
+                {getImageUrl(club.banner_url || club.banner_path) ? (
+                    <div className="h-44 w-full bg-slate-100 relative">
+                        <img
+                            src={getImageUrl(club.banner_url || club.banner_path)}
+                            alt={`${club.name} Banner`}
+                            className="w-full h-full object-cover"
+                        />
+                    </div>
+                ) : (
+                    <div className="h-28 w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-800 relative opacity-90" />
+                )}
+
+                <div className="p-6 relative pt-4">
+                    <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-white -mt-10 shrink-0 relative z-10">
+                                {getImageUrl(club.logo_url || club.logo_path) ? (
+                                    <img
+                                        src={getImageUrl(club.logo_url || club.logo_path)}
+                                        alt={club.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-[#eff4ff] text-[#2563eb] flex items-center justify-center font-extrabold text-xl">
+                                        {club.name.charAt(0)}
+                                    </div>
+                                )}
                             </div>
-                        )}
-                        <div>
-                            <h1 className="text-2xl font-bold text-[#0b1c30]">{club.name}</h1>
-                            {club.department && <p className="text-slate-500 text-sm mt-0.5">{club.department}</p>}
+                            <div>
+                                <h1 className="text-2xl font-bold text-[#0b1c30]">{club.name}</h1>
+                                {club.department && <p className="text-slate-500 text-sm mt-0.5">{club.department}</p>}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <span className="px-3 py-1 bg-[#f8f9ff] text-[#0b1c30] text-xs font-semibold rounded-full border border-slate-200">
+                                {club.category}
+                            </span>
+                            {myMembership && (
+                                <button
+                                    onClick={handleLeaveClub}
+                                    disabled={leaving}
+                                    className="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors disabled:opacity-50"
+                                >
+                                    {leaving ? 'Leaving...' : 'Leave Club'}
+                                </button>
+                            )}
+                            {isAdmin() && club.status === 'approved' && (
+                                <button
+                                    onClick={handleSuspend}
+                                    disabled={suspending}
+                                    className="px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                                >
+                                    {suspending ? 'Suspending...' : 'Suspend Club'}
+                                </button>
+                            )}
+                            {isAdmin() && club.status === 'suspended' && (
+                                <button
+                                    onClick={handleActivate}
+                                    disabled={activating}
+                                    className="px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                                >
+                                    {activating ? 'Activating...' : 'Activate Club'}
+                                </button>
+                            )}
                         </div>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                        <span className="px-3 py-1 bg-[#f8f9ff] text-[#0b1c30] text-xs font-semibold rounded-full border border-slate-200">
-                            {club.category}
-                        </span>
-                        {myMembership && (
-                            <button
-                                onClick={handleLeaveClub}
-                                disabled={leaving}
-                                className="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors disabled:opacity-50"
-                            >
-                                {leaving ? 'Leaving...' : 'Leave Club'}
-                            </button>
-                        )}
-                        {isAdmin() && club.status === 'approved' && (
-                            <button
-                                onClick={handleSuspend}
-                                disabled={suspending}
-                                className="px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
-                            >
-                                {suspending ? 'Suspending...' : 'Suspend Club'}
-                            </button>
-                        )}
-                        {isAdmin() && club.status === 'suspended' && (
-                            <button
-                                onClick={handleActivate}
-                                disabled={activating}
-                                className="px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
-                            >
-                                {activating ? 'Activating...' : 'Activate Club'}
-                            </button>
-                        )}
-                    </div>
-                </div>
 
                 <p className="text-slate-700 text-sm leading-relaxed mb-6">
                     {club.description}
@@ -440,11 +456,11 @@ const ClubDetail = () => {
                             <p className="text-[#0b1c30] font-medium text-xs leading-relaxed">{club.reason}</p>
                         </div>
                     )}
-                    {club.permission_doc_path && (
+                    {getImageUrl(club.permission_doc_url || club.permission_doc_path) && (
                         <div className="sm:col-span-3 border-t border-slate-200/60 pt-3">
                             <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Authority Permission Document</p>
                             <a
-                                href={`/storage/${club.permission_doc_path}`}
+                                href={getImageUrl(club.permission_doc_url || club.permission_doc_path)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-blue-600 hover:underline text-xs font-semibold inline-flex items-center gap-1"
@@ -471,6 +487,7 @@ const ClubDetail = () => {
                     </button>
                 </div>
             </div>
+        </div>
 
             {/* Club Events Directory */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6 shadow-xs space-y-4">

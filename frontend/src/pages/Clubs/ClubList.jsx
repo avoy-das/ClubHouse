@@ -4,6 +4,7 @@ import MainLayout from '../../layouts/MainLayout';
 import clubService from '../../services/clubService';
 import { useAuth } from '../../context/AuthContext';
 import { Building2, Users, Search, Plus, Shield, BarChart2 } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const categoryColors = {
     'Academic':                    'bg-blue-100 text-blue-700',
@@ -17,6 +18,20 @@ const categoryColors = {
     'Health & Wellness':           'bg-rose-100 text-rose-700',
     'Recreation & Hobby':          'bg-cyan-100 text-cyan-700',
     'Other':                       'bg-slate-100 text-slate-700',
+};
+
+const categoryGradients = {
+    'Academic':                    'from-blue-600 to-indigo-700',
+    'Technology':                  'from-violet-600 to-purple-800',
+    'Cultural':                    'from-pink-500 to-rose-700',
+    'Sports':                      'from-emerald-600 to-teal-800',
+    'Arts & Media':                'from-orange-500 to-amber-700',
+    'Business & Entrepreneurship': 'from-amber-500 to-yellow-600',
+    'Community Service':           'from-teal-600 to-cyan-800',
+    'Environment':                 'from-green-600 to-emerald-800',
+    'Health & Wellness':           'from-rose-500 to-pink-700',
+    'Recreation & Hobby':          'from-cyan-600 to-blue-700',
+    'Other':                       'from-slate-700 to-slate-900',
 };
 
 const ClubList = () => {
@@ -121,45 +136,84 @@ const ClubList = () => {
                             No clubs found.
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {filtered.map(club => (
                                 <div
                                     key={club.id}
                                     onClick={() => navigate(`/clubs/${club.id}`)}
-                                    className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-xs hover:border-blue-400 transition-all flex flex-col justify-between relative overflow-hidden"
+                                    className="bg-white border border-slate-200 rounded-2xl cursor-pointer hover:shadow-md hover:border-blue-400 transition-all flex flex-col justify-between relative overflow-hidden group"
                                 >
-                                    <div>
-                                        {club.status === 'pending' && (
-                                            <div className="mb-2.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold flex items-center justify-between">
-                                                <span>{club.created_by === user?.id ? 'Requested by you' : `Requested by ${club.creator?.name || 'User'}`}</span>
-                                                <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-200/60 px-1.5 py-0.5 rounded">Waiting for approval</span>
-                                            </div>
-                                        )}
+                                    {/* Top Half: Banner Image */}
+                                    <div className="relative h-28 w-full bg-slate-100">
+                                        <div className="w-full h-full overflow-hidden">
+                                            {getImageUrl(club.banner_url || club.banner_path) ? (
+                                                <img
+                                                    src={getImageUrl(club.banner_url || club.banner_path)}
+                                                    alt={`${club.name} Banner`}
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                />
+                                            ) : (
+                                                <div className={`w-full h-full bg-gradient-to-r ${categoryGradients[club.category] || 'from-blue-600 to-slate-800'} flex items-center justify-center opacity-90`}>
+                                                    <Building2 className="w-12 h-12 text-white/25" />
+                                                </div>
+                                            )}
+                                        </div>
 
-                                        {club.status === 'suspended' && (
-                                            <div className="mb-2.5 px-3 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-between">
-                                                <span>System Status</span>
-                                                <span className="text-[10px] uppercase font-bold text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded">Suspended</span>
+                                        {/* Circular Logo overlapping the dividing line on the right side */}
+                                        <div className="absolute bottom-0 right-4 translate-y-1/2 z-20 w-14 h-14 rounded-full border-2 border-white shadow-md bg-white flex items-center justify-center overflow-hidden shrink-0">
+                                            {getImageUrl(club.logo_url || club.logo_path) ? (
+                                                <img
+                                                    src={getImageUrl(club.logo_url || club.logo_path)}
+                                                    alt={club.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <Building2 className="w-6 h-6 text-blue-600" />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Bottom Half: INFO Section */}
+                                    <div className="p-5 pt-5 flex-1 flex flex-col justify-between">
+                                        <div>
+                                            {club.status === 'pending' && (
+                                                <div className="mb-2 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold flex items-center justify-between">
+                                                    <span>{club.created_by === user?.id ? 'Requested by you' : `Requested by ${club.creator?.name || 'User'}`}</span>
+                                                    <span className="text-[9px] uppercase font-bold text-amber-700 bg-amber-200/60 px-1.5 py-0.5 rounded">Pending</span>
+                                                </div>
+                                            )}
+
+                                            {club.status === 'suspended' && (
+                                                <div className="mb-2 px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-between">
+                                                    <span>System Status</span>
+                                                    <span className="text-[9px] uppercase font-bold text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded">Suspended</span>
+                                                </div>
+                                            )}
+
+                                            <div className="flex items-start justify-between gap-2 mb-1 pr-14">
+                                                <h3 className="font-bold text-[#0b1c30] text-base leading-tight group-hover:text-blue-600 transition-colors">
+                                                    {club.name}
+                                                </h3>
                                             </div>
-                                        )}
-                                        <div className="flex items-start justify-between mb-3">
-                                            <h3 className="font-semibold text-[#0b1c30] text-base leading-tight">
-                                                {club.name}
-                                            </h3>
-                                            <span className={`text-xs font-medium px-2 py-1 rounded-full ml-2 shrink-0 ${categoryColors[club.category] || 'bg-slate-100 text-slate-700'}`}>
-                                                {club.category}
+
+                                            <div className="mb-2">
+                                                <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full inline-block ${categoryColors[club.category] || 'bg-slate-100 text-slate-700'}`}>
+                                                    {club.category}
+                                                </span>
+                                            </div>
+
+                                            <p className="text-slate-600 text-xs line-clamp-2 mb-3">
+                                                {club.description}
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 mt-2">
+                                            <span className="truncate max-w-[130px] font-medium">{club.department || 'General'}</span>
+                                            <span className="font-semibold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5 shrink-0">
+                                                <Users className="w-3.5 h-3.5 text-blue-600" />
+                                                {club.members_count ?? 0} members
                                             </span>
                                         </div>
-                                        <p className="text-slate-600 text-sm line-clamp-2 mb-3">
-                                            {club.description}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 mt-2">
-                                        <span>{club.department || 'General'}</span>
-                                        <span className="font-medium text-slate-700 bg-[#f8f9ff] px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5">
-                                            <Users className="w-3.5 h-3.5 text-blue-600" />
-                                            {club.members_count ?? 0} members
-                                        </span>
                                     </div>
                                 </div>
                             ))}

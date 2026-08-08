@@ -13,6 +13,7 @@ use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class ClubController extends Controller
 {
@@ -20,10 +21,15 @@ class ClubController extends Controller
     public function store(CreateClubRequest $request)
     {
         $logoPath = null;
+        $bannerPath = null;
         $permissionDocPath = null;
 
         if ($request->hasFile('logo')) {
-            $logoPath = $request->file('logo')->store('logos', 'public');
+            $logoPath = $request->file('logo')->store('clubs/logos', 'public');
+        }
+
+        if ($request->hasFile('banner')) {
+            $bannerPath = $request->file('banner')->store('clubs/banners', 'public');
         }
 
         if ($request->hasFile('permission_document')) {
@@ -38,6 +44,7 @@ class ClubController extends Controller
             'contact_email'       => $request->contact_email,
             'contact_phone'       => $request->contact_phone,
             'logo_path'           => $logoPath,
+            'banner_path'         => $bannerPath,
             'permission_doc_path' => $permissionDocPath,
             'reason'              => $request->reason,
             'status'              => 'pending',
@@ -228,10 +235,20 @@ class ClubController extends Controller
         $data = $request->validated();
 
         if ($request->hasFile('logo')) {
-            $data['logo_path'] = $request->file('logo')->store('logos', 'public');
+            if ($club->logo_path) {
+                Storage::disk('public')->delete($club->logo_path);
+            }
+            $data['logo_path'] = $request->file('logo')->store('clubs/logos', 'public');
         }
 
-        unset($data['logo']);
+        if ($request->hasFile('banner')) {
+            if ($club->banner_path) {
+                Storage::disk('public')->delete($club->banner_path);
+            }
+            $data['banner_path'] = $request->file('banner')->store('clubs/banners', 'public');
+        }
+
+        unset($data['logo'], $data['banner']);
 
         $club->update($data);
 
@@ -626,6 +643,16 @@ class ClubController extends Controller
             'deleted_by' => $request->user()->id,
             'club_name'  => $club->name,
         ]);
+
+        if ($club->logo_path) {
+            Storage::disk('public')->delete($club->logo_path);
+        }
+        if ($club->banner_path) {
+            Storage::disk('public')->delete($club->banner_path);
+        }
+        if ($club->permission_doc_path) {
+            Storage::disk('public')->delete($club->permission_doc_path);
+        }
 
         $club->delete();
 

@@ -35,6 +35,15 @@ class Announcement extends Model
         ];
     }
 
+    protected $appends = [
+        'attachment_url',
+    ];
+
+    public function getAttachmentUrlAttribute(): ?string
+    {
+        return $this->attachment_path ? asset('storage/' . ltrim($this->attachment_path, '/')) : null;
+    }
+
     public function club(): BelongsTo
     {
         return $this->belongsTo(Club::class);

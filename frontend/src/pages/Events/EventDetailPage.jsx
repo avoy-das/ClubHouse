@@ -6,6 +6,7 @@ import EventModal from '../../components/Events/EventModal';
 import MarkAttendanceModal from '../../components/Events/MarkAttendanceModal';
 import AttendanceReportModal from '../../components/Events/AttendanceReportModal';
 import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, Ban, Trash2, ArrowLeft, Building2, CheckCircle } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -361,7 +362,16 @@ const EventDetailPage = () => {
             )}
 
             {/* Detailed Event Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs overflow-hidden">
+                {getImageUrl(event.banner_url || event.banner_path) && (
+                    <div className="mb-6 h-56 sm:h-72 -mx-6 sm:-mx-8 -mt-6 sm:-mt-8 overflow-hidden bg-slate-100 border-b border-slate-200">
+                        <img
+                            src={getImageUrl(event.banner_url || event.banner_path)}
+                            alt={event.title}
+                            className="w-full h-full object-cover"
+                        />
+                    </div>
+                )}
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     {/* Club link */}
                     <Link

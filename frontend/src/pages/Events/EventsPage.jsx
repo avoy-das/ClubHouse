@@ -5,6 +5,7 @@ import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
 import EventModal from '../../components/Events/EventModal';
 import { useAuth } from '../../context/AuthContext';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -243,9 +244,18 @@ const EventsPage = () => {
                                     <div
                                         key={event.id}
                                         onClick={() => navigate(`/events/${event.id}`)}
-                                        className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between"
+                                        className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between overflow-hidden"
                                     >
                                         <div>
+                                            {getImageUrl(event.banner_url || event.banner_path) && (
+                                                <div className="h-36 -mx-5 -mt-5 mb-4 overflow-hidden bg-slate-100 border-b border-slate-200">
+                                                    <img
+                                                        src={getImageUrl(event.banner_url || event.banner_path)}
+                                                        alt={event.title}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                            )}
                                             <div className="flex items-start justify-between gap-2 mb-3">
                                                 <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">
                                                     {event.club?.name || 'Club Event'}

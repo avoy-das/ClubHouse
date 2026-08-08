@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import announcementService from '../../services/announcementService';
 import { useAuth } from '../../context/AuthContext';
+import { getImageUrl } from '../../utils/imageUrl';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
@@ -382,10 +383,10 @@ const AnnouncementListContent = () => {
                             <p className="text-slate-700 text-xs sm:text-sm whitespace-pre-line leading-relaxed">{item.body}</p>
 
                             {/* Attachment Link if present */}
-                            {item.attachment_path && (
+                            {getImageUrl(item.attachment_url || item.attachment_path) && (
                                 <div className="pt-1">
                                     <a
-                                        href={`/storage/${item.attachment_path}`}
+                                        href={getImageUrl(item.attachment_url || item.attachment_path)}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold border border-blue-200 transition-colors shadow-2xs"
@@ -451,10 +452,10 @@ const AnnouncementListContent = () => {
                             <p className="text-slate-700 text-xs sm:text-sm whitespace-pre-line leading-relaxed">{item.body}</p>
 
                             {/* Attachment Link if present */}
-                            {item.attachment_path && (
+                            {getImageUrl(item.attachment_url || item.attachment_path) && (
                                 <div className="pt-1">
                                     <a
-                                        href={`/storage/${item.attachment_path}`}
+                                        href={getImageUrl(item.attachment_url || item.attachment_path)}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f8f9ff] text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold border border-blue-200 transition-colors shadow-2xs"

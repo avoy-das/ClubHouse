@@ -11,6 +11,7 @@ use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class AnnouncementController extends Controller
 {
@@ -431,6 +432,10 @@ class AnnouncementController extends Controller
                 Announcement::class,
                 $announcement->id
             );
+        }
+
+        if ($announcement->attachment_path) {
+            Storage::disk('public')->delete($announcement->attachment_path);
         }
 
         $announcement->delete();

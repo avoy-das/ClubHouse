@@ -29,7 +29,12 @@ class ClubEditRequestController extends Controller
 
         $logoPath = null;
         if ($request->hasFile('logo')) {
-            $logoPath = $request->file('logo')->store('logos', 'public');
+            $logoPath = $request->file('logo')->store('clubs/logos', 'public');
+        }
+
+        $bannerPath = null;
+        if ($request->hasFile('banner')) {
+            $bannerPath = $request->file('banner')->store('clubs/banners', 'public');
         }
 
         $editRequest = ClubEditRequest::create([
@@ -42,6 +47,7 @@ class ClubEditRequestController extends Controller
             'contact_email' => $data['contact_email'] ?? $club->contact_email,
             'contact_phone' => array_key_exists('contact_phone', $data) ? $data['contact_phone'] : $club->contact_phone,
             'logo_path'     => $logoPath ?? $club->logo_path,
+            'banner_path'   => $bannerPath ?? $club->banner_path,
             'reason'        => $data['reason'] ?? 'Executive submitted club details update.',
             'status'        => 'pending',
         ]);
@@ -109,6 +115,7 @@ class ClubEditRequestController extends Controller
         if ($clubEditRequest->contact_email) $updateData['contact_email'] = $clubEditRequest->contact_email;
         if ($clubEditRequest->contact_phone !== null) $updateData['contact_phone'] = $clubEditRequest->contact_phone;
         if ($clubEditRequest->logo_path)     $updateData['logo_path']     = $clubEditRequest->logo_path;
+        if ($clubEditRequest->banner_path)   $updateData['banner_path']   = $clubEditRequest->banner_path;
 
         $club->update($updateData);
 

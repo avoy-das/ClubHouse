@@ -7,6 +7,7 @@ import notificationService from '../../services/notificationService';
 import announcementService from '../../services/announcementService';
 import { getNotificationTargetUrl, isAnnouncementNotification } from '../../utils/notificationUtils';
 import { formatDisplayDateTime } from '../../utils/dateUtils';
+import { getImageUrl } from '../../utils/imageUrl';
 import Modal from '../../components/ui/Modal';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Calendar, Building2, Target, GraduationCap, Plus, Shield, Bell, Megaphone, ArrowRight, User } from 'lucide-react';
@@ -44,7 +45,7 @@ const Dashboard = () => {
 
     const handleNotificationClick = async (notif) => {
         if (!notif.is_read) {
-            notificationService.markRead(notif.id).catch(() => {});
+            notificationService.markRead(notif.id).catch(() => { });
         }
 
         if (isAnnouncementNotification(notif)) {
@@ -101,7 +102,7 @@ const Dashboard = () => {
                                 <GraduationCap className="w-4 h-4" /> Student Portal
                             </div>
                             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
-                                Welcome back, {user?.name}!
+                                Welcome , {user?.name}!
                             </h1>
                             <p className="text-sm text-gray-300">
                                 Here's your central portal overview for campus clubs, events, and notifications.
@@ -191,9 +192,9 @@ const Dashboard = () => {
                                                 to={`/clubs/${c.id}`}
                                                 className="p-4 rounded-xl border border-[#e4e2dd] bg-[#f5f3ee] hover:bg-[#eae8e3] transition-colors flex items-center gap-3 group"
                                             >
-                                                <div className="w-10 h-10 bg-[#1c1b1b] text-white rounded-lg flex items-center justify-center font-bold text-sm shrink-0 group-hover:scale-105 transition-transform">
-                                                    {c.logo_url ? (
-                                                        <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover rounded-lg" />
+                                                <div className="w-10 h-10 bg-[#1c1b1b] text-white rounded-lg flex items-center justify-center font-bold text-sm shrink-0 group-hover:scale-105 transition-transform overflow-hidden">
+                                                    {getImageUrl(c.logo_url || c.logo_path) ? (
+                                                        <img src={getImageUrl(c.logo_url || c.logo_path)} alt={c.name} className="w-full h-full object-cover rounded-lg" />
                                                     ) : (
                                                         c.name.charAt(0)
                                                     )}
@@ -286,11 +287,10 @@ const Dashboard = () => {
                                                 <div
                                                     key={notif.id}
                                                     onClick={() => handleNotificationClick(notif)}
-                                                    className={`p-3 rounded-2xl border text-xs cursor-pointer transition hover:shadow-xs ${
-                                                        notif.is_read
+                                                    className={`p-3 rounded-2xl border text-xs cursor-pointer transition hover:shadow-xs ${notif.is_read
                                                             ? 'bg-[#f5f3ee] border-[#e4e2dd] hover:bg-[#eae8e3]'
                                                             : 'bg-[#ffdbd0]/40 border-[#ffb59f] font-semibold hover:bg-[#ffdbd0]/70'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <div className="font-bold text-[#1b1c19] flex items-center gap-1.5">
                                                         {isAnnounce && <Megaphone className="w-3.5 h-3.5 text-amber-500 shrink-0" />}

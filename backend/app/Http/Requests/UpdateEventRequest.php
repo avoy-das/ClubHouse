@@ -16,6 +16,7 @@ class UpdateEventRequest extends FormRequest
         return [
             'title'          => ['sometimes', 'string', 'max:255'],
             'description'    => ['sometimes', 'nullable', 'string'],
+            'banner'         => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'visibility'     => ['sometimes', 'in:public,members_only'],
             'location_type'  => ['sometimes', 'in:physical,online'],
             'location_value' => ['sometimes', 'nullable', 'string', 'max:500'],

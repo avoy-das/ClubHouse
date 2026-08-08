@@ -26,8 +26,13 @@ const eventService = {
         api.post('/events', data),
 
     // Update existing event details (Exec/Admin)
-    updateEvent: (id, data) =>
-        api.put(`/events/${id}`, data),
+    updateEvent: (id, data) => {
+        if (typeof FormData !== 'undefined' && data instanceof FormData) {
+            data.append('_method', 'PUT');
+            return api.post(`/events/${id}`, data);
+        }
+        return api.put(`/events/${id}`, data);
+    },
 
     // Update event status: draft -> published -> ongoing -> completed / cancelled (Exec/Admin)
     updateEventStatus: (id, status) =>

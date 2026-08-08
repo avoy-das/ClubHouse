@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class EventController extends Controller
 {
@@ -187,6 +188,11 @@ class EventController extends Controller
             $data['ends_at']
         );
 
+        if ($request->hasFile('banner')) {
+            $data['banner_path'] = $request->file('banner')->store('events/banners', 'public');
+        }
+        unset($data['banner']);
+
         $event = Event::create([
             ...$data,
             'created_by' => $user->id,
@@ -340,6 +346,14 @@ class EventController extends Controller
             }
         }
 
+        if ($request->hasFile('banner')) {
+            if ($event->banner_path) {
+                Storage::disk('public')->delete($event->banner_path);
+            }
+            $data['banner_path'] = $request->file('banner')->store('events/banners', 'public');
+        }
+        unset($data['banner']);
+
         $event->update($data);
 
         AuditService::log('event.updated', $event, ['changed_fields' => array_keys($data)]);
@@ -485,6 +499,10 @@ class EventController extends Controller
             'title'   => $event->title,
             'club_id' => $event->club_id,
         ]);
+
+        if ($event->banner_path) {
+            Storage::disk('public')->delete($event->banner_path);
+        }
 
         $event->delete();
 

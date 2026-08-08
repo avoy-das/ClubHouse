@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
-import { AlertTriangle, Calendar } from 'lucide-react';
+import { AlertTriangle, Calendar, Image as ImageIcon } from 'lucide-react';
 import { formatForDatetimeLocal, datetimeLocalToISO, formatDisplayDateTime } from '../../utils/dateUtils';
+import { getImageUrl } from '../../utils/imageUrl';
+import compressImage from '../../utils/imageCompressor';
 
 const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClubId = '', isLockedClub = false }) => {
     const isEdit = Boolean(eventToEdit);
@@ -25,6 +27,9 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
     const [error, setError] = useState(null);
     const [warning, setWarning] = useState(null);
 
+    const [bannerFile, setBannerFile] = useState(null);
+    const [bannerPreview, setBannerPreview] = useState(null);
+
     // Schedule state for conflict checking
     const [showSchedule, setShowSchedule] = useState(false);
     const [scheduleEvents, setScheduleEvents] = useState([]);
@@ -35,6 +40,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
             setError(null);
             setWarning(null);
             setNoExecutiveClubs(false);
+            setBannerFile(null);
 
             if (!isEdit) {
                 setFetchingClubs(true);
@@ -60,6 +66,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
             }
 
             if (eventToEdit) {
+                setBannerPreview(getImageUrl(eventToEdit.banner_url || eventToEdit.banner_path));
                 setFormData({
                     club_id: eventToEdit.club_id || '',
                     title: eventToEdit.title || '',
@@ -72,6 +79,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     ends_at: formatForDatetimeLocal(eventToEdit.ends_at),
                 });
             } else {
+                setBannerPreview(null);
                 // Default start time: 1 day from now at 10:00 AM
                 const defaultStart = new Date(Date.now() + 86400000);
                 defaultStart.setHours(10, 0, 0, 0);
@@ -100,6 +108,15 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleBannerChange = async (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const raw = e.target.files[0];
+            const compressed = await compressImage(raw, { maxWidth: 1200, maxHeight: 600, quality: 0.82 });
+            setBannerFile(compressed);
+            setBannerPreview(URL.createObjectURL(compressed));
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -113,12 +130,27 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
             return;
         }
 
-        const payload = {
-            ...formData,
-            capacity: Number(formData.capacity),
-            starts_at: datetimeLocalToISO(formData.starts_at),
-            ends_at: datetimeLocalToISO(formData.ends_at),
-        };
+        let payload;
+        if (bannerFile) {
+            payload = new FormData();
+            payload.append('club_id', formData.club_id);
+            payload.append('title', formData.title);
+            if (formData.description) payload.append('description', formData.description);
+            payload.append('visibility', formData.visibility);
+            payload.append('location_type', formData.location_type);
+            if (formData.location_value) payload.append('location_value', formData.location_value);
+            payload.append('capacity', String(formData.capacity));
+            payload.append('starts_at', datetimeLocalToISO(formData.starts_at));
+            payload.append('ends_at', datetimeLocalToISO(formData.ends_at));
+            payload.append('banner', bannerFile);
+        } else {
+            payload = {
+                ...formData,
+                capacity: Number(formData.capacity),
+                starts_at: datetimeLocalToISO(formData.starts_at),
+                ends_at: datetimeLocalToISO(formData.ends_at),
+            };
+        }
 
         try {
             let res;
@@ -246,6 +278,22 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                             onChange={handleChange}
                             placeholder="Detailed agenda, requirements, or event overview..."
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb]"
+                        />
+                    </div>
+
+                    {/* Event Banner / Poster Upload */}
+                    <div>
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Event Banner / Poster Image (Optional)</label>
+                        {bannerPreview && (
+                            <div className="mb-2 h-24 w-full rounded-xl border border-slate-200 overflow-hidden bg-slate-50 relative">
+                                <img src={bannerPreview} alt="Event Banner preview" className="w-full h-full object-cover" />
+                            </div>
+                        )}
+                        <input
+                            type="file"
+                            accept="image/png, image/jpeg, image/jpg, image/webp"
+                            onChange={handleBannerChange}
+                            className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
                         />
                     </div>
 

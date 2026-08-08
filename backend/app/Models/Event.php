@@ -13,6 +13,7 @@ class Event extends Model
         'created_by',
         'title',
         'description',
+        'banner_path',
         'status',
         'visibility',
         'location_type',
@@ -27,6 +28,15 @@ class Event extends Model
         'ends_at'   => 'datetime',
         'capacity'  => 'integer',
     ];
+
+    protected $appends = [
+        'banner_url',
+    ];
+
+    public function getBannerUrlAttribute(): ?string
+    {
+        return $this->banner_path ? asset('storage/' . ltrim($this->banner_path, '/')) : null;
+    }
 
     // -------------------------------------------------------
     // Relationships
