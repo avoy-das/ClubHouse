@@ -35,10 +35,12 @@ class SearchController extends Controller
         // 2. Events (title, description)
         $events = Event::query()
             ->with(['club:id,name'])
+            ->where('status', '!=', 'cancelled')
             ->where(function ($q) use ($escaped) {
                 $q->where('title', 'LIKE', $escaped)
                   ->orWhere('description', 'LIKE', $escaped);
             })
+            ->latest()
             ->get();
 
         // 3. Recruitment Notices (title, description)

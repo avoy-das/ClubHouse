@@ -11,6 +11,16 @@ class UpdateEventRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('custom_fields') && is_string($this->custom_fields)) {
+            $decoded = json_decode($this->custom_fields, true);
+            if (is_array($decoded)) {
+                $this->merge(['custom_fields' => $decoded]);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -23,6 +33,7 @@ class UpdateEventRequest extends FormRequest
             'starts_at'      => ['sometimes', 'date', 'after:now'],
             'ends_at'        => ['sometimes', 'date', 'after:starts_at'],
             'capacity'       => ['sometimes', 'integer', 'min:1'],
+            'custom_fields'  => ['sometimes', 'nullable', 'array'],
             'status'         => ['sometimes', 'string', 'in:draft,published,upcoming,ongoing,completed,cancelled'],
         ];
     }

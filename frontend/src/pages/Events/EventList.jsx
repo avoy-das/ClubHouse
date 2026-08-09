@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import eventService from '../../services/eventService';
 import { ClubPermissionsProvider, useClubPermissions } from '../../context/ClubPermissionsContext';
+import { useAuth } from '../../context/AuthContext';
 import EventForm from './EventForm';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -12,6 +13,7 @@ import { Calendar, MapPin, Clock, Plus, ArrowLeft, ArrowRight } from 'lucide-rea
 const EventListContent = () => {
     const { clubId } = useParams();
     const { can } = useClubPermissions();
+    const { user } = useAuth();
 
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -58,7 +60,7 @@ const EventListContent = () => {
                             </button>
                         </Link>
                     )}
-                    {clubId && can('can_manage_events') && (
+                    {clubId && can('can_manage_events') && !user?.is_admin && (
                         <button
                             onClick={() => setIsFormOpen(true)}
                             className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"

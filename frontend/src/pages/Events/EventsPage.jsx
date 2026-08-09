@@ -129,7 +129,7 @@ const EventsPage = () => {
                         Browse all published events across clubs and manage your registrations.
                     </p>
                 </div>
-                {user && (
+                {user && !user.is_admin && (
                     <button
                         onClick={() => setIsCreateOpen(true)}
                         className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5 self-start sm:self-auto"

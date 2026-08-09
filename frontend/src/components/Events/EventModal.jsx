@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
-import { AlertTriangle, Calendar, Image as ImageIcon } from 'lucide-react';
+import { AlertTriangle, Calendar, Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
 import { formatForDatetimeLocal, datetimeLocalToISO, formatDisplayDateTime } from '../../utils/dateUtils';
 import { getImageUrl } from '../../utils/imageUrl';
 import compressImage from '../../utils/imageCompressor';
@@ -12,6 +12,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
     const [clubs, setClubs] = useState([]);
     const [fetchingClubs, setFetchingClubs] = useState(false);
     const [noExecutiveClubs, setNoExecutiveClubs] = useState(false);
+    const [customFields, setCustomFields] = useState([]);
     const [formData, setFormData] = useState({
         club_id: defaultClubId || '',
         title: '',
@@ -34,6 +35,25 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
     const [showSchedule, setShowSchedule] = useState(false);
     const [scheduleEvents, setScheduleEvents] = useState([]);
     const [loadingSchedule, setLoadingSchedule] = useState(false);
+
+    const addCustomField = () => {
+        setCustomFields(prev => [
+            ...prev,
+            { id: `field_${Date.now()}`, label: '', type: 'text', required: false, options: [] }
+        ]);
+    };
+
+    const updateCustomField = (index, key, value) => {
+        setCustomFields(prev => {
+            const updated = [...prev];
+            updated[index] = { ...updated[index], [key]: value };
+            return updated;
+        });
+    };
+
+    const removeCustomField = (index) => {
+        setCustomFields(prev => prev.filter((_, i) => i !== index));
+    };
 
     useEffect(() => {
         if (isOpen) {
@@ -67,6 +87,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
 
             if (eventToEdit) {
                 setBannerPreview(getImageUrl(eventToEdit.banner_url || eventToEdit.banner_path));
+                setCustomFields(Array.isArray(eventToEdit.custom_fields) ? eventToEdit.custom_fields : []);
                 setFormData({
                     club_id: eventToEdit.club_id || '',
                     title: eventToEdit.title || '',
@@ -80,6 +101,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                 });
             } else {
                 setBannerPreview(null);
+                setCustomFields([]);
                 // Default start time: 1 day from now at 10:00 AM
                 const defaultStart = new Date(Date.now() + 86400000);
                 defaultStart.setHours(10, 0, 0, 0);
@@ -143,12 +165,14 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
             payload.append('starts_at', datetimeLocalToISO(formData.starts_at));
             payload.append('ends_at', datetimeLocalToISO(formData.ends_at));
             payload.append('banner', bannerFile);
+            payload.append('custom_fields', JSON.stringify(customFields));
         } else {
             payload = {
                 ...formData,
                 capacity: Number(formData.capacity),
                 starts_at: datetimeLocalToISO(formData.starts_at),
                 ends_at: datetimeLocalToISO(formData.ends_at),
+                custom_fields: customFields,
             };
         }
 
@@ -392,7 +416,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                     setLoadingSchedule(true);
                                     eventService.getSchedule()
                                         .then(res => setScheduleEvents(res.data || []))
-                                        .catch(() => {})
+                                        .catch(() => { })
                                         .finally(() => setLoadingSchedule(false));
                                 }
                             }}
@@ -430,11 +454,10 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                             return (
                                                 <div
                                                     key={evt.id}
-                                                    className={`p-2.5 rounded-lg border text-xs transition-colors ${
-                                                        isOverlapping
+                                                    className={`p-2.5 rounded-lg border text-xs transition-colors ${isOverlapping
                                                             ? 'bg-amber-50 border-amber-300 text-amber-900'
                                                             : 'bg-white border-slate-200 text-slate-700'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <div className="flex items-start justify-between gap-2">
                                                         <span className="font-bold text-[#0b1c30]">{evt.title}</span>
@@ -456,6 +479,98 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                         })}
                                     </div>
                                 )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Custom Event Registration Form Fields Builder */}
+                    <div className="pt-3 border-t border-slate-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <label className="block text-xs font-bold text-[#0b1c30]">Custom Registration Form Fields</label>
+                                <p className="text-[11px] text-slate-500">Add custom text, selection, or file upload questions for event attendees.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={addCustomField}
+                                className="px-2.5 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                Add Field
+                            </button>
+                        </div>
+
+                        {customFields.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic py-2 px-3 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                No custom fields added yet. Default single-click registration will be used.
+                            </p>
+                        ) : (
+                            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                                {customFields.map((field, idx) => (
+                                    <div key={field.id || idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs relative">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="font-bold text-slate-700">Question #{idx + 1}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCustomField(idx)}
+                                                className="text-rose-500 hover:text-rose-700 text-xs font-semibold p-1"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                                            <div className="sm:col-span-7">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Question Label (e.g. T-Shirt Size)"
+                                                    value={field.label || ''}
+                                                    onChange={(e) => updateCustomField(idx, 'label', e.target.value)}
+                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 bg-white"
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div className="sm:col-span-5">
+                                                <select
+                                                    value={field.type || 'text'}
+                                                    onChange={(e) => updateCustomField(idx, 'type', e.target.value)}
+                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 bg-white"
+                                                >
+                                                    <option value="text">Short Text</option>
+                                                    <option value="textarea">Long Text / Paragraph</option>
+                                                    <option value="select">Dropdown Options</option>
+                                                    <option value="file">File Upload (Document/Image)</option>
+                                                    <option value="checkbox">Confirmation Checkbox</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {field.type === 'select' && (
+                                            <div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Comma-separated options (e.g. Small, Medium, Large, XL)"
+                                                    value={Array.isArray(field.options) ? field.options.join(', ') : (field.options || '')}
+                                                    onChange={(e) => updateCustomField(idx, 'options', e.target.value.split(',').map(s => s.trim()))}
+                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 bg-white"
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <label className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={Boolean(field.required)}
+                                                    onChange={(e) => updateCustomField(idx, 'required', e.target.checked)}
+                                                    className="rounded text-blue-600 focus:ring-blue-500"
+                                                />
+                                                <span>Required response</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>

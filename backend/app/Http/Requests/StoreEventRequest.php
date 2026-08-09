@@ -11,6 +11,16 @@ class StoreEventRequest extends FormRequest
         return true; // Authorization handled in controller via club membership check
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('custom_fields') && is_string($this->custom_fields)) {
+            $decoded = json_decode($this->custom_fields, true);
+            if (is_array($decoded)) {
+                $this->merge(['custom_fields' => $decoded]);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -24,6 +34,7 @@ class StoreEventRequest extends FormRequest
             'starts_at'      => ['required', 'date', 'after:now'],
             'ends_at'        => ['required', 'date', 'after:starts_at'],
             'capacity'       => ['required', 'integer', 'min:1'],
+            'custom_fields'  => ['nullable', 'array'],
             'status'         => ['nullable', 'string', 'in:draft,published,upcoming,ongoing,completed,cancelled'],
         ];
     }

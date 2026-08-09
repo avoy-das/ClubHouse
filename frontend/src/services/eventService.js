@@ -10,8 +10,8 @@ const eventService = {
         api.get(`/events/${id}`),
 
     // Register authenticated user for an event
-    registerEvent: (id) =>
-        api.post(`/events/${id}/register`),
+    registerEvent: (id, data) =>
+        api.post(`/events/${id}/register`, data),
 
     // Cancel registration for an event
     cancelRegistration: (id) =>

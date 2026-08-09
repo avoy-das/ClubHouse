@@ -84,6 +84,7 @@ const ClubDetail = () => {
 
     const myMembership = club?.members?.find(m => m.user_id === user?.id);
     const isExec = isAdmin() || (myMembership && ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(myMembership.role));
+    const isClubExec = !user?.is_admin && Boolean(myMembership && ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(myMembership.role));
 
     const formatDate = (isoStr) => {
         if (!isoStr) return 'N/A';
@@ -336,7 +337,7 @@ const ClubDetail = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
-                            {isExec && (
+                            {isClubExec && (
                                 <button
                                     onClick={() => setIsCreateEventOpen(true)}
                                     className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
@@ -499,7 +500,7 @@ const ClubDetail = () => {
                         </h2>
                         <p className="text-xs text-slate-500 mt-0.5">All events organized by {club.name}</p>
                     </div>
-                    {isExec && (
+                    {isClubExec && (
                         <button
                             onClick={() => setIsCreateEventOpen(true)}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-xs flex items-center gap-1"

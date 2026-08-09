@@ -21,12 +21,14 @@ class Event extends Model
         'starts_at',
         'ends_at',
         'capacity',
+        'custom_fields',
     ];
 
     protected $casts = [
-        'starts_at' => 'datetime',
-        'ends_at'   => 'datetime',
-        'capacity'  => 'integer',
+        'starts_at'     => 'datetime',
+        'ends_at'       => 'datetime',
+        'capacity'      => 'integer',
+        'custom_fields' => 'array',
     ];
 
     protected $appends = [

@@ -77,9 +77,45 @@ class EventRegistrationController extends Controller
             ], 422);
         }
 
-        // 3. Perform capacity check and registration inside a DB transaction with pessimistic locking
+        // 3. Extract and process custom field answers / files
+        $answersData = $request->input('answers', []);
+        if (is_string($answersData)) {
+            $answersData = json_decode($answersData, true) ?? [];
+        }
+        if (!is_array($answersData)) {
+            $answersData = [];
+        }
+
+        if ($request->hasFile('answers_files')) {
+            $uploadedFiles = $request->file('answers_files');
+            if (is_array($uploadedFiles)) {
+                foreach ($uploadedFiles as $key => $file) {
+                    if ($file && $file->isValid()) {
+                        $path = $file->store('event_answers', 'public');
+                        $answersData['custom_files'][$key] = [
+                            'name' => $file->getClientOriginalName(),
+                            'path' => $path,
+                            'url'  => asset('storage/' . $path),
+                        ];
+                    }
+                }
+            }
+        }
+
+        foreach ($request->allFiles() as $key => $file) {
+            if ($key !== 'answers_files' && !is_array($file) && $file->isValid()) {
+                $path = $file->store('event_answers', 'public');
+                $answersData['custom_files'][$key] = [
+                    'name' => $file->getClientOriginalName(),
+                    'path' => $path,
+                    'url'  => asset('storage/' . $path),
+                ];
+            }
+        }
+
+        // 4. Perform capacity check and registration inside a DB transaction with pessimistic locking
         try {
-            DB::transaction(function () use ($event, $user) {
+            DB::transaction(function () use ($event, $user, $answersData) {
                 // Lock the event row for update to prevent concurrent overbooking
                 $lockedEvent = Event::where('id', $event->id)->lockForUpdate()->first();
 
@@ -99,6 +135,7 @@ class EventRegistrationController extends Controller
                 EventRegistration::create([
                     'event_id' => $lockedEvent->id,
                     'user_id'  => $user->id,
+                    'answers'  => $answersData,
                 ]);
             });
         } catch (\RuntimeException $e) {
