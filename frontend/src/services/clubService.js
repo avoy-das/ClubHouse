@@ -30,6 +30,12 @@ const clubService = {
     updateMemberRole: (clubId, userId, role) =>
         api.patch(`/clubs/${clubId}/members/${userId}/role`, { role }),
 
+    updateAdvisor: (clubId, advisorData) =>
+        api.put(`/clubs/${clubId}/advisor`, advisorData),
+
+    transferPresidency: (clubId, targetUserId, formerRole = 'member') =>
+        api.post(`/clubs/${clubId}/transfer-presidency`, { target_user_id: targetUserId, former_role: formerRole }),
+
     removeMember: (clubId, userId) =>
         api.delete(`/clubs/${clubId}/members/${userId}`),
 

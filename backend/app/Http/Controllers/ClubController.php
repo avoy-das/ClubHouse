@@ -435,7 +435,7 @@ class ClubController extends Controller
         }
 
         $request->validate([
-            'role' => ['required', 'string', 'in:president,vice_president,secretary,treasurer,member'],
+            'role' => ['required', 'string', 'in:president,vice_president,secretary,treasurer,executive,member'],
         ]);
 
         $newRole = $request->input('role');
@@ -472,11 +472,47 @@ class ClubController extends Controller
             ], 403);
         }
 
+        // Single President slot rule: If assigning president, check if one already exists
+        if ($newRole === 'president' && $membership->role !== 'president') {
+            $presidentExists = ClubMember::where('club_id', $club->id)
+                ->where('role', 'president')
+                ->where('user_id', '!=', $user->id)
+                ->exists();
+
+            if ($presidentExists) {
+                return response()->json([
+                    'message' => 'A president already exists for this club. Only one president is allowed.',
+                ], 422);
+            }
+        }
+
+        // Orphan Executive protection: Cannot demote the last executive left in the club
+        $isExecRole = in_array($membership->role, ['president', 'vice_president', 'secretary', 'treasurer', 'executive']);
+        if ($isExecRole && $newRole === 'member') {
+            $execCount = ClubMember::where('club_id', $club->id)
+                ->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
+                ->count();
+
+            if ($execCount <= 1) {
+                return response()->json([
+                    'message' => 'Cannot demote the last remaining executive of the club.',
+                ], 422);
+            }
+        }
+
         $oldRole = $membership->role;
 
         $membership->update([
             'role' => $newRole,
         ]);
+
+        if ($newRole === 'member') {
+            \App\Models\ClubMemberPosition::where('club_member_id', $membership->id)
+                ->where(function ($q) {
+                    $q->whereNull('ends_at')->orWhere('ends_at', '>', now());
+                })
+                ->update(['ends_at' => now()]);
+        }
 
         AuditService::log('club.member_role_updated', $club, [
             'target_user_id' => $user->id,
@@ -485,9 +521,182 @@ class ClubController extends Controller
             'updated_by'     => $authUser->id,
         ]);
 
+        if ($oldRole !== $newRole) {
+            $roleLabels = [
+                'president'      => 'President',
+                'vice_president' => 'Vice President',
+                'secretary'      => 'Secretary',
+                'treasurer'      => 'Treasurer',
+                'executive'      => 'Executive Member',
+                'member'         => 'General Member',
+            ];
+
+            $oldRoleLabel = $roleLabels[$oldRole] ?? ucfirst(str_replace('_', ' ', $oldRole));
+            $newRoleLabel = $roleLabels[$newRole] ?? ucfirst(str_replace('_', ' ', $newRole));
+
+            NotificationService::notifyUser(
+                $user->id,
+                'club_role_updated',
+                'Official Position Update',
+                "Your official position in '{$club->name}' has been updated from {$oldRoleLabel} to {$newRoleLabel}.",
+                Club::class,
+                $club->id
+            );
+        }
+
         return response()->json([
             'message'    => "Member role updated to '{$newRole}'.",
             'membership' => $membership->fresh()->load('user:id,name,student_id,email,department'),
+        ]);
+    }
+
+    /**
+     * PUT /api/clubs/{club}/advisor
+     *
+     * President, Secretary, or Admin action to update club advisor info.
+     */
+    public function updateAdvisor(Request $request, Club $club): JsonResponse
+    {
+        $authUser = $request->user();
+
+        $isPresidentOrSecretary = ClubMember::where('club_id', $club->id)
+            ->where('user_id', $authUser->id)
+            ->whereIn('role', ['president', 'secretary'])
+            ->exists();
+
+        if (!$authUser->is_admin && !$isPresidentOrSecretary) {
+            return response()->json([
+                'message' => 'Only the President, Secretary, or System Admin can manage advisor information.',
+            ], 403);
+        }
+
+        if ($request->has('advisors')) {
+            $request->validate([
+                'advisors'                 => 'present|array',
+                'advisors.*.name'          => 'required|string|max:255',
+                'advisors.*.title'         => 'nullable|string|max:255',
+                'advisors.*.department'    => 'nullable|string|max:255',
+                'advisors.*.contact_email' => 'nullable|email|max:255',
+            ]);
+            $advisorData = $request->input('advisors');
+        } else {
+            $request->validate([
+                'name'          => 'required|string|max:255',
+                'title'         => 'nullable|string|max:255',
+                'department'    => 'nullable|string|max:255',
+                'contact_email' => 'nullable|email|max:255',
+            ]);
+            $advisorData = [$request->only(['name', 'title', 'department', 'contact_email'])];
+        }
+
+        $club->update(['advisor' => $advisorData]);
+
+        AuditService::log('club.advisor_updated', $club, [
+            'updated_by' => $authUser->id,
+            'advisor'    => $advisorData,
+        ]);
+
+        $freshClub = $club->fresh();
+
+        return response()->json([
+            'message'  => 'Club advisor details updated successfully.',
+            'advisor'  => $freshClub->advisor,
+            'advisors' => $freshClub->advisors,
+        ]);
+    }
+
+    /**
+     * POST /api/clubs/{club}/transfer-presidency
+     *
+     * President or Admin action to transfer presidency to another active member.
+     */
+    public function transferPresidency(Request $request, Club $club): JsonResponse
+    {
+        $authUser = $request->user();
+
+        $currentPresMembership = ClubMember::where('club_id', $club->id)
+            ->where('role', 'president')
+            ->where('status', 'active')
+            ->first();
+
+        $isCurrentPresident = $currentPresMembership && $currentPresMembership->user_id === $authUser->id;
+        if (!$authUser->is_admin && !$isCurrentPresident) {
+            return response()->json([
+                'message' => 'Only the current President or a System Admin can transfer presidency.',
+            ], 403);
+        }
+
+        $request->validate([
+            'target_user_id' => 'required|exists:users,id',
+            'former_role'    => 'nullable|string|in:vice_president,secretary,treasurer,member',
+        ]);
+
+        $targetUserId = (int) $request->input('target_user_id');
+        $formerRole = $request->input('former_role', 'member');
+
+        if ($currentPresMembership && $currentPresMembership->user_id === $targetUserId) {
+            return response()->json([
+                'message' => 'This user is already the President of the club.',
+            ], 422);
+        }
+
+        $targetMembership = ClubMember::where('club_id', $club->id)
+            ->where('user_id', $targetUserId)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$targetMembership) {
+            return response()->json([
+                'message' => 'The selected target user is not an active member of this club.',
+            ], 404);
+        }
+
+        $roleLabels = [
+            'president'      => 'President',
+            'vice_president' => 'Vice President',
+            'secretary'      => 'Secretary',
+            'treasurer'      => 'Treasurer',
+            'executive'      => 'Executive Member',
+            'member'         => 'General Member',
+        ];
+
+        // 1. Reassign former president role
+        if ($currentPresMembership) {
+            $currentPresMembership->update(['role' => $formerRole]);
+            $formerRoleLabel = $roleLabels[$formerRole] ?? 'General Member';
+
+            NotificationService::notifyUser(
+                $currentPresMembership->user_id,
+                'club_role_updated',
+                'Official Position Update',
+                "Your official position in '{$club->name}' has been updated from President to {$formerRoleLabel}.",
+                Club::class,
+                $club->id
+            );
+        }
+
+        // 2. Promote target member to president
+        $targetOldRoleLabel = $roleLabels[$targetMembership->role] ?? 'General Member';
+        $targetMembership->update(['role' => 'president']);
+
+        AuditService::log('club.presidency_transferred', $club, [
+            'transferred_by'      => $authUser->id,
+            'new_president_id'    => $targetUserId,
+            'former_president_id' => $currentPresMembership ? $currentPresMembership->user_id : null,
+            'former_role'         => $formerRole,
+        ]);
+
+        NotificationService::notifyUser(
+            $targetUserId,
+            'presidency_transferred',
+            'Official Position Update',
+            "Your official position in '{$club->name}' has been updated from {$targetOldRoleLabel} to President.",
+            Club::class,
+            $club->id
+        );
+
+        return response()->json([
+            'message' => 'Presidency successfully transferred.',
         ]);
     }
 
@@ -536,6 +745,20 @@ class ClubController extends Controller
             return response()->json([
                 'message' => 'Cannot remove the club president. Transfer or demote role first.',
             ], 422);
+        }
+
+        // Orphan Executive protection: Cannot remove the last executive left in the club
+        $isExecRole = in_array($membership->role, ['president', 'vice_president', 'secretary', 'treasurer', 'executive']);
+        if ($isExecRole) {
+            $execCount = ClubMember::where('club_id', $club->id)
+                ->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
+                ->count();
+
+            if ($execCount <= 1) {
+                return response()->json([
+                    'message' => 'Cannot remove the last remaining executive of the club.',
+                ], 422);
+            }
         }
 
         $membership->delete();

@@ -22,17 +22,30 @@ class Club extends Model
         'approved_by',
         'approved_at',
         'rejection_reason',
+        'advisor',
     ];
 
     protected $casts = [
         'approved_at' => 'datetime',
+        'advisor'     => 'array',
     ];
 
     protected $appends = [
         'logo_url',
         'banner_url',
         'permission_doc_url',
+        'advisors',
     ];
+
+    public function getAdvisorsAttribute(): array
+    {
+        $val = $this->advisor;
+        if (!$val) return [];
+        if (is_array($val) && isset($val['name'])) {
+            return [$val];
+        }
+        return is_array($val) ? array_values($val) : [];
+    }
 
     public function getLogoUrlAttribute(): ?string
     {

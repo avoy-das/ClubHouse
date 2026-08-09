@@ -49,6 +49,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/clubs/{club}',                       [ClubController::class, 'update']);
     Route::post('/clubs/{club}',                      [ClubController::class, 'update']); // Support multipart formdata update
     Route::delete('/clubs/{club}/leave',             [ClubController::class, 'leave']);
+    Route::put('/clubs/{club}/advisor',               [ClubController::class, 'updateAdvisor']);
+    Route::post('/clubs/{club}/transfer-presidency',  [ClubController::class, 'transferPresidency']);
     Route::patch('/clubs/{club}/members/{user}/role', [ClubController::class, 'updateMemberRole']);
     Route::delete('/clubs/{club}/members/{user}',    [ClubController::class, 'removeMember']);
     Route::get('/clubs/{club}/audit-logs',           [ClubController::class, 'auditLogs']);

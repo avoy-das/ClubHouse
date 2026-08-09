@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import EditClubModal from '../../components/Clubs/EditClubModal';
 import ClubAuditLogModal from '../../components/Clubs/ClubAuditLogModal';
 import EventModal from '../../components/Events/EventModal';
+import MembersDirectory from '../../components/Clubs/MembersDirectory';
 import { ArrowLeft, Edit, FileText, Search, Shield, Building2, Megaphone, Target, Calendar, Eye, User, Phone, CheckCircle2 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -553,128 +554,8 @@ const ClubDetail = () => {
                 )}
             </div>
 
-            {/* Contextual Member Search Roster */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <h2 className="text-base font-semibold text-[#0b1c30]">
-                            Members Directory ({membersList.length})
-                        </h2>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                            {isAdmin()
-                                ? 'Admin mode: Platform-wide roster & role actions'
-                                : isExec
-                                ? 'Executive mode: Manage club member roles and permissions'
-                                : 'Member mode: Browsing club roster'}
-                        </p>
-                    </div>
-
-                    <div className="relative w-full sm:w-72">
-                        <input
-                            type="text"
-                            placeholder="Filter by name or student ID..."
-                            value={memberQuery}
-                            onChange={(e) => setMemberQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] bg-white"
-                        />
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                    </div>
-                </div>
-
-                {searchingMembers ? (
-                    <div className="py-6 text-center text-slate-400 text-sm animate-pulse">Searching members...</div>
-                ) : membersList.length > 0 ? (
-                    <div className="divide-y divide-slate-100">
-                        {membersList.map(member => {
-                            const isUpdating = updatingUserId === member.user_id;
-                            const memberName = member.user?.name || member.name || `User #${member.user_id}`;
-                            const isSelf = user && (member.user_id === user.id || member.id === myMembership?.id);
-                            const callerRank = isAdmin() ? 100 : (myMembership ? getMemberHighestRank(myMembership) : 1);
-                            const targetCurrentRank = getMemberHighestRank(member);
-                            const canManageTarget = isExec && !isSelf && (isAdmin() || callerRank > targetCurrentRank);
-
-                            const availableRoleOptions = [
-                                { value: 'president', label: 'President', rank: 10 },
-                                { value: 'vice_president', label: 'Vice President', rank: 9 },
-                                { value: 'secretary', label: 'Secretary', rank: 8 },
-                                { value: 'treasurer', label: 'Treasurer', rank: 8 },
-                                { value: 'member', label: 'Member', rank: 1 },
-                            ].filter(opt => isAdmin() || opt.rank < callerRank);
-
-                            return (
-                                <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3">
-                                    <div>
-                                        <span className="text-sm font-semibold text-[#0b1c30] block">
-                                            {memberName}
-                                        </span>
-                                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                                            {(member.user?.student_id || member.student_id) && (
-                                                <span>ID: {member.user?.student_id || member.student_id} {member.user?.department ? `• ${member.user.department}` : ''}</span>
-                                            )}
-                                            {member.joined_at && (
-                                                <>
-                                                    <span>&bull;</span>
-                                                    <span>Joined {formatDate(member.joined_at)}</span>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Action controls / Role badge */}
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        {/* View Member Details button visible to Execs & Admins */}
-                                        {(isExec || isAdmin()) && (
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedMember(member);
-                                                    setIsDetailsModalOpen(true);
-                                                }}
-                                                className="px-2.5 py-1 text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1"
-                                            >
-                                                <Eye className="w-3.5 h-3.5" /> View Member Details
-                                            </button>
-                                        )}
-
-                                        {canManageTarget ? (
-                                            <>
-                                                {/* Role Dropdown */}
-                                                <select
-                                                    value={member.role}
-                                                    onChange={(e) => handleRoleChange(member.user_id, e.target.value)}
-                                                    disabled={isUpdating}
-                                                    className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 bg-[#f8f9ff] text-[#0b1c30] focus:border-[#2563eb]"
-                                                >
-                                                    {availableRoleOptions.map(opt => (
-                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                                    ))}
-                                                </select>
-
-                                                {/* Kick / Remove Button */}
-                                                <button
-                                                    onClick={() => handleRemoveMember(member.user_id, memberName)}
-                                                    disabled={isUpdating}
-                                                    title="Remove member"
-                                                    className="px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors disabled:opacity-40"
-                                                >
-                                                    Remove
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <span className="text-xs text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full font-medium capitalize">
-                                                {roleLabels[member.role] || member.role || 'Member'}{isSelf ? ' (You)' : ''}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <p className="text-slate-400 text-sm py-4 text-center">
-                        {memberQuery ? `No members found matching '${memberQuery}'` : 'No members yet.'}
-                    </p>
-                )}
-            </div>
+            {/* Contextual Members Directory (Two-Section Layout with Advisor Card) */}
+            <MembersDirectory clubId={id} initialClub={club} onClubUpdated={(updated) => setClub(updated)} />
 
             {/* Modals */}
             <EditClubModal
