@@ -35,6 +35,7 @@ const EventForm = ({ isOpen, onClose, clubId, eventItem = null, onSuccess }) => 
             const formattedDeadline = datetimeLocalToISO(registrationDeadline);
 
             const payload = {
+                club_id: clubId,
                 title,
                 description,
                 venue,
@@ -48,15 +49,20 @@ const EventForm = ({ isOpen, onClose, clubId, eventItem = null, onSuccess }) => 
             };
 
             if (eventItem?.id) {
-                await eventService.update(eventItem.id, payload);
+                await eventService.updateEvent(eventItem.id, payload);
             } else {
-                await eventService.create(clubId, payload);
+                await eventService.createEvent(payload);
             }
 
             if (onSuccess) onSuccess();
             onClose();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to save event.');
+            let msg = err.response?.data?.message || 'Failed to save event.';
+            if (err.response?.data?.errors) {
+                const firstErr = Object.values(err.response.data.errors).flat()[0];
+                if (firstErr) msg = firstErr;
+            }
+            setError(msg);
         } finally {
             setLoading(false);
         }

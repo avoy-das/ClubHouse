@@ -125,9 +125,47 @@ const ClubDetail = () => {
     };
 
     useEffect(() => {
-        fetchClubDetails();
-        fetchClubEvents();
-        fetchPendingEditRequest();
+        let isMounted = true;
+        setLoading(true);
+        setLoadingEvents(true);
+
+        Promise.allSettled([
+            clubService.getClub(id),
+            api.get('/events', { params: { club_id: id } }),
+            clubService.getPendingEditRequest(id),
+        ]).then(([clubRes, eventsRes, editReqRes]) => {
+            if (!isMounted) return;
+
+            if (clubRes.status === 'fulfilled') {
+                const clubData = clubRes.value.data;
+                setClub(clubData);
+                if (clubData?.members) {
+                    setMembersList(clubData.members);
+                }
+            } else {
+                setError('Club not found.');
+            }
+
+            if (eventsRes.status === 'fulfilled') {
+                const data = eventsRes.value.data?.data || eventsRes.value.data || [];
+                setClubEvents(Array.isArray(data) ? data : []);
+            } else {
+                setClubEvents([]);
+            }
+
+            if (editReqRes.status === 'fulfilled') {
+                setPendingEditRequest(editReqRes.value.data?.pending_request || null);
+            } else {
+                setPendingEditRequest(null);
+            }
+        }).finally(() => {
+            if (isMounted) {
+                setLoading(false);
+                setLoadingEvents(false);
+            }
+        });
+
+        return () => { isMounted = false; };
     }, [id]);
 
     // Handle API contextual member search with ?q=

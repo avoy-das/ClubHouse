@@ -92,6 +92,10 @@ class User extends Authenticatable
 
     public function getExecutiveClubs()
     {
+        if ($this->is_admin) {
+            return Club::where('status', 'approved')->get(['id', 'name']);
+        }
+
         return Club::whereHas('members', function ($q) {
             $q->where('user_id', $this->id)
               ->where('status', 'active')

@@ -23,10 +23,11 @@ const EventAttendanceContent = () => {
         setLoading(true);
         setError(null);
         try {
-            const evtRes = await eventService.get(eventId);
+            const [evtRes, regRes] = await Promise.all([
+                eventService.get(eventId),
+                eventService.listRegistrations(eventId),
+            ]);
             setEventData(evtRes.data || evtRes);
-
-            const regRes = await eventService.listRegistrations(eventId);
             const list = regRes.data || regRes;
             setRegistrations(Array.isArray(list) ? list : []);
         } catch (err) {

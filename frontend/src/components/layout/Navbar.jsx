@@ -14,24 +14,24 @@ const Navbar = () => {
         let active = true;
         const fetchNotifications = async () => {
             try {
-                const res = await notificationService.list();
-                const list = res.notifications || res.data || res;
-                if (active && Array.isArray(list)) {
-                    const unread = list.filter((n) => !n.is_read).length;
-                    setUnreadCount(unread);
+                const res = await notificationService.getUnreadCount();
+                if (active) {
+                    setUnreadCount(res.unread_count || res.count || 0);
                 }
             } catch {
                 // Ignore background notification fetch errors
             }
         };
 
-        fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => {
-            active = false;
-            clearInterval(interval);
-        };
-    }, [location.pathname]);
+        if (user) {
+            fetchNotifications();
+            const interval = setInterval(fetchNotifications, 45000);
+            return () => {
+                active = false;
+                clearInterval(interval);
+            };
+        }
+    }, [user?.id]);
 
     const handleLogout = async () => {
         try {

@@ -166,8 +166,8 @@ class EventController extends Controller
         $user = Auth::user();
         $data = $request->validated();
 
-        // Must be exec of the target club (admin who is not club exec at the same time cannot create event)
-        if (!$this->isClubExec($user->id, (int)$data['club_id'])) {
+        // Must be exec of the target club or platform admin
+        if (!$this->isExec($user->id, (int)$data['club_id'])) {
             return response()->json([
                 'message' => 'Only club executives can create events.',
             ], 403);

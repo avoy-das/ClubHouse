@@ -22,16 +22,37 @@ const eventService = {
         api.get('/events', { params: { registered: 'true', status } }),
 
     // Create a new event (Exec/Admin)
-    createEvent: (data) =>
-        api.post('/events', data),
+    createEvent: (data) => {
+        if (typeof FormData !== 'undefined' && data instanceof FormData) {
+            return api.post('/events', data, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+        }
+        return api.post('/events', data);
+    },
 
     // Update existing event details (Exec/Admin)
     updateEvent: (id, data) => {
         if (typeof FormData !== 'undefined' && data instanceof FormData) {
             data.append('_method', 'PUT');
-            return api.post(`/events/${id}`, data);
+            return api.post(`/events/${id}`, data, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
         }
         return api.put(`/events/${id}`, data);
+    },
+
+    // Backward compatibility aliases for EventForm
+    create: function (clubId, data) {
+        if (data && typeof data === 'object' && !(data instanceof FormData) && !data.club_id) {
+            data.club_id = clubId;
+        } else if (data instanceof FormData && !data.has('club_id')) {
+            data.append('club_id', clubId);
+        }
+        return this.createEvent(data);
+    },
+    update: function (id, data) {
+        return this.updateEvent(id, data);
     },
 
     // Update event status: draft -> published -> ongoing -> completed / cancelled (Exec/Admin)

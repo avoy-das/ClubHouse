@@ -80,7 +80,9 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     })
                     .catch(() => {
                         setClubs([]);
-                        setNoExecutiveClubs(true);
+                        if (!defaultClubId) {
+                            setNoExecutiveClubs(true);
+                        }
                     })
                     .finally(() => setFetchingClubs(false));
             }
@@ -193,7 +195,11 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
             }
             onClose();
         } catch (err) {
-            const msg = err.response?.data?.message || (isEdit ? 'Failed to update event.' : 'Failed to create event.');
+            let msg = err.response?.data?.message || (isEdit ? 'Failed to update event.' : 'Failed to create event.');
+            if (err.response?.data?.errors) {
+                const firstErr = Object.values(err.response.data.errors).flat()[0];
+                if (firstErr) msg = firstErr;
+            }
             setError(msg);
         } finally {
             setLoading(false);

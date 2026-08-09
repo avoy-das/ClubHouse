@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import MainLayout from '../../layouts/MainLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
@@ -25,7 +25,12 @@ const Dashboard = () => {
     const [isDialogLoading, setIsDialogLoading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+    const fetchedRef = useRef(false);
+
     useEffect(() => {
+        if (fetchedRef.current) return;
+        fetchedRef.current = true;
+
         let active = true;
         api.get('/dashboard')
             .then((res) => {
@@ -194,7 +199,7 @@ const Dashboard = () => {
                                             >
                                                 <div className="w-10 h-10 bg-[#1c1b1b] text-white rounded-lg flex items-center justify-center font-bold text-sm shrink-0 group-hover:scale-105 transition-transform overflow-hidden">
                                                     {getImageUrl(c.logo_url || c.logo_path) ? (
-                                                        <img src={getImageUrl(c.logo_url || c.logo_path)} alt={c.name} className="w-full h-full object-cover rounded-lg" />
+                                                        <img src={getImageUrl(c.logo_url || c.logo_path)} alt={c.name} loading="lazy" decoding="async" width="40" height="40" className="w-full h-full object-cover rounded-lg" />
                                                     ) : (
                                                         c.name.charAt(0)
                                                     )}
@@ -235,8 +240,8 @@ const Dashboard = () => {
                                                     className="p-3.5 rounded-xl border border-[#e4e2dd] hover:border-[#cbc6bd] hover:shadow-xs transition-all flex items-center gap-3.5 group bg-white"
                                                 >
                                                     {bannerUrl ? (
-                                                        <div className="w-20 h-16 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
-                                                            <img src={bannerUrl} alt={ev.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                                        <div className="w-20 h-16 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200 aspect-[5/4]">
+                                                            <img src={bannerUrl} alt={ev.title} loading="lazy" decoding="async" width="80" height="64" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                                                         </div>
                                                     ) : (
                                                         <div className="w-20 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 shrink-0 flex items-center justify-center text-white/50">

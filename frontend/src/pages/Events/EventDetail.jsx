@@ -31,18 +31,22 @@ const EventDetailContent = () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await eventService.get(eventId);
-            const data = res.data || res;
-            setEventData(data);
-            setMyRegistration(data.my_registration || null);
+            const [evtRes, regRes] = await Promise.allSettled([
+                eventService.get(eventId),
+                eventService.listRegistrations(eventId),
+            ]);
 
-            // Fetch registration counts / list
-            try {
-                const regRes = await eventService.listRegistrations(eventId);
-                const regList = regRes.data || regRes || [];
-                setRegistrations(regList);
-            } catch {
-                // Ignore failure to fetch all registrations if normal user
+            if (evtRes.status === 'fulfilled') {
+                const data = evtRes.value.data || evtRes.value;
+                setEventData(data);
+                setMyRegistration(data.my_registration || null);
+            } else {
+                throw evtRes.reason;
+            }
+
+            if (regRes.status === 'fulfilled') {
+                const regList = regRes.value.data || regRes.value || [];
+                setRegistrations(Array.isArray(regList) ? regList : []);
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to load event details');
