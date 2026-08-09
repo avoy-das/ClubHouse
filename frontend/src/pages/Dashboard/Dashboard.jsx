@@ -222,41 +222,57 @@ const Dashboard = () => {
                                     </Link>
                                 </div>
 
-                                {events.length === 0 ? (
+                                 {events.length === 0 ? (
                                     <p className="text-xs text-[#615e57]">No upcoming events scheduled.</p>
                                 ) : (
                                     <div className="space-y-3">
-                                        {events.map((ev) => (
-                                            <Link
-                                                key={ev.id}
-                                                to={`/events/${ev.id}`}
-                                                className="p-4 rounded-xl border border-[#e4e2dd] hover:border-[#cbc6bd] hover:shadow-xs transition-all flex items-start justify-between gap-4 block"
-                                            >
-                                                <div className="space-y-1">
-                                                    <h3 className="text-sm font-bold text-[#1b1c19]">{ev.title}</h3>
-                                                    <p className="text-xs text-[#615e57] line-clamp-1">{ev.description}</p>
-                                                    <div className="flex items-center gap-3 text-[11px] text-[#615e57] pt-1">
-                                                        <span className="font-semibold text-[#d95e36]">
-                                                            {formatDisplayDateTime(ev.starts_at || ev.start_time)}
-                                                        </span>
-                                                        <span>•</span>
-                                                        <span>{ev.location}</span>
+                                        {events.map((ev) => {
+                                            const bannerUrl = getImageUrl(ev.banner_url || ev.banner_path);
+                                            return (
+                                                <Link
+                                                    key={ev.id}
+                                                    to={`/events/${ev.id}`}
+                                                    className="p-3.5 rounded-xl border border-[#e4e2dd] hover:border-[#cbc6bd] hover:shadow-xs transition-all flex items-center gap-3.5 group bg-white"
+                                                >
+                                                    {bannerUrl ? (
+                                                        <div className="w-20 h-16 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                                                            <img src={bannerUrl} alt={ev.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-20 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 shrink-0 flex items-center justify-center text-white/50">
+                                                            <Calendar className="w-6 h-6" />
+                                                        </div>
+                                                    )}
+                                                    <div className="space-y-1 min-w-0 flex-1">
+                                                        <h3 className="text-sm font-bold text-[#1b1c19] truncate group-hover:text-[#2563eb] transition-colors">{ev.title}</h3>
+                                                        <p className="text-xs text-[#615e57] line-clamp-1">{ev.description || 'No description provided.'}</p>
+                                                        <div className="flex items-center gap-2 text-[11px] text-[#615e57] pt-0.5 flex-wrap">
+                                                            <span className="font-semibold text-[#d95e36]">
+                                                                {formatDisplayDateTime(ev.starts_at || ev.start_time)}
+                                                            </span>
+                                                            {ev.location && (
+                                                                <>
+                                                                    <span>•</span>
+                                                                    <span className="truncate max-w-[120px]">{ev.location}</span>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 shrink-0">
-                                                    {ev.is_registered && (
-                                                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
-                                                            Registered
-                                                        </span>
-                                                    )}
-                                                    {ev.club && (
-                                                        <span className="px-2.5 py-1 bg-[#e8e2d9] text-[#1b1c19] text-[10px] font-bold rounded-full">
-                                                            {ev.club.name}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </Link>
-                                        ))}
+                                                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                                        {ev.is_registered && (
+                                                            <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
+                                                                Registered
+                                                            </span>
+                                                        )}
+                                                        {ev.club && (
+                                                            <span className="px-2.5 py-0.5 bg-[#e8e2d9] text-[#1b1c19] text-[10px] font-bold rounded-full max-w-[100px] truncate">
+                                                                {ev.club.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </Link>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import eventService from '../../services/eventService';
 import { Check, X, Users, Search } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const MarkAttendanceModal = ({ isOpen, onClose, event }) => {
     const [registrations, setRegistrations] = useState([]);
@@ -131,7 +132,7 @@ const MarkAttendanceModal = ({ isOpen, onClose, event }) => {
                                                         <div key={key} className="flex items-center gap-1.5 pt-0.5">
                                                             <span className="font-semibold text-slate-700">{key}:</span>
                                                             <a
-                                                                href={fileObj?.url}
+                                                                href={getImageUrl(fileObj?.url || fileObj?.path)}
                                                                 target="_blank"
                                                                 rel="noreferrer"
                                                                 className="text-blue-600 font-medium underline hover:text-blue-800 text-[11px] inline-flex items-center gap-1"

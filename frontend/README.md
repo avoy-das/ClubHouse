@@ -62,7 +62,7 @@ npm run preview
 
 ## 📂 Key Directory Layout
 
-- `src/components/` — Layout shells (`AppLayout`, `Navbar`), UI primitives (`Badge`, `Modal`, `Button`, `Card`), and club-specific components.
+- `src/components/` — Subdirectories for layout shells (`AppLayout`, `Navbar`, `SearchBar`), UI primitives (`Badge`, `Modal`, `Button`, `Card`, `ErrorBanner`, `SuccessBanner`, `LoadingSpinner`), club components (`ClubCard`, `EditClubModal`, `MembersDirectory`, `PositionAssignment`, `TransferPresidencyModal`), event components (`EventModal`, `MarkAttendanceModal`), and admin components (`UserManagementSection`).
 - `src/context/` — React Context providers (`AuthContext`, `ClubPermissionsContext`).
 - `src/pages/` — 13 Feature page modules (Admin, Announcements, Certificates, Clubs, Dashboard, Events, Login, Notifications, Profile, Recruitment, Register, Search, Users).
 - `src/routes/` — Route guards (`ProtectedRoute`, `AdminRoute`, `ClubExecutiveRoute`).

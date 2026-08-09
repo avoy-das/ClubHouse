@@ -7,6 +7,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
 import { Check, ArrowLeft, ClipboardList } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const EventAttendanceContent = () => {
     const { clubId, eventId } = useParams();
@@ -115,7 +116,7 @@ const EventAttendanceContent = () => {
                                                     {reg.answers.custom_files && Object.entries(reg.answers.custom_files).map(([k, f]) => (
                                                         <div key={k}>
                                                             <strong className="text-slate-700">{k}:</strong>{' '}
-                                                            <a href={f?.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                                                            <a href={getImageUrl(f?.url || f?.path)} target="_blank" rel="noreferrer" className="text-blue-600 underline">
                                                                 📎 {f?.name || 'View file'}
                                                             </a>
                                                         </div>

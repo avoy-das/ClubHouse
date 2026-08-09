@@ -713,7 +713,7 @@ const ClubDetail = () => {
                                             <div key={key}>
                                                 <span className="font-semibold text-slate-600 block mb-1">{key}:</span>
                                                 <a
-                                                    href={fileObj.url}
+                                                    href={getImageUrl(fileObj.url || fileObj.path)}
                                                     target="_blank"
                                                     rel="noreferrer"
                                                     className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-blue-600 font-semibold hover:bg-slate-50 transition-colors"

@@ -9,6 +9,7 @@ import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import { Calendar, MapPin, Clock, Plus, ArrowLeft, ArrowRight } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const EventListContent = () => {
     const { clubId } = useParams();
@@ -60,7 +61,7 @@ const EventListContent = () => {
                             </button>
                         </Link>
                     )}
-                    {clubId && can('can_manage_events') && !user?.is_admin && (
+                    {clubId && can('can_manage_events') && (
                         <button
                             onClick={() => setIsFormOpen(true)}
                             className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
@@ -81,32 +82,49 @@ const EventListContent = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {events.map((evt) => (
-                        <Card key={evt.id} className="flex flex-col justify-between hover:shadow-xs transition border border-slate-200 bg-white rounded-xl p-6">
-                            <div>
-                                <div className="flex items-start justify-between mb-2">
-                                    <h3 className="font-bold text-lg text-[#0b1c30] leading-snug">{evt.title}</h3>
-                                    {evt.status && <Badge status={evt.status} />}
+                    {events.map((evt) => {
+                        const bannerUrl = getImageUrl(evt.banner_url || evt.banner_path);
+                        return (
+                            <Card key={evt.id} className="flex flex-col justify-between hover:shadow-md transition border border-slate-200 bg-white rounded-xl p-6 overflow-hidden group">
+                                <div>
+                                    {bannerUrl ? (
+                                        <div className="h-36 -mx-6 -mt-6 mb-4 overflow-hidden bg-slate-100 border-b border-slate-200">
+                                            <img
+                                                src={bannerUrl}
+                                                alt={evt.title}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="h-36 -mx-6 -mt-6 mb-4 overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 border-b border-slate-200 flex items-center justify-center relative">
+                                            <div className="absolute inset-0 bg-black/10" />
+                                            <Calendar className="w-12 h-12 text-white/40 z-10" />
+                                        </div>
+                                    )}
+                                    <div className="flex items-start justify-between mb-2">
+                                        <h3 className="font-bold text-lg text-[#0b1c30] leading-snug">{evt.title}</h3>
+                                        {evt.status && <Badge status={evt.status} />}
+                                    </div>
+                                    <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 mb-3">
+                                        <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-blue-600" /> {evt.venue || 'TBA'}</span>
+                                        <span>&bull;</span>
+                                        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-amber-500" /> {new Date(evt.start_at || evt.starts_at).toLocaleString()}</span>
+                                    </div>
+                                    <p className="text-sm text-slate-600 line-clamp-3 mb-4">{evt.description}</p>
                                 </div>
-                                <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 mb-3">
-                                    <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-blue-600" /> {evt.venue || 'TBA'}</span>
-                                    <span>&bull;</span>
-                                    <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-amber-500" /> {new Date(evt.start_at || evt.starts_at).toLocaleString()}</span>
+                                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                                    <span className="text-xs text-slate-500 font-medium">
+                                        {evt.capacity ? `Cap: ${evt.capacity}` : 'Unlimited'}
+                                    </span>
+                                    <Link to={`/clubs/${evt.club_id || clubId}/events/${evt.id}`}>
+                                        <button className="px-3 py-1.5 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-xs">
+                                            View & Register <ArrowRight className="w-3.5 h-3.5" />
+                                        </button>
+                                    </Link>
                                 </div>
-                                <p className="text-sm text-slate-600 line-clamp-3 mb-4">{evt.description}</p>
-                            </div>
-                            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                                <span className="text-xs text-slate-500 font-medium">
-                                    {evt.capacity ? `Cap: ${evt.capacity}` : 'Unlimited'}
-                                </span>
-                                <Link to={`/clubs/${evt.club_id || clubId}/events/${evt.id}`}>
-                                    <button className="px-3 py-1.5 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-xs">
-                                        View & Register <ArrowRight className="w-3.5 h-3.5" />
-                                    </button>
-                                </Link>
-                            </div>
-                        </Card>
-                    ))}
+                            </Card>
+                        );
+                    })}
                 </div>
             )}
 

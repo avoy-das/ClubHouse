@@ -5,7 +5,7 @@
 [![Styling - Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20CSS-38bdf8.svg)](https://tailwindcss.com)
 [![Auth - Laravel Sanctum](https://img.shields.io/badge/Auth-Laravel%20Sanctum-orange.svg)](https://laravel.com/docs/sanctum)
 
-**ClubHouse** is a comprehensive, centralized web platform for managing university club activities. It streamlines club discovery and membership management, event creation and registration, attendance tracking, auto-generated certificates, announcements, recruitment drives, feedback collection, global search, and university administration oversight.
+**ClubHouse** is a comprehensive, centralized web platform for managing university club activities. It streamlines club discovery and membership management, event creation with custom registration fields, attendance tracking, auto-generated certificates, announcements with attachments, recruitment drives, feedback collection, global search, and university administration oversight.
 
 ---
 
@@ -22,16 +22,16 @@ ClubHouse/
 
 ### Key Modules & Capabilities
 
-1. **Authentication & User Management**: Token-based Sanctum authentication with role-based access (`is_admin` global platform administrators vs. general student users).
-2. **Club Management & Custom Positions**: Full club lifecycle (creation requests, admin approval, suspension, edit requests), with customizable executive positions and dynamic permission flags (`can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`).
-3. **Membership Requests & Roster**: Student membership applications, executive review workflows, active member rosters, and position assignments.
-4. **Events & Registration**: Public and members-only events, seat limits, registration cancellation, attendance tracking, and CSV attendance reporting.
+1. **Authentication & User Management**: Token-based Sanctum authentication with role-based access (`is_admin` global platform administrators vs. general student users) and student session targeting.
+2. **Club Management & Custom Positions**: Full club lifecycle (creation requests, admin approval, suspension, edit requests), advisor contact information, banner uploads, customizable executive positions, dynamic permission flags (`can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`), and presidency transfer capabilities.
+3. **Membership Requests & Roster**: Student membership applications, executive review workflows, active member rosters, committee assignments, and position management.
+4. **Events & Registration**: Public and members-only events, cover banners, dynamic custom registration questions and attendee answer submissions, capacity limits, registration cancellation, attendance tracking, and CSV attendance reporting.
 5. **Certificates & Verification**: Automatic certificate generation upon verified event attendance with download links and verification codes.
-6. **Announcements**: Targeted global, club-wide, or member-specific announcements with unpin capabilities and notification delivery.
-7. **Recruitment Drives**: Custom multi-field recruitment notices, application submission with attachment links, and executive application reviews.
+6. **Announcements**: Targeted global, club-wide, executive-only, or student-specific announcements with file attachments, sender roles, unpin capabilities, and notification delivery.
+7. **Recruitment Drives**: Custom multi-field recruitment notices targeting specific sessions, application submission with attachment links, and executive application reviews.
 8. **Feedback & Ratings**: Event rating and review collection restricted to confirmed attendees.
 9. **Notifications & Audit Logging**: Real-time unread notification counters, mark-as-read controls, and system-wide action audit trail logging via Eloquent observers.
-10. **Admin Oversight & Analytics**: Dedicated administrative control panel for approving/suspending clubs, reviewing edit requests, generating club analytics reports, and auditing system logs.
+10. **Admin Oversight & Analytics**: Dedicated administrative control panel for approving/suspending clubs, reviewing edit requests, generating club analytics reports, managing users, and auditing system logs.
 11. **Global Search**: Instant cross-entity search for clubs, events, announcements, and recruitment drives.
 
 ---
@@ -43,7 +43,7 @@ ClubHouse/
 | **Backend Framework** | [Laravel](https://laravel.com) | ^12.0 | RESTful API, Eloquent ORM, Policies, Form Requests |
 | **Backend Language** | PHP | ^8.2 | Application runtime |
 | **API Auth** | Laravel Sanctum | ^4.0 | Bearer token authentication |
-| **Database** | MySQL / SQLite | — | Relational database (SQLite default for dev) |
+| **Database** | MySQL / SQLite | 50 migrations | Relational database (SQLite default for dev) |
 | **Frontend Framework** | [React](https://react.dev) | ^19.2 | Single-page application UI |
 | **Build Tool** | [Vite](https://vitejs.dev) | ^8.1 | Hot Module Replacement (HMR) & bundling |
 | **Routing** | React Router | ^7.18 | SPA routing & route protection guards |
@@ -128,3 +128,4 @@ For detailed architectural specifications and development guidelines:
 ## 📜 License
 
 This project is proprietary academic/university software developed for university club management.
+ academic/university software developed for university club management.

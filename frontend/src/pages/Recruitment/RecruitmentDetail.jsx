@@ -11,6 +11,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
 import { formatSessionLabel } from '../../utils/sessionUtils';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const RecruitmentDetailContent = () => {
     const { clubId, noticeId, id } = useParams();
@@ -255,7 +256,7 @@ const RecruitmentDetailContent = () => {
                                         <div key={key}>
                                             <span className="font-semibold text-slate-500">{key}: </span>
                                             <a
-                                                href={fileObj.url}
+                                                href={getImageUrl(fileObj.url || fileObj.path)}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="text-blue-600 hover:underline break-all font-semibold inline-flex items-center gap-1 mt-0.5"

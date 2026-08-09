@@ -9,33 +9,46 @@
 ```
 frontend/src/
 ├── components/
+│   ├── admin/
+│   │   └── UserManagementSection.jsx
+│   ├── clubs/                         # Specialized club components
+│   │   ├── AddCommitteeMemberModal.jsx
+│   │   ├── ClubAuditLogModal.jsx
+│   │   ├── ClubCard.jsx
+│   │   ├── EditAdvisorModal.jsx
+│   │   ├── EditClubModal.jsx
+│   │   ├── MembersDirectory.jsx
+│   │   ├── MembershipRequestList.jsx
+│   │   ├── PositionAssignment.jsx
+│   │   └── TransferPresidencyModal.jsx
+│   ├── Events/                        # Event management components
+│   │   ├── AttendanceReportModal.jsx
+│   │   ├── EventModal.jsx
+│   │   └── MarkAttendanceModal.jsx
 │   ├── layout/
-│   │   ├── AppLayout.jsx              # Main shell with Navbar and Sidebar
-│   │   └── Navbar.jsx                 # Header bar with unread notifications counter and profile menu
-│   ├── ui/                            # Reusable UI primitives
-│   │   ├── Badge.jsx                  # Status pill badge (pending/approved/rejected/etc.)
-│   │   ├── Button.jsx                 # Custom styled button variants
-│   │   ├── Card.jsx                   # Container card component
-│   │   ├── ErrorBanner.jsx            # Error feedback banner
-│   │   ├── LoadingSpinner.jsx         # Animated loading spinner
-│   │   ├── Modal.jsx                  # Accessible popup dialog modal
-│   │   └── SuccessBanner.jsx          # Success feedback banner
-│   └── clubs/                         # Specialized club components
-│       ├── ClubCard.jsx               # Club summary preview card
-│       ├── MembershipRequestList.jsx   # List of pending club requests
-│       └── PositionAssignment.jsx      # Role & position assignment modal
+│   │   ├── AppLayout.jsx              # Main shell container
+│   │   ├── Navbar.jsx                 # Header bar with unread counter & profile menu
+│   │   └── SearchBar.jsx              # Search input component
+│   └── ui/                            # Reusable UI primitives
+│       ├── Badge.jsx                  # Status pill badge (pending/approved/rejected/etc.)
+│       ├── Button.jsx                 # Custom styled button variants
+│       ├── Card.jsx                   # Container card component
+│       ├── ErrorBanner.jsx            # Error feedback banner
+│       ├── LoadingSpinner.jsx         # Animated loading spinner
+│       ├── Modal.jsx                  # Accessible popup dialog modal
+│       └── SuccessBanner.jsx          # Success feedback banner
 │
 ├── context/
 │   ├── AuthContext.jsx                # User state, token management, login/logout
 │   └── ClubPermissionsContext.jsx     # Club-level executive permission resolver
 │
 ├── pages/                             # 13 Feature Page Modules
-│   ├── Admin/                         # Admin portal (AdminClubList, AdminUsers, AdminAuditLogs, AdminReports)
+│   ├── Admin/                         # Admin portal (AdminClubList, AdminClubs, AdminUsers, AdminAuditLogs, AdminReports)
 │   ├── Announcements/                 # Announcement feeds and creation forms
 │   ├── Certificates/                  # MyCertificates list and download buttons
-│   ├── Clubs/                         # ClubList, ClubDetail, CreateClub, ClubEditForm, ClubMembers
+│   ├── Clubs/                         # ClubList, ClubDetail, CreateClub, ClubForm, ClubMembers
 │   ├── Dashboard/                     # Personalized dashboard (Student/Executive/Admin views)
-│   ├── Events/                        # EventsPage, EventDetailPage, EventAttendance, EventForm
+│   ├── Events/                        # EventsPage, EventDetailPage, EventDetail, EventAttendance, EventForm, EventList
 │   ├── Login/                         # Login form page
 │   ├── Notifications/                 # Notification center
 │   ├── Profile/                       # Profile page & password change
@@ -118,3 +131,4 @@ Provides dynamic per-club permissions for executive operations:
 - **Palette**: Clean slate background (`bg-slate-50` / `bg-gray-100`), crisp white card containers (`bg-white rounded-lg border border-slate-200 shadow-sm`), vibrant blue primary action elements (`bg-blue-600 hover:bg-blue-700 text-white`).
 - **Form Controls**: Uniform styling across inputs (`w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm`).
 - **Badges**: Standardized status pills (e.g. green for `approved`/`completed`, yellow for `pending`/`open`, red for `rejected`/`cancelled`/`suspended`, purple for `executive`).
+

@@ -10,6 +10,7 @@ import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
 import { Check, X, ArrowLeft, Users, FileText } from 'lucide-react';
 import { formatSessionLabel } from '../../utils/sessionUtils';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const ApplicationPhaseStepper = ({ status }) => {
     // Determine active phase step index: 0 = Application, 1 = Interview, 2 = Result
@@ -231,7 +232,7 @@ const RecruitmentApplicationsContent = () => {
                                         <div key={key}>
                                             <span className="font-semibold text-[#0b1c30] block mb-1">{key}:</span>
                                             <a
-                                                href={fileObj.url}
+                                                href={getImageUrl(fileObj.url || fileObj.path)}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-[#2563eb] hover:bg-slate-50 transition-colors shadow-xs"

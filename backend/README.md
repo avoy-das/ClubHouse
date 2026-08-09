@@ -71,10 +71,10 @@ php artisan test
 ## 📂 Key Directory Layout
 
 - `app/Http/Controllers/` — 22 RESTful API controllers
-- `app/Http/Requests/` — 16 Form Request validation classes
+- `app/Http/Requests/` — 18 Form Request validation classes
 - `app/Models/` — 17 Eloquent domain models
 - `app/Observers/` — `AuditObserver.php` for action logging
 - `app/Policies/` — 7 Laravel policy authorization classes
 - `app/Services/` — Encapsulated membership business logic
-- `database/migrations/` — 41 Schema migration files
+- `database/migrations/` — 50 Schema migration files
 - `routes/api.php` — Primary RESTful API route definitions

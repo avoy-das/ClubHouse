@@ -6,6 +6,7 @@ import clubService from '../../services/clubService';
 import EventModal from '../../components/Events/EventModal';
 import { useAuth } from '../../context/AuthContext';
 import { getImageUrl } from '../../utils/imageUrl';
+import { Calendar } from 'lucide-react';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -244,16 +245,21 @@ const EventsPage = () => {
                                     <div
                                         key={event.id}
                                         onClick={() => navigate(`/events/${event.id}`)}
-                                        className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between overflow-hidden"
+                                        className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between overflow-hidden group"
                                     >
                                         <div>
-                                            {getImageUrl(event.banner_url || event.banner_path) && (
+                                            {getImageUrl(event.banner_url || event.banner_path) ? (
                                                 <div className="h-36 -mx-5 -mt-5 mb-4 overflow-hidden bg-slate-100 border-b border-slate-200">
                                                     <img
                                                         src={getImageUrl(event.banner_url || event.banner_path)}
                                                         alt={event.title}
-                                                        className="w-full h-full object-cover"
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                     />
+                                                </div>
+                                            ) : (
+                                                <div className="h-36 -mx-5 -mt-5 mb-4 overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 border-b border-slate-200 flex items-center justify-center relative">
+                                                    <div className="absolute inset-0 bg-black/10" />
+                                                    <Calendar className="w-12 h-12 text-white/40 z-10" />
                                                 </div>
                                             )}
                                             <div className="flex items-start justify-between gap-2 mb-3">

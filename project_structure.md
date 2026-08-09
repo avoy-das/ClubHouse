@@ -37,23 +37,25 @@ backend/
 │   │   ├── Middleware/
 │   │   │   └── IsAdmin.php               # Admin privilege guard
 │   │   │
-│   │   └── Requests/                     # 16 Form Request classes
+│   │   └── Requests/                     # 18 Form Request classes
+│   │       ├── CreateClubRequest.php
 │   │       ├── LoginRequest.php
-│   │       ├── RegisterRequest.php
-│   │       ├── StoreClubRequest.php
-│   │       ├── UpdateClubRequest.php
-│   │       ├── StoreClubPositionRequest.php
-│   │       ├── UpdateClubPositionRequest.php
-│   │       ├── StoreEventRequest.php
-│   │       ├── UpdateEventRequest.php
-│   │       ├── StoreEventFeedbackRequest.php
 │   │       ├── MarkAttendanceRequest.php
+│   │       ├── RegisterRequest.php
 │   │       ├── StoreAnnouncementRequest.php
-│   │       ├── UpdateAnnouncementRequest.php
+│   │       ├── StoreClubPositionRequest.php
+│   │       ├── StoreClubRequest.php
+│   │       ├── StoreEventFeedbackRequest.php
+│   │       ├── StoreEventRequest.php
 │   │       ├── StoreMembershipRequestRequest.php
+│   │       ├── StoreRecruitmentApplicationRequest.php
 │   │       ├── StoreRecruitmentNoticeRequest.php
-│   │       ├── UpdateRecruitmentNoticeRequest.php
-│   │       └── StoreRecruitmentApplicationRequest.php
+│   │       ├── UpdateAnnouncementRequest.php
+│   │       ├── UpdateClubPositionRequest.php
+│   │       ├── UpdateClubRequest.php
+│   │       ├── UpdateEventRequest.php
+│   │       ├── UpdateEventStatusRequest.php
+│   │       └── UpdateRecruitmentNoticeRequest.php
 │   │
 │   ├── Models/                           # 17 Eloquent Domain Models
 │   │   ├── Announcement.php
@@ -110,7 +112,7 @@ backend/
 │   ├── database.sqlite                   # SQLite development database file
 │   ├── factories/                        # Model factories for testing
 │   ├── seeders/                          # Database seeders
-│   └── migrations/                       # 41 Schema migrations
+│   └── migrations/                       # 50 Schema migrations
 │
 ├── routes/
 │   ├── api.php                           # Complete API endpoint routes
@@ -139,40 +141,53 @@ frontend/
 │   ├── index.css                         # Tailwind CSS base directive imports
 │   │
 │   ├── components/                       # Shared UI & layout components
+│   │   ├── admin/
+│   │   │   └── UserManagementSection.jsx
+│   │   ├── clubs/                        # Club specific components
+│   │   │   ├── AddCommitteeMemberModal.jsx
+│   │   │   ├── ClubAuditLogModal.jsx
+│   │   │   ├── ClubCard.jsx
+│   │   │   ├── EditAdvisorModal.jsx
+│   │   │   ├── EditClubModal.jsx
+│   │   │   ├── MembersDirectory.jsx
+│   │   │   ├── MembershipRequestList.jsx
+│   │   │   ├── PositionAssignment.jsx
+│   │   │   └── TransferPresidencyModal.jsx
+│   │   ├── Events/                       # Event specific components
+│   │   │   ├── AttendanceReportModal.jsx
+│   │   │   ├── EventModal.jsx
+│   │   │   └── MarkAttendanceModal.jsx
 │   │   ├── layout/
-│   │   │   ├── AppLayout.jsx             # Main layout shell with header and sidebar
-│   │   │   └── Navbar.jsx                # Navigation bar with user dropdown & unread badge
-│   │   ├── ui/                           # Reusable UI elements
-│   │   │   ├── Badge.jsx
-│   │   │   ├── Button.jsx
-│   │   │   ├── Card.jsx
-│   │   │   ├── ErrorBanner.jsx
-│   │   │   ├── LoadingSpinner.jsx
-│   │   │   ├── Modal.jsx
-│   │   │   └── SuccessBanner.jsx
-│   │   └── clubs/                        # Club specific components
-│   │       ├── ClubCard.jsx
-│   │       ├── MembershipRequestList.jsx
-│   │       └── PositionAssignment.jsx
+│   │   │   ├── AppLayout.jsx             # Main layout shell
+│   │   │   ├── Navbar.jsx                # Header bar with unread badge & profile menu
+│   │   │   └── SearchBar.jsx             # Topbar search component
+│   │   └── ui/                           # Reusable UI primitives
+│   │       ├── Badge.jsx
+│   │       ├── Button.jsx
+│   │       ├── Card.jsx
+│   │       ├── ErrorBanner.jsx
+│   │       ├── LoadingSpinner.jsx
+│   │       ├── Modal.jsx
+│   │       └── SuccessBanner.jsx
 │   │
 │   ├── context/                          # React Context Providers
 │   │   ├── AuthContext.jsx               # Auth state, login, logout, user profile
 │   │   └── ClubPermissionsContext.jsx    # Club-level executive permission resolver
 │   │
 │   ├── pages/                            # 13 Page Feature Folders
-│   │   ├── Admin/                        # AdminClubList, AdminUsers, AdminAuditLogs, AdminReports
+│   │   ├── Admin/                        # AdminClubList, AdminClubs, AdminUsers, AdminAuditLogs, AdminReports
 │   │   ├── Announcements/                # AnnouncementList
 │   │   ├── Certificates/                 # MyCertificates
-│   │   ├── Clubs/                        # ClubList, ClubDetail, CreateClub, ClubEditForm, ClubMembers
-│   │   ├── Dashboard/                    # Dashboard
-│   │   ├── Events/                       # EventsPage, EventDetailPage, EventAttendance, EventForm
+│   │   ├── Clubs/                        # ClubList, ClubDetail, CreateClub, ClubForm, ClubMembers
+│   │   ├── Dashboard/                    # Dashboard (Student, Executive, and Admin views)
+│   │   ├── Events/                       # EventsPage, EventDetailPage, EventDetail, EventAttendance, EventForm, EventList
 │   │   ├── Login/                        # Login
 │   │   ├── Notifications/                # NotificationList
 │   │   ├── Profile/                      # ProfilePage
 │   │   ├── Recruitment/                  # RecruitmentList, RecruitmentDetail, RecruitmentApplications
 │   │   ├── Register/                     # Register
 │   │   ├── Search/                       # SearchPage
-│   │   └── Users/                        # User administration components
+│   │   └── Users/                        # User administration
 │   │
 │   ├── routes/                           # Route Protection Guards
 │   │   ├── ProtectedRoute.jsx            # Authentication guard

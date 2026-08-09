@@ -68,7 +68,7 @@ class RecruitmentApplicationController extends Controller
                         $answers['custom_files'][$key] = [
                             'name' => $file->getClientOriginalName(),
                             'path' => $path,
-                            'url'  => '/storage/' . $path,
+                            'url'  => asset('storage/' . $path),
                         ];
                     }
                 }
@@ -81,7 +81,7 @@ class RecruitmentApplicationController extends Controller
                 $answers['custom_files'][$key] = [
                     'name' => $file->getClientOriginalName(),
                     'path' => $path,
-                    'url'  => '/storage/' . $path,
+                    'url'  => asset('storage/' . $path),
                 ];
             }
         }
