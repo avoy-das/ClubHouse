@@ -30,6 +30,12 @@ const clubService = {
     updateMemberRole: (clubId, userId, role) =>
         api.patch(`/clubs/${clubId}/members/${userId}/role`, { role }),
 
+    updateAdvisor: (clubId, advisorData) =>
+        api.put(`/clubs/${clubId}/advisor`, advisorData),
+
+    transferPresidency: (clubId, targetUserId, formerRole = 'member') =>
+        api.post(`/clubs/${clubId}/transfer-presidency`, { target_user_id: targetUserId, former_role: formerRole }),
+
     removeMember: (clubId, userId) =>
         api.delete(`/clubs/${clubId}/members/${userId}`),
 
@@ -74,6 +80,25 @@ const clubService = {
 
     adminRejectEditRequest: (requestId, reason) =>
         api.post(`/admin/club-edit-requests/${requestId}/reject`, { rejection_reason: reason }),
+
+    // Positions & Committee Management
+    listPositions: (clubId) =>
+        api.get(`/clubs/${clubId}/positions`),
+
+    createPosition: (clubId, data) =>
+        api.post(`/clubs/${clubId}/positions`, data),
+
+    removePosition: (positionId) =>
+        api.delete(`/positions/${positionId}`),
+
+    assignPosition: (memberId, positionId) =>
+        api.post(`/club-members/${memberId}/positions`, { position_id: positionId }),
+
+    revokePosition: (memberId, positionId) =>
+        api.delete(`/club-members/${memberId}/positions/${positionId}`),
+
+    addCommitteeMemberByEmail: (clubId, data) =>
+        api.post(`/clubs/${clubId}/committee-members`, data),
 };
 
 export default clubService;

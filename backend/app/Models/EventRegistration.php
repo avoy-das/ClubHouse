@@ -11,10 +11,12 @@ class EventRegistration extends Model
         'event_id',
         'user_id',
         'attended',
+        'answers',
     ];
 
     protected $casts = [
         'attended' => 'boolean',
+        'answers'  => 'array',
     ];
 
     public function event(): BelongsTo

@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class EventController extends Controller
 {
@@ -45,6 +46,9 @@ class EventController extends Controller
         if ($clubId) {
             $query->where('club_id', $clubId);
         }
+
+        // Cancelled events should not appear in the main events section
+        $query->where('status', '!=', 'cancelled');
 
         // Draft event visibility: drafted events aren't shown to members (only seen by club execs & admins)
         if (!$user->is_admin) {
@@ -109,7 +113,7 @@ class EventController extends Controller
             });
         }
 
-        $events = $query->orderBy('starts_at', 'asc')->paginate(12)->appends($request->query());
+        $events = $query->orderBy('created_at', 'desc')->paginate(12)->appends($request->query());
 
         return response()->json($events);
     }
@@ -162,8 +166,8 @@ class EventController extends Controller
         $user = Auth::user();
         $data = $request->validated();
 
-        // Must be exec of the target club (or platform admin)
-        if (!$user->is_admin && !$this->isExec($user->id, $data['club_id'])) {
+        // Must be exec of the target club (admin who is not club exec at the same time cannot create event)
+        if (!$this->isClubExec($user->id, (int)$data['club_id'])) {
             return response()->json([
                 'message' => 'Only club executives can create events.',
             ], 403);
@@ -186,6 +190,15 @@ class EventController extends Controller
             $data['starts_at'],
             $data['ends_at']
         );
+
+        if (isset($data['custom_fields']) && is_string($data['custom_fields'])) {
+            $data['custom_fields'] = json_decode($data['custom_fields'], true) ?? [];
+        }
+
+        if ($request->hasFile('banner')) {
+            $data['banner_path'] = $request->file('banner')->store('events/banners', 'public');
+        }
+        unset($data['banner']);
 
         $event = Event::create([
             ...$data,
@@ -340,6 +353,18 @@ class EventController extends Controller
             }
         }
 
+        if (isset($data['custom_fields']) && is_string($data['custom_fields'])) {
+            $data['custom_fields'] = json_decode($data['custom_fields'], true) ?? [];
+        }
+
+        if ($request->hasFile('banner')) {
+            if ($event->banner_path) {
+                Storage::disk('public')->delete($event->banner_path);
+            }
+            $data['banner_path'] = $request->file('banner')->store('events/banners', 'public');
+        }
+        unset($data['banner']);
+
         $event->update($data);
 
         AuditService::log('event.updated', $event, ['changed_fields' => array_keys($data)]);
@@ -486,6 +511,10 @@ class EventController extends Controller
             'club_id' => $event->club_id,
         ]);
 
+        if ($event->banner_path) {
+            Storage::disk('public')->delete($event->banner_path);
+        }
+
         $event->delete();
 
         return response()->json(['message' => 'Event deleted.']);
@@ -507,6 +536,18 @@ class EventController extends Controller
         if ($user->is_admin) {
             return true;
         }
+
+        return $this->isClubExec($userId, $clubId);
+    }
+
+    /**
+     * Check if a user is strictly a club exec (president, vp, secretary, treasurer, executive)
+     * in the given club, regardless of platform admin status.
+     */
+    private function isClubExec(int $userId, int $clubId): bool
+    {
+        $user = \App\Models\User::find($userId);
+        if (!$user) return false;
 
         return $user->hasClubPermission($clubId, 'can_manage_events') ||
             DB::table('club_members')

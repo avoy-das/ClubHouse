@@ -117,6 +117,14 @@ class NewFeatureRequirementsTest extends TestCase
             'contact_email' => 'debate@clubhouse.ac.bd',
         ]);
 
+        ClubMember::create([
+            'club_id'   => $club->id,
+            'user_id'   => $admin->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
         // First published event at Auditorium 1
         Event::create([
             'club_id'        => $club->id,

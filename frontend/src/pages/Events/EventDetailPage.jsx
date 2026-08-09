@@ -6,6 +6,7 @@ import EventModal from '../../components/Events/EventModal';
 import MarkAttendanceModal from '../../components/Events/MarkAttendanceModal';
 import AttendanceReportModal from '../../components/Events/AttendanceReportModal';
 import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, Ban, Trash2, ArrowLeft, Building2, CheckCircle } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -14,6 +15,20 @@ const statusBadgeStyles = {
     published: 'bg-emerald-50 text-emerald-800 border-emerald-200',
     draft: 'bg-[#eff4ff] text-[#0051d5] border-[#316bf3]/30',
     cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
+};
+
+const formatDate = (isoStr) => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 };
 
 const EventDetailPage = () => {
@@ -34,6 +49,11 @@ const EventDetailPage = () => {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
     const [isReportOpen, setIsReportOpen] = useState(false);
+
+    // Registration custom fields modal state
+    const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+    const [customTextAnswers, setCustomTextAnswers] = useState({});
+    const [customFileAnswers, setCustomFileAnswers] = useState({});
 
     useEffect(() => {
         setLoading(true);
@@ -64,13 +84,43 @@ const EventDetailPage = () => {
             .finally(() => setLoading(false));
     }, [id, navigate]);
 
-    const handleRegister = async () => {
+    const handleRegisterClick = () => {
+        if (Array.isArray(event?.custom_fields) && event.custom_fields.length > 0) {
+            setCustomTextAnswers({});
+            setCustomFileAnswers({});
+            setIsRegisterModalOpen(true);
+        } else {
+            handleRegisterSubmit();
+        }
+    };
+
+    const handleRegisterSubmit = async (e) => {
+        if (e) e.preventDefault();
         setSubmitting(true);
         setToast(null);
 
         try {
-            const res = await eventService.registerEvent(id);
+            let payload;
+            const hasFiles = Object.keys(customFileAnswers).length > 0;
+            if (hasFiles) {
+                payload = new FormData();
+                Object.entries(customTextAnswers).forEach(([key, val]) => {
+                    payload.append(`answers[custom_text][${key}]`, val);
+                });
+                Object.entries(customFileAnswers).forEach(([key, file]) => {
+                    payload.append(`answers_files[${key}]`, file);
+                });
+            } else if (Object.keys(customTextAnswers).length > 0) {
+                payload = {
+                    answers: {
+                        custom_text: customTextAnswers,
+                    }
+                };
+            }
+
+            const res = await eventService.registerEvent(id, payload);
             setIsRegistered(true);
+            setIsRegisterModalOpen(false);
             setEvent(prev => ({
                 ...prev,
                 registrations_count: (prev.registrations_count || 0) + 1,
@@ -361,7 +411,16 @@ const EventDetailPage = () => {
             )}
 
             {/* Detailed Event Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs overflow-hidden">
+                {getImageUrl(event.banner_url || event.banner_path) && (
+                    <div className="mb-6 h-56 sm:h-72 -mx-6 sm:-mx-8 -mt-6 sm:-mt-8 overflow-hidden bg-slate-100 border-b border-slate-200">
+                        <img
+                            src={getImageUrl(event.banner_url || event.banner_path)}
+                            alt={event.title}
+                            className="w-full h-full object-cover"
+                        />
+                    </div>
+                )}
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     {/* Club link */}
                     <Link
@@ -477,7 +536,7 @@ const EventDetailPage = () => {
                             </button>
                         ) : (
                             <button
-                                onClick={handleRegister}
+                                onClick={handleRegisterClick}
                                 disabled={submitting}
                                 className="w-full sm:w-auto px-6 py-3 bg-[#2563eb] hover:bg-[#0051d5] text-white font-semibold rounded-xl text-sm shadow-xs transition-colors disabled:opacity-50"
                             >
@@ -487,6 +546,112 @@ const EventDetailPage = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Event Registration Custom Questions Modal */}
+            {isRegisterModalOpen && (
+                <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0f172a]/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full p-6 relative animate-in fade-in zoom-in duration-150">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-[#0b1c30]">Event Registration Form</h3>
+                                <p className="text-xs text-slate-500">Please answer the following required custom questions for this event.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsRegisterModalOpen(false)}
+                                className="text-slate-400 hover:text-slate-600 font-bold text-lg p-1"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                            {(Array.isArray(event?.custom_fields) ? event.custom_fields : []).map((field, idx) => {
+                                const fieldKey = field.label || `Field ${idx + 1}`;
+                                return (
+                                    <div key={field.id || idx} className="space-y-1">
+                                        <label className="block text-xs font-semibold text-[#0b1c30]">
+                                            {field.label} {field.required && <span className="text-rose-500">*</span>}
+                                        </label>
+
+                                        {field.type === 'textarea' ? (
+                                            <textarea
+                                                rows={3}
+                                                required={Boolean(field.required)}
+                                                value={customTextAnswers[fieldKey] || ''}
+                                                onChange={(e) => setCustomTextAnswers(prev => ({ ...prev, [fieldKey]: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:border-blue-500"
+                                                placeholder="Enter your response..."
+                                            />
+                                        ) : field.type === 'select' ? (
+                                            <select
+                                                required={Boolean(field.required)}
+                                                value={customTextAnswers[fieldKey] || ''}
+                                                onChange={(e) => setCustomTextAnswers(prev => ({ ...prev, [fieldKey]: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:border-blue-500 bg-white"
+                                            >
+                                                <option value="">-- Select Option --</option>
+                                                {(Array.isArray(field.options) ? field.options : (field.options || '').split(',')).map((opt, oIdx) => {
+                                                    const val = typeof opt === 'string' ? opt.trim() : opt;
+                                                    return <option key={oIdx} value={val}>{val}</option>;
+                                                })}
+                                            </select>
+                                        ) : field.type === 'file' ? (
+                                            <input
+                                                type="file"
+                                                required={Boolean(field.required)}
+                                                onChange={(e) => {
+                                                    if (e.target.files && e.target.files[0]) {
+                                                        setCustomFileAnswers(prev => ({ ...prev, [fieldKey]: e.target.files[0] }));
+                                                    }
+                                                }}
+                                                className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+                                            />
+                                        ) : field.type === 'checkbox' ? (
+                                            <label className="flex items-center gap-2 text-xs text-slate-700 font-medium cursor-pointer pt-1">
+                                                <input
+                                                    type="checkbox"
+                                                    required={Boolean(field.required)}
+                                                    checked={customTextAnswers[fieldKey] === 'Yes'}
+                                                    onChange={(e) => setCustomTextAnswers(prev => ({ ...prev, [fieldKey]: e.target.checked ? 'Yes' : 'No' }))}
+                                                    className="rounded text-blue-600 focus:ring-blue-500"
+                                                />
+                                                <span>I confirm / agree</span>
+                                            </label>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                required={Boolean(field.required)}
+                                                value={customTextAnswers[fieldKey] || ''}
+                                                onChange={(e) => setCustomTextAnswers(prev => ({ ...prev, [fieldKey]: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:border-blue-500"
+                                                placeholder="Enter response..."
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
+
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsRegisterModalOpen(false)}
+                                    className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={submitting}
+                                    className="px-5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white font-semibold rounded-lg text-xs transition-colors disabled:opacity-50"
+                                >
+                                    {submitting ? 'Submitting Registration...' : 'Complete Registration'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Modals */}
             <EventModal

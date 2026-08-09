@@ -4,6 +4,7 @@ import MainLayout from '../../layouts/MainLayout';
 import clubService from '../../services/clubService';
 import UserManagementSection from '../../components/admin/UserManagementSection';
 import { Shield, Building2, BarChart2, Users } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const statusStyles = {
     pending:  'bg-amber-100 text-amber-800',
@@ -254,9 +255,9 @@ const AdminClubList = () => {
                                                 <td className="px-5 py-4 text-slate-600">{club.category}</td>
                                                 <td className="px-5 py-4 text-slate-600">{club.creator?.name}</td>
                                                 <td className="px-5 py-4 text-xs">
-                                                    {club.permission_doc_path ? (
+                                                    {getImageUrl(club.permission_doc_url || club.permission_doc_path) ? (
                                                         <a
-                                                            href={`/storage/${club.permission_doc_path}`}
+                                                            href={getImageUrl(club.permission_doc_url || club.permission_doc_path)}
                                                             target="_blank"
                                                             rel="noreferrer"
                                                             className="text-blue-600 hover:underline font-semibold"

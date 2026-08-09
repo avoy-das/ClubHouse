@@ -106,7 +106,22 @@ const EventAttendanceContent = () => {
                                 {registrations.map((reg) => (
                                     <tr key={reg.id} className="hover:bg-[#f8f9ff]/60 transition-colors">
                                         <td className="p-3.5 font-semibold text-[#0b1c30]">
-                                            {reg.user?.name || `User #${reg.user_id}`}
+                                            <div>{reg.user?.name || `User #${reg.user_id}`}</div>
+                                            {reg.answers && (reg.answers.custom_text || reg.answers.custom_files) && (
+                                                <div className="mt-1 text-[11px] font-normal text-slate-500 space-y-0.5">
+                                                    {reg.answers.custom_text && Object.entries(reg.answers.custom_text).map(([k, v]) => (
+                                                        <div key={k}><strong className="text-slate-700">{k}:</strong> {v}</div>
+                                                    ))}
+                                                    {reg.answers.custom_files && Object.entries(reg.answers.custom_files).map(([k, f]) => (
+                                                        <div key={k}>
+                                                            <strong className="text-slate-700">{k}:</strong>{' '}
+                                                            <a href={f?.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                                                                📎 {f?.name || 'View file'}
+                                                            </a>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="p-3.5">{reg.user?.email || 'N/A'}</td>
                                         <td className="p-3.5">

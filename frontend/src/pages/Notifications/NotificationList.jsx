@@ -212,10 +212,27 @@ const NotificationList = () => {
                             </div>
                         </div>
 
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                            {selectedAnnouncement.sender_role_label && (
+                                <div className="text-xs font-semibold text-slate-700 bg-amber-50 px-2.5 py-1 rounded border border-amber-200/60 inline-block">
+                                    From: <strong className="text-amber-950">{selectedAnnouncement.sender_role_label}</strong>
+                                </div>
+                            )}
                             <p className="text-sm text-slate-800 whitespace-pre-line leading-relaxed">
                                 {selectedAnnouncement.body}
                             </p>
+                            {selectedAnnouncement.attachment_path && (
+                                <div className="pt-2 border-t border-slate-200">
+                                    <a
+                                        href={`/storage/${selectedAnnouncement.attachment_path}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold border border-blue-200 transition-colors shadow-2xs"
+                                    >
+                                        📄 Attachment: {selectedAnnouncement.attachment_name || 'View Attachment'} ↗
+                                    </a>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex justify-end pt-2">

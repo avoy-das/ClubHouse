@@ -117,6 +117,31 @@ const MarkAttendanceModal = ({ isOpen, onClose, event }) => {
                                                 {u?.student_id && <span>ID: {u.student_id}</span>}
                                                 {u?.department && <span>&bull; {u.department}</span>}
                                             </div>
+
+                                            {/* Custom Field Answers */}
+                                            {reg.answers && (reg.answers.custom_text || reg.answers.custom_files) && (
+                                                <div className="mt-2 text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 space-y-1">
+                                                    {reg.answers.custom_text && Object.entries(reg.answers.custom_text).map(([key, val]) => (
+                                                        <div key={key} className="flex flex-wrap items-baseline gap-1">
+                                                            <span className="font-semibold text-slate-700">{key}:</span>
+                                                            <span className="text-slate-600">{val || 'N/A'}</span>
+                                                        </div>
+                                                    ))}
+                                                    {reg.answers.custom_files && Object.entries(reg.answers.custom_files).map(([key, fileObj]) => (
+                                                        <div key={key} className="flex items-center gap-1.5 pt-0.5">
+                                                            <span className="font-semibold text-slate-700">{key}:</span>
+                                                            <a
+                                                                href={fileObj?.url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="text-blue-600 font-medium underline hover:text-blue-800 text-[11px] inline-flex items-center gap-1"
+                                                            >
+                                                                📎 {fileObj?.name || 'View Attachment'}
+                                                            </a>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Status Badge & Action Buttons */}

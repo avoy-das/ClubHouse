@@ -13,6 +13,7 @@ class Event extends Model
         'created_by',
         'title',
         'description',
+        'banner_path',
         'status',
         'visibility',
         'location_type',
@@ -20,13 +21,24 @@ class Event extends Model
         'starts_at',
         'ends_at',
         'capacity',
+        'custom_fields',
     ];
 
     protected $casts = [
-        'starts_at' => 'datetime',
-        'ends_at'   => 'datetime',
-        'capacity'  => 'integer',
+        'starts_at'     => 'datetime',
+        'ends_at'       => 'datetime',
+        'capacity'      => 'integer',
+        'custom_fields' => 'array',
     ];
+
+    protected $appends = [
+        'banner_url',
+    ];
+
+    public function getBannerUrlAttribute(): ?string
+    {
+        return $this->banner_path ? asset('storage/' . ltrim($this->banner_path, '/')) : null;
+    }
 
     // -------------------------------------------------------
     // Relationships
