@@ -3,9 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import eventService from '../../services/eventService';
 import EventModal from '../../components/Events/EventModal';
-import MarkAttendanceModal from '../../components/Events/MarkAttendanceModal';
 import AttendanceReportModal from '../../components/Events/AttendanceReportModal';
-import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, Ban, Trash2, ArrowLeft, Building2, CheckCircle } from 'lucide-react';
+import ViewResponsesModal from '../../components/Events/ViewResponsesModal';
+import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, Ban, Trash2, ArrowLeft, Building2, CheckCircle, FileText, Paperclip } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
 
 const statusBadgeStyles = {
@@ -37,6 +37,7 @@ const EventDetailPage = () => {
 
     const [event, setEvent] = useState(null);
     const [isRegistered, setIsRegistered] = useState(false);
+    const [userRegistration, setUserRegistration] = useState(null);
     const [canManage, setCanManage] = useState(false);
     const [spotsRemaining, setSpotsRemaining] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -47,8 +48,8 @@ const EventDetailPage = () => {
 
     // Executive management modal states
     const [isEditOpen, setIsEditOpen] = useState(false);
-    const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
     const [isReportOpen, setIsReportOpen] = useState(false);
+    const [isResponsesOpen, setIsResponsesOpen] = useState(false);
 
     // Registration custom fields modal state
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -64,6 +65,7 @@ const EventDetailPage = () => {
                 const data = res.data;
                 setEvent(data.event);
                 setIsRegistered(data.is_registered || false);
+                setUserRegistration(data.user_registration || null);
                 setCanManage(data.can_manage || false);
                 setSpotsRemaining(data.spots_remaining);
             })
@@ -121,6 +123,12 @@ const EventDetailPage = () => {
             const res = await eventService.registerEvent(id, payload);
             setIsRegistered(true);
             setIsRegisterModalOpen(false);
+            setUserRegistration(res.data?.user_registration || {
+                answers: {
+                    custom_text: customTextAnswers,
+                    custom_files: customFileAnswers,
+                }
+            });
             setEvent(prev => ({
                 ...prev,
                 registrations_count: (prev.registrations_count || 0) + 1,
@@ -150,6 +158,7 @@ const EventDetailPage = () => {
         try {
             const res = await eventService.cancelRegistration(id);
             setIsRegistered(false);
+            setUserRegistration(null);
             setEvent(prev => ({
                 ...prev,
                 registrations_count: Math.max(0, (prev.registrations_count || 0) - 1),
@@ -219,19 +228,6 @@ const EventDetailPage = () => {
         setToast({
             type: 'success',
             message: message || 'Event updated successfully.',
-        });
-    };
-
-    const formatDate = (isoStr) => {
-        if (!isoStr) return '';
-        const d = new Date(isoStr);
-        return d.toLocaleDateString(undefined, {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
         });
     };
 
@@ -338,12 +334,12 @@ const EventDetailPage = () => {
                                 <Edit className="w-4 h-4" /> Edit Event
                             </button>
 
-                            {/* Mark Attendance */}
+                            {/* View Responses (Unified Roster & Custom Answers Modal) */}
                             <button
-                                onClick={() => setIsAttendanceOpen(true)}
+                                onClick={() => setIsResponsesOpen(true)}
                                 className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                             >
-                                <ClipboardList className="w-4 h-4" /> Check-in Roster
+                                <ClipboardList className="w-4 h-4" /> View Responses ({event.registrations_count || 0})
                             </button>
 
                             {/* Attendance Report */}
@@ -491,6 +487,125 @@ const EventDetailPage = () => {
                     </p>
                 </div>
 
+                {/* Custom Registration Questions & User Submitted Answers Section */}
+                {Array.isArray(event.custom_fields) && event.custom_fields.length > 0 && (
+                    <div className="mb-8 p-6 bg-[#f8f9ff] border border-blue-200/80 rounded-2xl space-y-4">
+                        <div className="flex items-center justify-between gap-2 border-b border-blue-100 pb-3">
+                            <div>
+                                <h3 className="text-base font-bold text-[#0b1c30] flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-[#2563eb]" />
+                                    Registration Requirements & Custom Questions
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    The hosting club requires attendees to respond to the following custom questions.
+                                </p>
+                            </div>
+                            {canManage && (
+                                <button
+                                    onClick={() => setIsResponsesOpen(true)}
+                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                                >
+                                    <ClipboardList className="w-3.5 h-3.5" /> View Responses
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                            {(() => {
+                                const parseUserAnswers = (raw) => {
+                                    if (!raw) return { textMap: {}, fileMap: {} };
+                                    let obj = raw;
+                                    if (typeof raw === 'string') {
+                                        try { obj = JSON.parse(raw); } catch { return { textMap: {}, fileMap: {} }; }
+                                    }
+                                    if (typeof obj !== 'object' || obj === null) return { textMap: {}, fileMap: {} };
+                                    let textMap = obj.custom_text && typeof obj.custom_text === 'object' ? { ...obj.custom_text } : {};
+                                    let fileMap = obj.custom_files && typeof obj.custom_files === 'object' ? { ...obj.custom_files } : {};
+                                    if (!obj.custom_text && !obj.custom_files) {
+                                        Object.entries(obj).forEach(([k, v]) => {
+                                            if (v && typeof v === 'object' && (v.url || v.path || v.name)) { fileMap[k] = v; }
+                                            else if (v !== null && v !== undefined) { textMap[k] = String(v); }
+                                        });
+                                    }
+                                    return { textMap, fileMap };
+                                };
+                                const { textMap, fileMap } = parseUserAnswers(userRegistration?.answers);
+
+                                return (Array.isArray(event.custom_fields) ? event.custom_fields : []).map((field, idx) => {
+                                    const fieldLabel = field.label || field.name || `Question ${idx + 1}`;
+                                    const userTextAns = textMap[fieldLabel];
+                                    const userFileAns = fileMap[fieldLabel];
+                                    const hasUserSubmitted = isRegistered && (userTextAns !== undefined || userFileAns !== undefined);
+
+                                    return (
+                                        <div key={field.id || idx} className="p-4 bg-white border border-slate-200 rounded-xl space-y-2 text-xs">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="font-bold text-[#0b1c30] text-sm">
+                                                #{idx + 1}. {fieldLabel}
+                                            </span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="capitalize bg-slate-100 px-2 py-0.5 border border-slate-200 rounded text-[10px] text-slate-600 font-medium">
+                                                    {field.type || 'text'}
+                                                </span>
+                                                {field.required ? (
+                                                    <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded font-semibold text-[10px]">
+                                                        Required *
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-medium text-[10px]">
+                                                        Optional
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {field.type === 'select' && field.options && (
+                                            <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap pt-0.5">
+                                                <span className="font-semibold text-slate-600">Options:</span>
+                                                {(Array.isArray(field.options) ? field.options : (field.options || '').split(',')).map((opt, oIdx) => (
+                                                    <span key={oIdx} className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[10px] text-slate-700">
+                                                        {typeof opt === 'string' ? opt.trim() : opt}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Submission Status or Preview */}
+                                        {isRegistered ? (
+                                            <div className="mt-2 pt-2 border-t border-slate-100">
+                                                <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1">
+                                                    Your Submitted Answer
+                                                </span>
+                                                {userTextAns !== undefined ? (
+                                                    <p className="text-xs text-slate-800 font-medium bg-emerald-50/60 p-2 rounded border border-emerald-200/60">
+                                                        {userTextAns || 'N/A'}
+                                                    </p>
+                                                ) : userFileAns ? (
+                                                    <a
+                                                        href={getImageUrl(userFileAns.url || userFileAns.path)}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold rounded border border-emerald-200 transition-colors text-xs"
+                                                    >
+                                                        <Paperclip className="w-3.5 h-3.5 text-emerald-600" />
+                                                        {userFileAns.name || 'View Uploaded File'}
+                                                    </a>
+                                                ) : (
+                                                    <p className="text-xs text-slate-400 italic">No answer recorded.</p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="mt-1 pt-1 text-[11px] text-slate-400 italic">
+                                                Prompted during event registration
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }); })()}
+                        </div>
+                    </div>
+                )}
+
                 {/* Action / Participation Button Section */}
                 <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="text-sm text-slate-500">
@@ -567,11 +682,11 @@ const EventDetailPage = () => {
 
                         <form onSubmit={handleRegisterSubmit} className="space-y-4">
                             {(Array.isArray(event?.custom_fields) ? event.custom_fields : []).map((field, idx) => {
-                                const fieldKey = field.label || `Field ${idx + 1}`;
+                                const fieldKey = field.label || field.name || `Field ${idx + 1}`;
                                 return (
                                     <div key={field.id || idx} className="space-y-1">
                                         <label className="block text-xs font-semibold text-[#0b1c30]">
-                                            {field.label} {field.required && <span className="text-rose-500">*</span>}
+                                            {field.label || field.name || `Question ${idx + 1}`} {field.required && <span className="text-rose-500">*</span>}
                                         </label>
 
                                         {field.type === 'textarea' ? (
@@ -596,17 +711,6 @@ const EventDetailPage = () => {
                                                     return <option key={oIdx} value={val}>{val}</option>;
                                                 })}
                                             </select>
-                                        ) : field.type === 'file' ? (
-                                            <input
-                                                type="file"
-                                                required={Boolean(field.required)}
-                                                onChange={(e) => {
-                                                    if (e.target.files && e.target.files[0]) {
-                                                        setCustomFileAnswers(prev => ({ ...prev, [fieldKey]: e.target.files[0] }));
-                                                    }
-                                                }}
-                                                className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
-                                            />
                                         ) : field.type === 'checkbox' ? (
                                             <label className="flex items-center gap-2 text-xs text-slate-700 font-medium cursor-pointer pt-1">
                                                 <input
@@ -661,15 +765,15 @@ const EventDetailPage = () => {
                 onSuccess={handleEventUpdated}
             />
 
-            <MarkAttendanceModal
-                isOpen={isAttendanceOpen}
-                onClose={() => setIsAttendanceOpen(false)}
-                event={event}
-            />
-
             <AttendanceReportModal
                 isOpen={isReportOpen}
                 onClose={() => setIsReportOpen(false)}
+                event={event}
+            />
+
+            <ViewResponsesModal
+                isOpen={isResponsesOpen}
+                onClose={() => setIsResponsesOpen(false)}
                 event={event}
             />
         </MainLayout>

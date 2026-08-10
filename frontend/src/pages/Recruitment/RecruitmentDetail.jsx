@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { CheckCircle2, ShieldCheck, FileCheck, AlertCircle } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, FileCheck, AlertCircle, FileText, ExternalLink } from 'lucide-react';
 import MainLayout from '../../layouts/MainLayout';
 import recruitmentService from '../../services/recruitmentService';
 import { ClubPermissionsProvider } from '../../context/ClubPermissionsContext';
@@ -98,8 +98,8 @@ const RecruitmentDetailContent = () => {
     // Target sessions check
     const hasTargetSessions = Array.isArray(notice.target_sessions) && notice.target_sessions.length > 0;
     const isUserInTargetSession = !hasTargetSessions || (
-        user?.session !== null && 
-        user?.session !== undefined && 
+        user?.session !== null &&
+        user?.session !== undefined &&
         notice.target_sessions.map(Number).includes(Number(user.session))
     );
 
@@ -201,9 +201,14 @@ const RecruitmentDetailContent = () => {
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-200/80 pb-3">
                                     <div className="flex items-center gap-2">
                                         <FileCheck className="w-5 h-5 text-blue-600" />
-                                        <h3 className="text-base font-bold text-blue-900">Application Already Submitted</h3>
+                                        <h3 className="text-base font-bold text-blue-900">Application Submitted</h3>
                                     </div>
-                                    {notice.my_application.status && <Badge status={notice.my_application.status} />}
+                                    {notice.my_application.status && (
+                                        <Badge status={
+                                            notice.my_application.status === 'accepted' ? 'accepted' :
+                                                notice.my_application.status === 'rejected' ? 'rejected' : 'open'
+                                        } />
+                                    )}
                                 </div>
 
                                 <p className="text-sm font-medium text-blue-800 leading-relaxed">
@@ -261,7 +266,9 @@ const RecruitmentDetailContent = () => {
                                                 rel="noreferrer"
                                                 className="text-blue-600 hover:underline break-all font-semibold inline-flex items-center gap-1 mt-0.5"
                                             >
-                                                📄 {fileObj.name || 'View Uploaded Document'} ↗
+                                                <FileText className="w-4 h-4 text-blue-600 inline shrink-0" />
+                                                <span>{fileObj.name || 'View Uploaded Document'}</span>
+                                                <ExternalLink className="w-3.5 h-3.5 inline shrink-0" />
                                             </a>
                                         </div>
                                     ))}

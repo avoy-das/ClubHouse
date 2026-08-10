@@ -70,7 +70,14 @@ class EventRegistrationController extends Controller
             ], 409);
         }
 
-        // 2. Guard against registering for closed/completed/cancelled/past events
+        // 2. Guard against registering for non-published events (e.g. draft, even for club executives)
+        if ($event->status === 'draft') {
+            return response()->json([
+                'message' => 'Registration is not allowed before the event is published.',
+            ], 422);
+        }
+
+        // Guard against registering for closed/completed/cancelled/past events
         if (in_array($event->status, ['completed', 'cancelled']) || $event->ends_at->isPast()) {
             return response()->json([
                 'message' => 'Registration is closed because this event has ended or is cancelled.',

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import MainLayout from '../../layouts/MainLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
@@ -25,13 +25,9 @@ const Dashboard = () => {
     const [isDialogLoading, setIsDialogLoading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-    const fetchedRef = useRef(false);
-
     useEffect(() => {
-        if (fetchedRef.current) return;
-        fetchedRef.current = true;
-
         let active = true;
+        setLoading(true);
         api.get('/dashboard')
             .then((res) => {
                 if (active) setDashboardData(res.data);
@@ -201,7 +197,7 @@ const Dashboard = () => {
                                                     {getImageUrl(c.logo_url || c.logo_path) ? (
                                                         <img src={getImageUrl(c.logo_url || c.logo_path)} alt={c.name} loading="lazy" decoding="async" width="40" height="40" className="w-full h-full object-cover rounded-lg" />
                                                     ) : (
-                                                        c.name.charAt(0)
+                                                        c.name?.charAt(0) || 'C'
                                                     )}
                                                 </div>
                                                 <div className="min-w-0">

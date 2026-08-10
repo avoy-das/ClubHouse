@@ -8,50 +8,9 @@ import EditClubModal from '../../components/Clubs/EditClubModal';
 import ClubAuditLogModal from '../../components/Clubs/ClubAuditLogModal';
 import EventModal from '../../components/Events/EventModal';
 import MembersDirectory from '../../components/Clubs/MembersDirectory';
-import { ArrowLeft, Edit, FileText, Search, Shield, Building2, Megaphone, Target, Calendar, Eye, User, Phone, CheckCircle2 } from 'lucide-react';
-import Modal from '../../components/ui/Modal';
-import Button from '../../components/ui/Button';
-import { formatSessionLabel } from '../../utils/sessionUtils';
+import { ArrowLeft, Edit, FileText, Shield, Megaphone, Target, Calendar, Clock, MapPin, ExternalLink } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
-
-const roleLabels = {
-    president:      'President',
-    vice_president: 'Vice President',
-    secretary:      'Secretary',
-    treasurer:      'Treasurer',
-    member:         'Member',
-};
-
-const getRoleRank = (role) => {
-    switch ((role || 'member').toLowerCase()) {
-        case 'president': return 10;
-        case 'vice_president':
-        case 'vice president':
-        case 'vp': return 9;
-        case 'secretary':
-        case 'treasurer': return 8;
-        case 'executive': return 7;
-        default: return 1;
-    }
-};
-
-const getMemberHighestRank = (member) => {
-    let maxRank = getRoleRank(member?.role);
-    if (member?.positions && Array.isArray(member.positions)) {
-        member.positions.forEach(p => {
-            if (p.position?.title) {
-                const title = p.position.title.toLowerCase();
-                let rank = 1;
-                if (title.includes('president') && !title.includes('vice')) rank = 10;
-                else if (title.includes('vice') || title.includes('vp')) rank = 9;
-                else if (title.includes('secretary') || title.includes('treasurer')) rank = 8;
-                else if (p.position.is_executive || p.position.can_manage_members) rank = 7;
-                if (rank > maxRank) maxRank = rank;
-            }
-        });
-    }
-    return maxRank;
-};
+import { roleLabels } from '../../utils/roleUtils';
 
 const ClubDetail = () => {
     const { id } = useParams();
@@ -61,6 +20,7 @@ const ClubDetail = () => {
     const [loading, setLoading]   = useState(true);
     const [error, setError]       = useState(null);
     const [suspending, setSuspending] = useState(false);
+    const [activating, setActivating] = useState(false);
     const [leaving, setLeaving] = useState(false);
     const [toast, setToast] = useState(null);
 
@@ -74,55 +34,9 @@ const ClubDetail = () => {
     const [isLogsOpen, setIsLogsOpen] = useState(false);
     const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
 
-    // Contextual member search & details state
-    const [memberQuery, setMemberQuery] = useState('');
-    const [membersList, setMembersList] = useState([]);
-    const [searchingMembers, setSearchingMembers] = useState(false);
-    const [updatingUserId, setUpdatingUserId] = useState(null);
-    const [selectedMember, setSelectedMember] = useState(null);
-    const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-
     const myMembership = club?.members?.find(m => m.user_id === user?.id);
     const isExec = isAdmin() || (myMembership && ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(myMembership.role));
     const isClubExec = !user?.is_admin && Boolean(myMembership && ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(myMembership.role));
-
-    const formatDate = (isoStr) => {
-        if (!isoStr) return 'N/A';
-        return new Date(isoStr).toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    };
-
-    const fetchClubDetails = () => {
-        clubService.getClub(id)
-            .then(res => {
-                setClub(res.data);
-                if (res.data?.members) {
-                    setMembersList(res.data.members);
-                }
-            })
-            .catch(() => setError('Club not found.'))
-            .finally(() => setLoading(false));
-    };
-
-    const fetchPendingEditRequest = () => {
-        clubService.getPendingEditRequest(id)
-            .then(res => setPendingEditRequest(res.data?.pending_request || null))
-            .catch(() => setPendingEditRequest(null));
-    };
-
-    const fetchClubEvents = () => {
-        setLoadingEvents(true);
-        api.get('/events', { params: { club_id: id } })
-            .then(res => {
-                const data = res.data?.data || res.data || [];
-                setClubEvents(Array.isArray(data) ? data : []);
-            })
-            .catch(() => setClubEvents([]))
-            .finally(() => setLoadingEvents(false));
-    };
 
     useEffect(() => {
         let isMounted = true;
@@ -137,11 +51,7 @@ const ClubDetail = () => {
             if (!isMounted) return;
 
             if (clubRes.status === 'fulfilled') {
-                const clubData = clubRes.value.data;
-                setClub(clubData);
-                if (clubData?.members) {
-                    setMembersList(clubData.members);
-                }
+                setClub(clubRes.value.data);
             } else {
                 setError('Club not found.');
             }
@@ -167,33 +77,6 @@ const ClubDetail = () => {
 
         return () => { isMounted = false; };
     }, [id]);
-
-    // Handle API contextual member search with ?q=
-    useEffect(() => {
-        let isMounted = true;
-        const fetchMembers = async () => {
-            setSearchingMembers(true);
-            try {
-                const res = await clubService.listMembers(id, memberQuery.trim());
-                if (isMounted) {
-                    setMembersList(res.data || []);
-                }
-            } catch {
-                // Ignore temporary network search errors
-            } finally {
-                if (isMounted) setSearchingMembers(false);
-            }
-        };
-
-        const timer = setTimeout(() => {
-            if (id) fetchMembers();
-        }, 300);
-
-        return () => {
-            isMounted = false;
-            clearTimeout(timer);
-        };
-    }, [id, memberQuery]);
 
     const handleSuspend = async () => {
         if (!window.confirm('Are you sure you want to suspend this club?')) return;
@@ -238,48 +121,6 @@ const ClubDetail = () => {
             alert(err.response?.data?.message || 'Failed to leave club.');
         } finally {
             setLeaving(false);
-        }
-    };
-
-    // Executive Action Handlers for Members
-    const handleRoleChange = async (targetUserId, newRole) => {
-        setUpdatingUserId(targetUserId);
-        try {
-            await clubService.updateMemberRole(id, targetUserId, newRole);
-            setMembersList(prev =>
-                prev.map(m => m.user_id === targetUserId ? { ...m, role: newRole } : m)
-            );
-            setToast({
-                type: 'success',
-                message: `Member role updated to ${roleLabels[newRole] || newRole}.`,
-            });
-        } catch (err) {
-            setToast({
-                type: 'error',
-                message: err.response?.data?.message || 'Failed to update member role.',
-            });
-        } finally {
-            setUpdatingUserId(null);
-        }
-    };
-
-    const handleRemoveMember = async (targetUserId, memberName) => {
-        if (!window.confirm(`Are you sure you want to remove ${memberName || 'this member'} from ${club.name}?`)) return;
-        setUpdatingUserId(targetUserId);
-        try {
-            await clubService.removeMember(id, targetUserId);
-            setMembersList(prev => prev.filter(m => m.user_id !== targetUserId));
-            setToast({
-                type: 'success',
-                message: 'Member removed from club successfully.',
-            });
-        } catch (err) {
-            setToast({
-                type: 'error',
-                message: err.response?.data?.message || 'Failed to remove member.',
-            });
-        } finally {
-            setUpdatingUserId(null);
         }
     };
 
@@ -335,7 +176,7 @@ const ClubDetail = () => {
             {club.status === 'pending' && (
                 <div className="mb-6 bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl p-5 shadow-xs flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-200/80 rounded-xl text-amber-800 font-bold shrink-0">⏳</div>
+                        <div className="p-2 bg-amber-200/80 rounded-xl text-amber-800 font-bold shrink-0"><Clock className="w-5 h-5 text-amber-800" /></div>
                         <div>
                             <p className="text-xs font-bold text-amber-950 uppercase tracking-wider">Requested by you — Waiting for approval</p>
                             <p className="text-xs text-amber-900 mt-0.5">
@@ -350,7 +191,7 @@ const ClubDetail = () => {
             {pendingEditRequest && (
                 <div className="mb-6 bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl p-4 shadow-xs flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-200/80 rounded-xl text-amber-800 font-bold shrink-0">⏳</div>
+                        <div className="p-2 bg-amber-200/80 rounded-xl text-amber-800 font-bold shrink-0"><Clock className="w-5 h-5 text-amber-800" /></div>
                         <div>
                             <p className="text-xs font-bold text-amber-950 uppercase tracking-wider">Club Edit Request Under Review</p>
                             <p className="text-xs text-amber-900 mt-0.5">
@@ -505,7 +346,9 @@ const ClubDetail = () => {
                                 rel="noreferrer"
                                 className="text-blue-600 hover:underline text-xs font-semibold inline-flex items-center gap-1"
                             >
-                                📄 View Submitted Permission Document / Letter ↗
+                                <FileText className="w-4 h-4 text-blue-600 inline shrink-0" />
+                                <span>View Submitted Permission Document / Letter</span>
+                                <ExternalLink className="w-3.5 h-3.5 inline shrink-0" />
                             </a>
                         </div>
                     )}
@@ -584,7 +427,7 @@ const ClubDetail = () => {
                                         {new Date(ev.starts_at).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
                                     </div>
                                     {ev.location_value && (
-                                        <div className="text-slate-500 truncate">📍 {ev.location_value}</div>
+                                        <div className="text-slate-500 truncate flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" /> {ev.location_value}</div>
                                     )}
                                 </div>
                             </div>
@@ -624,173 +467,6 @@ const ClubDetail = () => {
                 }}
             />
 
-            {/* View Member Details Modal */}
-            {selectedMember && (
-                <Modal
-                    isOpen={isDetailsModalOpen}
-                    onClose={() => setIsDetailsModalOpen(false)}
-                    title={`Member Profile: ${selectedMember.user?.name || selectedMember.name || 'User Details'}`}
-                >
-                    <div className="space-y-5">
-                        {/* Profile Header */}
-                        <div className="flex items-center gap-4 p-4 bg-[#f8f9ff] rounded-xl border border-slate-200">
-                            <div className="w-12 h-12 bg-[#0b1c30] text-white rounded-full flex items-center justify-center font-bold text-lg shrink-0 shadow-xs">
-                                {(selectedMember.user?.name || selectedMember.name) ? (selectedMember.user?.name || selectedMember.name).charAt(0).toUpperCase() : 'U'}
-                            </div>
-                            <div className="space-y-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="font-bold text-[#0b1c30] text-base truncate">{selectedMember.user?.name || selectedMember.name}</h3>
-                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-extrabold rounded-full border border-blue-200 capitalize">
-                                        {roleLabels[selectedMember.role] || selectedMember.role || 'Member'}
-                                    </span>
-                                </div>
-                                <p className="text-slate-500 text-xs flex flex-wrap items-center gap-2 font-mono">
-                                    <span>ID: <strong>{selectedMember.user?.student_id || selectedMember.student_id || 'N/A'}</strong></span>
-                                    <span>•</span>
-                                    <span>{selectedMember.user?.email || selectedMember.email}</span>
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* General User Information */}
-                        <div className="space-y-2">
-                            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
-                                <User className="w-4 h-4 text-blue-600" /> General Information
-                            </h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50/70 p-3.5 rounded-xl border border-slate-200">
-                                <div>
-                                    <span className="text-slate-500 block">Department:</span>
-                                    <span className="font-semibold text-slate-800">{selectedMember.user?.department || selectedMember.department || 'Not specified'}</span>
-                                </div>
-                                <div>
-                                    <span className="text-slate-500 block">Academic Session:</span>
-                                    <span className="font-semibold text-slate-800">
-                                        {(selectedMember.user?.session !== null && selectedMember.user?.session !== undefined)
-                                            ? formatSessionLabel(selectedMember.user.session)
-                                            : (selectedMember.session !== null && selectedMember.session !== undefined)
-                                            ? formatSessionLabel(selectedMember.session)
-                                            : 'Not specified'}
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="text-slate-500 block">Phone Number:</span>
-                                    <span className="font-semibold text-slate-800">{selectedMember.user?.phone || selectedMember.phone || 'Not specified'}</span>
-                                </div>
-                                <div>
-                                    <span className="text-slate-500 block">Official Club Joining Date:</span>
-                                    <span className="font-semibold text-blue-700">
-                                        {selectedMember.joined_at || selectedMember.created_at
-                                            ? new Date(selectedMember.joined_at || selectedMember.created_at).toLocaleString()
-                                            : 'N/A'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Joining Details / Application Data */}
-                        <div className="space-y-2">
-                            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
-                                <FileText className="w-4 h-4 text-blue-600" /> Club Joining Application Data
-                            </h4>
-
-                            {selectedMember.recruitment_application ? (
-                                <div className="space-y-3 bg-[#f8f9ff] p-4 rounded-xl border border-blue-100 text-xs">
-                                    <div className="flex items-center justify-between pb-2 border-b border-blue-200/60">
-                                        <span className="font-bold text-blue-900 flex items-center gap-1">
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /> Joined via Recruitment Campaign
-                                        </span>
-                                        {selectedMember.recruitment_application.recruitment_notice && (
-                                            <span className="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                                                {selectedMember.recruitment_application.recruitment_notice.title}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {selectedMember.recruitment_application.answers?.motivation && (
-                                        <div>
-                                            <span className="font-semibold text-slate-600 block mb-1">Motivation Statement:</span>
-                                            <p className="bg-white p-2.5 rounded-lg border border-slate-200 text-slate-800 whitespace-pre-line leading-relaxed">
-                                                {selectedMember.recruitment_application.answers.motivation}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {selectedMember.recruitment_application.answers?.experience && (
-                                        <div>
-                                            <span className="font-semibold text-slate-600 block mb-1">Experience & Skills:</span>
-                                            <p className="bg-white p-2.5 rounded-lg border border-slate-200 text-slate-800 whitespace-pre-line leading-relaxed">
-                                                {selectedMember.recruitment_application.answers.experience}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {selectedMember.recruitment_application.answers?.portfolio_url && (
-                                        <div>
-                                            <span className="font-[#2563eb] block mb-1">Portfolio / Link:</span>
-                                            <a
-                                                href={selectedMember.recruitment_application.answers.portfolio_url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-blue-600 hover:underline font-medium break-all"
-                                            >
-                                                {selectedMember.recruitment_application.answers.portfolio_url}
-                                            </a>
-                                        </div>
-                                    )}
-
-                                    {selectedMember.recruitment_application.answers?.custom_text &&
-                                        Object.entries(selectedMember.recruitment_application.answers.custom_text).map(([key, val]) => (
-                                            <div key={key}>
-                                                <span className="font-semibold text-slate-600 block mb-1">{key}:</span>
-                                                <p className="bg-white p-2.5 rounded-lg border border-slate-200 text-slate-800 whitespace-pre-line leading-relaxed">{val}</p>
-                                            </div>
-                                        ))}
-
-                                    {selectedMember.recruitment_application.answers?.custom_files &&
-                                        Object.entries(selectedMember.recruitment_application.answers.custom_files).map(([key, fileObj]) => (
-                                            <div key={key}>
-                                                <span className="font-semibold text-slate-600 block mb-1">{key}:</span>
-                                                <a
-                                                    href={getImageUrl(fileObj.url || fileObj.path)}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-blue-600 font-semibold hover:bg-slate-50 transition-colors"
-                                                >
-                                                    📄 {fileObj.name || 'View Uploaded Document'} ↗
-                                                </a>
-                                            </div>
-                                        ))}
-                                </div>
-                            ) : selectedMember.membership_request ? (
-                                <div className="space-y-2 bg-[#f8f9ff] p-4 rounded-xl border border-slate-200 text-xs">
-                                    <div className="font-bold text-slate-800 pb-1.5 border-b border-slate-200">
-                                        Joined via Direct Membership Request
-                                    </div>
-                                    {selectedMember.membership_request.message && (
-                                        <div>
-                                            <span className="font-semibold text-slate-600 block mb-1">Joining Request Message:</span>
-                                            <p className="bg-white p-2.5 rounded-lg border border-slate-200 text-slate-800 whitespace-pre-line leading-relaxed">
-                                                {selectedMember.membership_request.message}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <p className="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-xl border border-slate-200">
-                                    No custom joining application submission recorded (e.g. founding member or admin assigned).
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="flex justify-end pt-3 border-t border-slate-200">
-                            <Button variant="secondary" onClick={() => setIsDetailsModalOpen(false)}>
-                                Close
-                            </Button>
-                        </div>
-                    </div>
-                </Modal>
-            )}
         </MainLayout>
     );
 };

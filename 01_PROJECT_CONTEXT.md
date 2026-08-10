@@ -106,16 +106,16 @@ frontend/
 
 All 10 original roadmap phases and additional capabilities have been successfully built:
 
-- ✅ **Phase 1: Clubs & Membership Core** (`clubs`, `club_positions`, `club_members`, `club_member_positions`, `membership_requests`)
-- ✅ **Phase 2: Admin Oversight & Approvals** (Club approval, rejection, suspension, club edit request management)
-- ✅ **Phase 3: Announcements & Targeting** (`announcements`, global & targeted audience options, attachments, sender roles, pin/unpin)
-- ✅ **Phase 4: Events & Registration** (`events`, `event_registrations`, capacity checks, custom registration fields, schedule view)
-- ✅ **Phase 5: Attendance & Auto-Certificates** (`certificates`, attendance marking, verification tokens, CSV reporting)
-- ✅ **Phase 6: Feedback & Ratings** (`event_feedback`, attendance-restricted ratings and reviews)
-- ✅ **Phase 7: Recruitment Drives** (`recruitment_notices`, `recruitment_applications`, custom field JSON definitions, session targets)
-- ✅ **Phase 8: Notifications System** (`notifications`, unread badges, mark-as-read API)
-- ✅ **Phase 9: Analytics & Audit Logs** (`audit_logs`, `ReportController`, overall dashboard statistics)
-- ✅ **Phase 10: Club Photo Gallery & Search** (`club_galleries`, `SearchController`, unified frontend search)
+- **Phase 1: Clubs & Membership Core** (`clubs`, `club_positions`, `club_members`, `club_member_positions`, `membership_requests`)
+- **Phase 2: Admin Oversight & Approvals** (Club approval, rejection, suspension, club edit request management)
+- **Phase 3: Announcements & Targeting** (`announcements`, global & targeted audience options, attachments, sender roles, pin/unpin)
+- **Phase 4: Events & Registration** (`events`, `event_registrations`, capacity checks, custom registration fields, schedule view)
+- **Phase 5: Attendance & Auto-Certificates** (`certificates`, attendance marking, verification tokens, CSV reporting)
+- **Phase 6: Feedback & Ratings** (`event_feedback`, attendance-restricted ratings and reviews)
+- **Phase 7: Recruitment Drives** (`recruitment_notices`, `recruitment_applications`, custom field JSON definitions, session targets)
+- **Phase 8: Notifications System** (`notifications`, unread badges, mark-as-read API)
+- **Phase 9: Analytics & Audit Logs** (`audit_logs`, `ReportController`, overall dashboard statistics)
+- **Phase 10: Club Photo Gallery & Search** (`club_galleries`, `SearchController`, unified frontend search)
 
 ---
 

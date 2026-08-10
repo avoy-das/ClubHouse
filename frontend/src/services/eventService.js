@@ -42,18 +42,6 @@ const eventService = {
         return api.put(`/events/${id}`, data);
     },
 
-    // Backward compatibility aliases for EventForm
-    create: function (clubId, data) {
-        if (data && typeof data === 'object' && !(data instanceof FormData) && !data.club_id) {
-            data.club_id = clubId;
-        } else if (data instanceof FormData && !data.has('club_id')) {
-            data.append('club_id', clubId);
-        }
-        return this.createEvent(data);
-    },
-    update: function (id, data) {
-        return this.updateEvent(id, data);
-    },
 
     // Update event status: draft -> published -> ongoing -> completed / cancelled (Exec/Admin)
     updateEventStatus: (id, status) =>

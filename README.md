@@ -9,7 +9,7 @@
 
 ---
 
-## 🏛 System Architecture Overview
+## System Architecture Overview
 
 ClubHouse is built as a decoupled single-page application (SPA) with a RESTful Laravel API backend and a React (Vite) frontend.
 
@@ -36,7 +36,7 @@ ClubHouse/
 
 ---
 
-## 🛠 Technology Stack
+## Technology Stack
 
 | Layer | Technology | Version | Purpose |
 |---|---|---|---|
@@ -53,7 +53,7 @@ ClubHouse/
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 ### Prerequisites
 - PHP >= 8.2 with PDO, SQLite/MySQL extensions
@@ -103,20 +103,20 @@ Open your browser and navigate to `http://localhost:5173` to access the ClubHous
 
 ---
 
-## 📚 Documentation Index
+## Documentation Index
 
 For detailed architectural specifications and development guidelines:
 
-- 📑 **[01_PROJECT_CONTEXT.md](file:///c:/Users/Popular%20Computer/ClubHouse/01_PROJECT_CONTEXT.md)** — Project roadmap, domain models, permissions architecture, and business rules.
-- ⚙️ **[02_BACKEND_DEVELOPMENT_GUIDE.md](file:///c:/Users/Popular%20Computer/ClubHouse/02_BACKEND_DEVELOPMENT_GUIDE.md)** — Detailed Laravel backend guide, schema, models, controllers, requests, policies, and API endpoints.
-- 🎨 **[03_FRONTEND_DEVELOPMENT_GUIDE.md](file:///c:/Users/Popular%20Computer/ClubHouse/03_FRONTEND_DEVELOPMENT_GUIDE.md)** — React frontend guide, page components, service layer, context state management, and routing.
-- 📂 **[project_structure.md](file:///c:/Users/Popular%20Computer/ClubHouse/project_structure.md)** — Complete file layout, file counts, and Mermaid domain ER diagrams.
-- 🔧 **[backend/README.md](file:///c:/Users/Popular%20Computer/ClubHouse/backend/README.md)** — Backend setup and environment configuration.
-- 💻 **[frontend/README.md](file:///c:/Users/Popular%20Computer/ClubHouse/frontend/README.md)** — Frontend setup, environment variables, and build scripts.
+- **[01_PROJECT_CONTEXT.md](file:///c:/Users/Popular%20Computer/ClubHouse/01_PROJECT_CONTEXT.md)** — Project roadmap, domain models, permissions architecture, and business rules.
+- **[02_BACKEND_DEVELOPMENT_GUIDE.md](file:///c:/Users/Popular%20Computer/ClubHouse/02_BACKEND_DEVELOPMENT_GUIDE.md)** — Detailed Laravel backend guide, schema, models, controllers, requests, policies, and API endpoints.
+- **[03_FRONTEND_DEVELOPMENT_GUIDE.md](file:///c:/Users/Popular%20Computer/ClubHouse/03_FRONTEND_DEVELOPMENT_GUIDE.md)** — React frontend guide, page components, service layer, context state management, and routing.
+- **[project_structure.md](file:///c:/Users/Popular%20Computer/ClubHouse/project_structure.md)** — Complete file layout, file counts, and Mermaid domain ER diagrams.
+- **[backend/README.md](file:///c:/Users/Popular%20Computer/ClubHouse/backend/README.md)** — Backend setup and environment configuration.
+- **[frontend/README.md](file:///c:/Users/Popular%20Computer/ClubHouse/frontend/README.md)** — Frontend setup, environment variables, and build scripts.
 
 ---
 
-## 🔐 System Roles & Authorization
+## System Roles & Authorization
 
 - **Platform Admin (`is_admin = true`)**: Full access to admin dashboard (`/admin/clubs`, `/admin/users`, `/admin/audit-logs`, `/admin/reports`), club approval/suspension, club edit request approvals, global announcements, user role updates, and system report generation.
 - **Club Executive**: Derived dynamically per club based on assigned `club_positions` with active permission flags (`can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`).
@@ -125,7 +125,7 @@ For detailed architectural specifications and development guidelines:
 
 ---
 
-## 📜 License
+## License
 
 This project is proprietary academic/university software developed for university club management.
  academic/university software developed for university club management.

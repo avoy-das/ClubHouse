@@ -94,6 +94,16 @@ class RecruitmentNoticeController extends Controller
             $data['title'] = "{$club->name} Recruitment";
         }
 
+        // Resolve pipeline stages
+        $template = $data['pipeline_template'] ?? 'multi_stage';
+        if ($template === 'custom' && !empty($data['pipeline_stages'])) {
+            $data['pipeline_stages'] = $data['pipeline_stages'];
+        } else {
+            $templates = RecruitmentNotice::pipelineTemplates();
+            $data['pipeline_template'] = isset($templates[$template]) ? $template : 'multi_stage';
+            $data['pipeline_stages']   = $templates[$data['pipeline_template']];
+        }
+
         $notice = RecruitmentNotice::create($data);
 
         // Notify targeted student session users if target_sessions specified, else notify all club members
@@ -152,7 +162,27 @@ class RecruitmentNoticeController extends Controller
     {
         $this->authorize('update', $recruitmentNotice);
 
-        $recruitmentNotice->update($request->validated());
+        $data = $request->validated();
+
+        // Lock pipeline modifications if applications already exist
+        if (isset($data['pipeline_template']) || isset($data['pipeline_stages'])) {
+            if ($recruitmentNotice->applications()->exists()) {
+                return response()->json([
+                    'message' => 'Cannot modify the recruitment process pipeline after applications have been submitted.'
+                ], 422);
+            }
+
+            $template = $data['pipeline_template'] ?? $recruitmentNotice->pipeline_template;
+            if ($template === 'custom' && !empty($data['pipeline_stages'])) {
+                $data['pipeline_stages'] = $data['pipeline_stages'];
+            } else {
+                $templates = RecruitmentNotice::pipelineTemplates();
+                $data['pipeline_template'] = isset($templates[$template]) ? $template : 'multi_stage';
+                $data['pipeline_stages']   = $templates[$data['pipeline_template']];
+            }
+        }
+
+        $recruitmentNotice->update($data);
 
         if ($request->user()->is_admin) {
             NotificationService::notifyClubExecutives(

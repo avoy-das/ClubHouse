@@ -41,6 +41,12 @@ const RecruitmentListContent = () => {
     const [requirements, setRequirements] = useState('');
     const [opensAt, setOpensAt] = useState('');
     const [closesAt, setClosesAt] = useState('');
+    const [pipelineTemplate, setPipelineTemplate] = useState('multi_stage');
+    const [pipelineStages, setPipelineStages] = useState([
+        { key: 'submitted', label: 'Application Submitted' },
+        { key: 'shortlisted', label: 'Shortlisted' },
+        { key: 'interview', label: 'Interview' }
+    ]);
     const status = 'open';
     const [submitting, setSubmitting] = useState(false);
 
@@ -72,8 +78,8 @@ const RecruitmentListContent = () => {
             try {
                 const membersRes = await authService.getMyMemberships();
                 const memberships = membersRes.data || membersRes || [];
-                const execMemberships = memberships.filter(m => 
-                    m.status === 'active' && 
+                const execMemberships = memberships.filter(m =>
+                    m.status === 'active' &&
                     (m.role !== 'member' || (m.positions && m.positions.some(p => p.position?.is_executive || p.position?.can_manage_recruitment)))
                 );
                 execClubIdsList = execMemberships.map(m => m.club_id || m.club?.id).filter(Boolean);
@@ -96,8 +102,8 @@ const RecruitmentListContent = () => {
                 }
                 const membersRes = await authService.getMyMemberships();
                 const memberships = membersRes.data || membersRes || [];
-                const execMemberships = memberships.filter(m => 
-                    m.status === 'active' && 
+                const execMemberships = memberships.filter(m =>
+                    m.status === 'active' &&
                     (m.role !== 'member' || (m.positions && m.positions.some(p => p.position?.is_executive || p.position?.can_manage_recruitment)))
                 );
                 if (execMemberships.length > 0) {
@@ -109,9 +115,9 @@ const RecruitmentListContent = () => {
 
             // Calculate eligibility for each club
             const annotatedClubs = clubsList.map(club => {
-                const hasActive = loadedNotices.some(n => 
-                    n.club_id === club.id && 
-                    n.status === 'open' && 
+                const hasActive = loadedNotices.some(n =>
+                    n.club_id === club.id &&
+                    n.status === 'open' &&
                     new Date(n.closes_at) > new Date()
                 );
                 return {
@@ -141,9 +147,9 @@ const RecruitmentListContent = () => {
         }
 
         if (clubId) {
-            const hasActiveInThisClub = notices.some(n => 
-                String(n.club_id) === String(clubId) && 
-                n.status === 'open' && 
+            const hasActiveInThisClub = notices.some(n =>
+                String(n.club_id) === String(clubId) &&
+                n.status === 'open' &&
                 new Date(n.closes_at) > new Date()
             );
             if (hasActiveInThisClub) {
@@ -193,7 +199,7 @@ const RecruitmentListContent = () => {
 
     const handleTargetSessionToggle = (sessionValue) => {
         const num = Number(sessionValue);
-        setTargetSessions(prev => 
+        setTargetSessions(prev =>
             prev.includes(num) ? prev.filter(s => s !== num) : [...prev, num]
         );
     };
@@ -207,11 +213,17 @@ const RecruitmentListContent = () => {
         setDescription('');
         setRequirements('');
         setCustomFields([]);
-        
+        setPipelineTemplate('multi_stage');
+        setPipelineStages([
+            { key: 'submitted', label: 'Application Submitted' },
+            { key: 'shortlisted', label: 'Shortlisted' },
+            { key: 'interview', label: 'Interview' }
+        ]);
+
         // Default start date = now, default end date = +14 days
         const now = new Date();
         const twoWeeks = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-        
+
         setOpensAt(formatForDateInput(now));
         setClosesAt(formatForDateInput(twoWeeks));
         setIsModalOpen(true);
@@ -227,7 +239,13 @@ const RecruitmentListContent = () => {
         setDescription(notice.description || '');
         setRequirements(notice.requirements || '');
         setCustomFields(Array.isArray(notice.custom_fields) ? notice.custom_fields : []);
-        
+        setPipelineTemplate(notice.pipeline_template || 'multi_stage');
+        setPipelineStages(Array.isArray(notice.pipeline_stages) ? notice.pipeline_stages : [
+            { key: 'submitted', label: 'Application Submitted' },
+            { key: 'shortlisted', label: 'Shortlisted' },
+            { key: 'interview', label: 'Interview' }
+        ]);
+
         setOpensAt(formatForDateInput(notice.opens_at));
         setClosesAt(formatForDateInput(notice.closes_at));
         setIsModalOpen(true);
@@ -248,11 +266,13 @@ const RecruitmentListContent = () => {
                 description,
                 requirements,
                 custom_fields: customFields,
+                pipeline_template: pipelineTemplate,
+                pipeline_stages: pipelineStages,
                 opens_at: dateInputToStartOfDayISO(opensAt),
                 closes_at: dateInputToEndOfDayISO(closesAt),
                 status,
             };
-            
+
             if (isEditMode) {
                 await recruitmentService.update(editNoticeId, payload);
             } else {
@@ -261,7 +281,7 @@ const RecruitmentListContent = () => {
                 }
                 await recruitmentService.create(selectedClubId, payload);
             }
-            
+
             setIsModalOpen(false);
             loadData();
         } catch (err) {
@@ -283,8 +303,8 @@ const RecruitmentListContent = () => {
 
     const isUserExecutive = can('can_manage_recruitment') || isAdmin() || isExecUser;
 
-    const activeNoticeForClub = notices.find(n => 
-        n.status === 'open' && 
+    const activeNoticeForClub = notices.find(n =>
+        n.status === 'open' &&
         new Date(n.closes_at) > new Date() &&
         (!clubId || String(n.club_id) === String(clubId))
     );
@@ -305,13 +325,12 @@ const RecruitmentListContent = () => {
                     </div>
                     <div className="p-3 space-y-2">
                         {isUserExecutive ? (
-                            <button 
+                            <button
                                 onClick={handleCreateSidebarClick}
-                                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold rounded-xl shadow-xs transition-all ${
-                                    clubId && hasActiveRecruitmentInClub
-                                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300'
-                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                }`}
+                                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold rounded-xl shadow-xs transition-all ${clubId && hasActiveRecruitmentInClub
+                                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    }`}
                             >
                                 <Plus className="w-4 h-4" /> Start Recruitment Campaign
                             </button>
@@ -327,7 +346,7 @@ const RecruitmentListContent = () => {
                             </div>
                         )}
 
-                        <button 
+                        <button
                             onClick={() => {
                                 if (clubId && notices.length > 0) {
                                     navigate(`/clubs/${clubId}/recruitment/${notices[0].id}/applications`);
@@ -379,7 +398,7 @@ const RecruitmentListContent = () => {
                             {currentClub ? `${currentClub.name} Recruitment` : 'Member Recruitment'}
                         </h1>
                         <p className="text-slate-500 text-xs mt-0.5">
-                            {currentClub 
+                            {currentClub
                                 ? `Explore active recruitment campaigns and team opportunities for ${currentClub.name}.`
                                 : 'Explore open recruitment campaigns and join official student organization teams.'}
                         </p>
@@ -414,12 +433,12 @@ const RecruitmentListContent = () => {
                     <div className="bg-white p-12 text-center rounded-2xl shadow-xs border border-slate-200 text-slate-500 space-y-3">
                         <Target className="w-10 h-10 text-slate-300 mx-auto" />
                         <p className="text-base font-semibold text-slate-700">
-                            {clubId 
+                            {clubId
                                 ? `No recruitment is currently ongoing for ${currentClub?.name || 'this club'}.`
                                 : 'No open recruitment campaigns currently available.'}
                         </p>
                         <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                            {isUserExecutive && clubId 
+                            {isUserExecutive && clubId
                                 ? 'As a club executive, you can launch a new recruitment campaign using the button in the sidebar.'
                                 : 'Check back later or contact club executives for upcoming recruitment announcements.'}
                         </p>
@@ -491,18 +510,17 @@ const RecruitmentListContent = () => {
                                 </div>
                                 <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                                     <Link to={clubId ? `/clubs/${clubId}/recruitment/${notice.id}` : `/recruitment/${notice.id}`}>
-                                        <button className={`px-4 py-2 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 shadow-xs ${
-                                            notice.is_member
-                                                ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
-                                                : notice.my_application
+                                        <button className={`px-4 py-2 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 shadow-xs ${notice.is_member
+                                            ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+                                            : notice.my_application
                                                 ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-300'
                                                 : 'bg-[#2563eb] hover:bg-[#0051d5] text-white'
-                                        }`}>
+                                            }`}>
                                             {notice.is_member
                                                 ? 'View Details (Member)'
                                                 : notice.my_application
-                                                ? 'View My Application'
-                                                : 'View Details & Apply'} <ArrowRight className="w-3.5 h-3.5" />
+                                                    ? 'View My Application'
+                                                    : 'View Details & Apply'} <ArrowRight className="w-3.5 h-3.5" />
                                         </button>
                                     </Link>
                                     {myExecClubIds.includes(notice.club_id) && (
@@ -595,11 +613,10 @@ const RecruitmentListContent = () => {
                                 return (
                                     <label
                                         key={opt.value}
-                                        className={`flex items-center gap-2 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${
-                                            isChecked
-                                                ? 'bg-blue-50 border-blue-300 text-blue-900 shadow-xs'
-                                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                        }`}
+                                        className={`flex items-center gap-2 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${isChecked
+                                            ? 'bg-blue-50 border-blue-300 text-blue-900 shadow-xs'
+                                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                            }`}
                                     >
                                         <input
                                             type="checkbox"
@@ -658,6 +675,122 @@ const RecruitmentListContent = () => {
                             value={requirements}
                             onChange={(e) => setRequirements(e.target.value)}
                         />
+                    </div>
+
+                    {/* Recruitment Process Pipeline Selector */}
+                    <div className="space-y-3 pt-3 border-t border-slate-100">
+                        <div>
+                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">
+                                Recruitment Process Steps / Pipeline
+                            </label>
+                            <p className="text-[11px] text-slate-500 mb-2">
+                                Choose how many evaluation steps applicants will pass through before a final decision.
+                            </p>
+                            <select
+                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] bg-white font-medium"
+                                value={pipelineTemplate}
+                                onChange={(e) => {
+                                    const t = e.target.value;
+                                    setPipelineTemplate(t);
+                                    if (t === 'simple') {
+                                        setPipelineStages([{ key: 'submitted', label: 'Application Submitted' }]);
+                                    } else if (t === 'standard') {
+                                        setPipelineStages([
+                                            { key: 'submitted', label: 'Application Submitted' },
+                                            { key: 'under_review', label: 'Under Review' }
+                                        ]);
+                                    } else if (t === 'multi_stage') {
+                                        setPipelineStages([
+                                            { key: 'submitted', label: 'Application Submitted' },
+                                            { key: 'shortlisted', label: 'Shortlisted' },
+                                            { key: 'interview', label: 'Interview' }
+                                        ]);
+                                    }
+                                }}
+                            >
+                                <option value="simple">Simple — 1 Step (Apply → Accept/Reject)</option>
+                                <option value="standard">Standard — 2 Steps (Apply → Under Review → Accept/Reject)</option>
+                                <option value="multi_stage">Multi-Stage — 3 Steps (Apply → Shortlist → Interview → Accept/Reject)</option>
+                                <option value="custom">Custom Pipeline Steps</option>
+                            </select>
+                        </div>
+
+                        {/* Pipeline Stage Preview / Custom Builder */}
+                        <div className="bg-[#f8f9ff] p-3 rounded-xl border border-slate-200 space-y-2">
+                            <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                Stage Flow Preview:
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                                {pipelineStages.map((stg, i) => (
+                                    <div key={stg.key || i} className="flex items-center gap-1.5">
+                                        <span className="bg-white border border-slate-300 font-semibold text-slate-800 px-2.5 py-1 rounded-lg text-xs shadow-2xs">
+                                            {stg.label}
+                                        </span>
+                                        <span className="text-slate-400 font-bold">&rarr;</span>
+                                    </div>
+                                ))}
+                                <span className="bg-emerald-50 border border-emerald-300 font-bold text-emerald-800 px-2.5 py-1 rounded-lg text-xs">
+                                    Accept / Reject
+                                </span>
+                            </div>
+
+                            {/* Custom Stage Builder */}
+                            {pipelineTemplate === 'custom' && (
+                                <div className="pt-2 border-t border-slate-200/70 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-700">Custom Intermediate Stages</span>
+                                        {pipelineStages.length < 5 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const idx = pipelineStages.length + 1;
+                                                    setPipelineStages(prev => [
+                                                        ...prev,
+                                                        { key: `stage_${Date.now()}`, label: `Stage ${idx}` }
+                                                    ]);
+                                                }}
+                                                className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-blue-200"
+                                            >
+                                                <Plus className="w-3 h-3" /> Add Stage
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        {pipelineStages.map((stg, idx) => (
+                                            <div key={stg.key || idx} className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-400 w-4">{idx + 1}.</span>
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    value={stg.label}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setPipelineStages(prev => {
+                                                            const next = [...prev];
+                                                            const k = idx === 0 ? 'submitted' : val.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                                                            next[idx] = { key: k, label: val };
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    className="flex-1 text-xs border border-slate-300 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500 bg-white"
+                                                    placeholder="Stage Name (e.g. Assessment Test)"
+                                                />
+                                                {idx > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPipelineStages(prev => prev.filter((_, i) => i !== idx))}
+                                                        className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                                                        title="Remove Stage"
+                                                    >
+                                                        <Trash className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Custom Application Form Fields Builder */}

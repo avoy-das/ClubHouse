@@ -4,7 +4,7 @@ The Single-Page Application (SPA) frontend for the **ClubHouse** University Club
 
 ---
 
-## 🛠 Features & Capabilities
+## Features & Capabilities
 
 - **Authentication Context**: Reactive auth state management via `AuthContext` with automatic Sanctum token persistence in `localStorage`.
 - **Dynamic Club Executive Permissions**: `ClubPermissionsContext` evaluates user role position flags (`can_manage_members`, `can_manage_events`, etc.) dynamically per club.
@@ -17,14 +17,14 @@ The Single-Page Application (SPA) frontend for the **ClubHouse** University Club
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Node.js >= 18.0
 - npm >= 9.0
 
 ---
 
-## 🚀 Installation & Local Development
+## Installation & Local Development
 
 1. **Navigate to frontend directory**:
    ```bash
@@ -44,7 +44,7 @@ The Single-Page Application (SPA) frontend for the **ClubHouse** University Club
 
 ---
 
-## ⚙ Production Build
+## Production Build
 
 To compile static assets for production:
 
@@ -60,7 +60,7 @@ npm run preview
 
 ---
 
-## 📂 Key Directory Layout
+## Key Directory Layout
 
 - `src/components/` — Subdirectories for layout shells (`AppLayout`, `Navbar`, `SearchBar`), UI primitives (`Badge`, `Modal`, `Button`, `Card`, `ErrorBanner`, `SuccessBanner`, `LoadingSpinner`), club components (`ClubCard`, `EditClubModal`, `MembersDirectory`, `PositionAssignment`, `TransferPresidencyModal`), event components (`EventModal`, `MarkAttendanceModal`), and admin components (`UserManagementSection`).
 - `src/context/` — React Context providers (`AuthContext`, `ClubPermissionsContext`).

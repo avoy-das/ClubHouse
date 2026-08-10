@@ -174,4 +174,42 @@ class EventRegistrationTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonFragment(['title' => $this->event->title]);
     }
+
+    public function test_nobody_can_register_for_draft_event_before_it_is_published()
+    {
+        $execUser = $this->createUser();
+        \App\Models\ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $execUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $draftEvent = Event::create([
+            'club_id'        => $this->club->id,
+            'created_by'     => $execUser->id,
+            'title'          => 'Draft Innovation Summit',
+            'description'    => 'Unpublished draft event.',
+            'status'         => 'draft',
+            'visibility'     => 'public',
+            'location_type'  => 'physical',
+            'location_value' => 'Auditorium',
+            'starts_at'      => now()->addDays(5),
+            'ends_at'        => now()->addDays(5)->addHours(2),
+            'capacity'       => 50,
+        ]);
+
+        // Regular user attempt
+        $res1 = $this->actingAs($this->user)
+            ->postJson("/api/events/{$draftEvent->id}/register");
+        $res1->assertStatus(422)
+            ->assertJson(['message' => 'Registration is not allowed before the event is published.']);
+
+        // Executive user attempt
+        $res2 = $this->actingAs($execUser)
+            ->postJson("/api/events/{$draftEvent->id}/register");
+        $res2->assertStatus(422)
+            ->assertJson(['message' => 'Registration is not allowed before the event is published.']);
+    }
 }

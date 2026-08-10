@@ -5,6 +5,8 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import AdminRoute from './routes/AdminRoute';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 
+import ErrorBoundary from './components/ui/ErrorBoundary';
+
 // Lazy loaded page components
 const Login = lazy(() => import('./pages/Login/Login'));
 const Register = lazy(() => import('./pages/Register/Register'));
@@ -31,7 +33,8 @@ const App = () => {
     return (
         <BrowserRouter>
             <AuthProvider>
-                <Suspense fallback={
+                <ErrorBoundary>
+                    <Suspense fallback={
                     <div className="min-h-screen flex items-center justify-center bg-[#fbf9f4]">
                         <LoadingSpinner />
                     </div>
@@ -75,6 +78,7 @@ const App = () => {
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>
                 </Suspense>
+                </ErrorBoundary>
             </AuthProvider>
         </BrowserRouter>
     );

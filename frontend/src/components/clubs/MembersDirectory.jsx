@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import clubService from '../../services/clubService';
 import EditAdvisorModal from './EditAdvisorModal';
@@ -8,6 +8,8 @@ import Button from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import ErrorBanner from '../ui/ErrorBanner';
 import { formatSessionLabel } from '../../utils/sessionUtils';
+import { formatDisplayDate } from '../../utils/dateUtils';
+import { roleLabels, getRoleRank, committeeRoleWeight } from '../../utils/roleUtils';
 import {
     Users,
     ShieldCheck,
@@ -25,23 +27,6 @@ import {
     ArrowUpDown,
     CheckCircle2
 } from 'lucide-react';
-
-const roleLabels = {
-    president: 'President',
-    vice_president: 'Vice President',
-    secretary: 'Secretary',
-    treasurer: 'Treasurer',
-    executive: 'Executive',
-    member: 'General Member',
-};
-
-const committeeRoleWeight = {
-    president: 1,
-    vice_president: 2,
-    secretary: 3,
-    treasurer: 4,
-    executive: 5,
-};
 
 const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
     const { user, isAdmin } = useAuth();
@@ -69,47 +54,8 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
     // Track role update state per user
     const [updatingUserId, setUpdatingUserId] = useState(null);
 
-    const getRoleRank = (roleStr) => {
-        switch ((roleStr || 'member').toLowerCase()) {
-            case 'president': return 10;
-            case 'vice_president':
-            case 'vice president':
-            case 'vp': return 9;
-            case 'secretary': return 8;
-            case 'treasurer': return 8;
-            case 'executive': return 7;
-            default: return 1;
-        }
-    };
-
-    const loadData = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const [clubRes, membersRes] = await Promise.all([
-                clubService.getClub(clubId),
-                clubService.listMembers(clubId)
-            ]);
-            const clubData = clubRes.data || clubRes;
-            const membersData = membersRes.data || membersRes || [];
-            setClub(clubData);
-            setMembers(Array.isArray(membersData) ? membersData : []);
-            if (onClubUpdated) onClubUpdated(clubData);
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to load members directory');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (clubId) {
-            loadData();
-        }
-    }, [clubId]);
-
     // Permissions & Hierarchy check
-    const myMembership = members.find((m) => m.user_id === user?.id);
+    const myMembership = useMemo(() => members.find((m) => m.user_id === user?.id), [members, user?.id]);
     const myRole = myMembership?.role?.toLowerCase() || '';
 
     const isSystemAdmin = isAdmin();
@@ -122,53 +68,58 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
     const canEditAdvisor = isSystemAdmin || isPresident || isSecretary;
 
     // President Slot check
-    const currentPresident = members.find((m) => m.role?.toLowerCase() === 'president');
+    const currentPresident = useMemo(() => members.find((m) => m.role?.toLowerCase() === 'president'), [members]);
     const hasPresident = !!currentPresident;
 
-    // Filter members by query (applies to BOTH sections simultaneously)
-    const matchesQuery = (m) => {
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase().trim();
-        const name = (m.user?.name || '').toLowerCase();
-        const studentId = (m.user?.student_id || '').toLowerCase();
-        const email = (m.user?.email || '').toLowerCase();
-        return name.includes(q) || studentId.includes(q) || email.includes(q);
-    };
+    // Partition & sort members with useMemo
+    const { rawCommittee, rawGeneral, committeeMembers, generalMembers } = useMemo(() => {
+        const matchesQuery = (m) => {
+            if (!searchQuery.trim()) return true;
+            const q = searchQuery.toLowerCase().trim();
+            const name = (m.user?.name || '').toLowerCase();
+            const studentId = (m.user?.student_id || '').toLowerCase();
+            const email = (m.user?.email || '').toLowerCase();
+            return name.includes(q) || studentId.includes(q) || email.includes(q);
+        };
 
-    // Partition members into Committee vs General Members
-    const rawCommittee = members.filter((m) => {
-        const role = (m.role || 'member').toLowerCase();
-        return ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(role);
-    });
-
-    const rawGeneral = members.filter((m) => {
-        const role = (m.role || 'member').toLowerCase();
-        return !['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(role);
-    });
-
-    // Committee sorted fixed by role weight
-    const committeeMembers = rawCommittee
-        .filter(matchesQuery)
-        .sort((a, b) => {
-            const weightA = committeeRoleWeight[a.role?.toLowerCase()] || 99;
-            const weightB = committeeRoleWeight[b.role?.toLowerCase()] || 99;
-            return weightA - weightB;
+        const committeeRaw = members.filter((m) => {
+            const role = (m.role || 'member').toLowerCase();
+            return ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(role);
         });
 
-    // General members sorted by joined_at descending or alphabetical
-    const generalMembers = rawGeneral
-        .filter(matchesQuery)
-        .sort((a, b) => {
-            if (sortOrder === 'alpha') {
-                const nameA = (a.user?.name || '').toLowerCase();
-                const nameB = (b.user?.name || '').toLowerCase();
-                return nameA.localeCompare(nameB);
-            }
-            // joined_desc (default)
-            const dateA = new Date(a.joined_at || a.created_at || 0).getTime();
-            const dateB = new Date(b.joined_at || b.created_at || 0).getTime();
-            return dateB - dateA;
+        const generalRaw = members.filter((m) => {
+            const role = (m.role || 'member').toLowerCase();
+            return !['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(role);
         });
+
+        const committeeSorted = committeeRaw
+            .filter(matchesQuery)
+            .sort((a, b) => {
+                const weightA = committeeRoleWeight[a.role?.toLowerCase()] || 99;
+                const weightB = committeeRoleWeight[b.role?.toLowerCase()] || 99;
+                return weightA - weightB;
+            });
+
+        const generalSorted = generalRaw
+            .filter(matchesQuery)
+            .sort((a, b) => {
+                if (sortOrder === 'alpha') {
+                    const nameA = (a.user?.name || '').toLowerCase();
+                    const nameB = (b.user?.name || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                }
+                const dateA = new Date(a.joined_at || a.created_at || 0).getTime();
+                const dateB = new Date(b.joined_at || b.created_at || 0).getTime();
+                return dateB - dateA;
+            });
+
+        return {
+            rawCommittee: committeeRaw,
+            rawGeneral: generalRaw,
+            committeeMembers: committeeSorted,
+            generalMembers: generalSorted,
+        };
+    }, [members, searchQuery, sortOrder]);
 
     // Role dropdown change handler
     const handleRoleChange = async (targetUserId, newRole) => {
@@ -223,14 +174,7 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
         setIsDetailsModalOpen(true);
     };
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return 'N/A';
-        return new Date(dateStr).toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    };
+    const formatDate = (dateStr) => formatDisplayDate(dateStr) || 'N/A';
 
     // Advisor state & handlers
     const [advisorToEdit, setAdvisorToEdit] = useState(null);

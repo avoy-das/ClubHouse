@@ -4,7 +4,7 @@ The RESTful API backend for the **ClubHouse** University Club Management Platfor
 
 ---
 
-## 🛠 Features & Capabilities
+## Features & Capabilities
 
 - **Sanctum Bearer Token Auth**: Registration, login, profile management, password updates, and token revocation.
 - **Dynamic Club Executive Authorization**: Flexible, club-defined positions with granular permission flags (`can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`).
@@ -19,14 +19,14 @@ The RESTful API backend for the **ClubHouse** University Club Management Platfor
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 - PHP >= 8.2 (extensions: `pdo`, `sqlite` or `pdo_mysql`, `mbstring`, `openssl`, `bcmath`, `curl`)
 - Composer >= 2.0
 
 ---
 
-## 🚀 Installation & Setup
+## Installation & Setup
 
 1. **Navigate to backend directory**:
    ```bash
@@ -59,7 +59,7 @@ The RESTful API backend for the **ClubHouse** University Club Management Platfor
 
 ---
 
-## 🧪 Testing
+## Testing
 
 Run PHPUnit tests using Artisan:
 ```bash
@@ -68,7 +68,7 @@ php artisan test
 
 ---
 
-## 📂 Key Directory Layout
+## Key Directory Layout
 
 - `app/Http/Controllers/` — 22 RESTful API controllers
 - `app/Http/Requests/` — 18 Form Request validation classes
