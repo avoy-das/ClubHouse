@@ -75,7 +75,7 @@ class RecruitmentApplicationTest extends TestCase
             ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('status', 'pending');
+            ->assertJsonPath('status', 'submitted');
 
         $this->assertDatabaseHas('recruitment_applications', [
             'recruitment_notice_id' => $this->notice->id,

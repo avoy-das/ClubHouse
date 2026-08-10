@@ -8,34 +8,48 @@ import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
-import { Check, X, ArrowLeft, Users, FileText } from 'lucide-react';
+import { Check, X, ArrowLeft, Users, FileText, ExternalLink } from 'lucide-react';
 import { formatSessionLabel } from '../../utils/sessionUtils';
+import { getImageUrl } from '../../utils/imageUrl';
 
-const ApplicationPhaseStepper = ({ status }) => {
-    // Determine active phase step index: 0 = Application, 1 = Interview, 2 = Result
-    let currentStep = 0;
-    if (status === 'interview') currentStep = 1;
-    if (status === 'accepted' || status === 'rejected') currentStep = 2;
-
-    const steps = [
-        { label: 'Application', desc: 'Submitted' },
-        { label: 'Interview', desc: status === 'interview' ? 'In Progress' : currentStep > 1 ? 'Completed' : 'Screening' },
-        { 
-            label: 'Result', 
-            desc: status === 'accepted' ? 'Accepted' : status === 'rejected' ? 'Rejected' : 'Decision Pending' 
-        },
+const ApplicationPhaseStepper = ({ status, pipelineStages = [] }) => {
+    // Dynamic stages list: intermediate stages from notice + final Decision stage
+    const defaultStages = [
+        { key: 'submitted', label: 'Application Submitted' },
+        { key: 'shortlisted', label: 'Shortlisted' },
+        { key: 'interview', label: 'Interview' }
     ];
+
+    const stages = (pipelineStages.length > 0 ? pipelineStages : defaultStages).map(s => ({
+        key: s.key,
+        label: s.label || s.key,
+    }));
+
+    // Append terminal Decision stage
+    stages.push({
+        key: 'decision',
+        label: 'Decision',
+        desc: status === 'accepted' ? 'Accepted' : status === 'rejected' ? 'Rejected' : 'Pending'
+    });
+
+    const activeKeys = stages.map(s => s.key);
+    let currentStepIndex = activeKeys.indexOf(status);
+    if (status === 'accepted' || status === 'rejected') {
+        currentStepIndex = stages.length - 1;
+    } else if (currentStepIndex === -1) {
+        currentStepIndex = 0;
+    }
 
     return (
         <div className="w-full my-4 p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
             <div className="flex items-center justify-between relative">
-                {steps.map((step, idx) => {
-                    const isCompleted = idx < currentStep || (idx === 2 && (status === 'accepted' || status === 'rejected'));
-                    const isCurrent = idx === currentStep && !(idx === 2 && (status === 'accepted' || status === 'rejected'));
-                    const isFailed = idx === 2 && status === 'rejected';
+                {stages.map((step, idx) => {
+                    const isCompleted = idx < currentStepIndex || (idx === stages.length - 1 && (status === 'accepted' || status === 'rejected'));
+                    const isCurrent = idx === currentStepIndex && !(idx === stages.length - 1 && (status === 'accepted' || status === 'rejected'));
+                    const isFailed = idx === stages.length - 1 && status === 'rejected';
 
                     return (
-                        <div key={step.label} className="flex-1 flex flex-col items-center relative z-10">
+                        <div key={step.key || idx} className="flex-1 flex flex-col items-center relative z-10">
                             <div
                                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                                     isFailed
@@ -55,14 +69,16 @@ const ApplicationPhaseStepper = ({ status }) => {
                                     idx + 1
                                 )}
                             </div>
-                            <span className={`text-xs font-semibold mt-1.5 ${
+                            <span className={`text-xs font-semibold mt-1.5 text-center ${
                                 isCurrent || isCompleted ? 'text-[#0b1c30]' : 'text-slate-400'
                             }`}>
                                 {step.label}
                             </span>
-                            <span className="text-[10px] text-slate-500 font-medium">
-                                {step.desc}
-                            </span>
+                            {step.desc && (
+                                <span className="text-[10px] text-slate-500 font-medium">
+                                    {step.desc}
+                                </span>
+                            )}
                         </div>
                     );
                 })}
@@ -71,7 +87,7 @@ const ApplicationPhaseStepper = ({ status }) => {
                     <div
                         className="h-full transition-all duration-300"
                         style={{
-                            width: currentStep === 0 ? '0%' : currentStep === 1 ? '50%' : '100%',
+                            width: `${(currentStepIndex / Math.max(1, stages.length - 1)) * 100}%`,
                             backgroundColor: status === 'rejected' ? '#dc2626' : status === 'accepted' ? '#16a34a' : '#2563eb'
                         }}
                     />
@@ -85,6 +101,7 @@ const RecruitmentApplicationsContent = () => {
     const { clubId, noticeId, id } = useParams();
     const targetNoticeId = noticeId || id;
 
+    const [notice, setNotice] = useState(null);
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -95,9 +112,13 @@ const RecruitmentApplicationsContent = () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await recruitmentService.listApplications(targetNoticeId);
-            const list = res.data || res;
+            const [appsRes, noticeRes] = await Promise.all([
+                recruitmentService.listApplications(targetNoticeId),
+                recruitmentService.get(targetNoticeId).catch(() => null)
+            ]);
+            const list = appsRes.data || appsRes;
             setApplications(Array.isArray(list) ? list : []);
+            setNotice(noticeRes?.data || noticeRes || null);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to load applications');
         } finally {
@@ -122,6 +143,18 @@ const RecruitmentApplicationsContent = () => {
         } finally {
             setReviewingId(null);
         }
+    };
+
+    // Calculate next intermediate stage for a given status
+    const getNextIntermediateStage = (currentStatus) => {
+        if (!notice || !notice.pipeline_stages) return null;
+        const stages = notice.pipeline_stages;
+        const keys = stages.map(s => s.key);
+        const idx = keys.indexOf(currentStatus);
+        if (idx !== -1 && idx + 1 < keys.length) {
+            return stages[idx + 1];
+        }
+        return null;
     };
 
     if (loading) return <LoadingSpinner />;
@@ -187,8 +220,8 @@ const RecruitmentApplicationsContent = () => {
                                     </div>
                                 </div>
 
-                                {/* Application Phase Stepper: Application -> Interview -> Result */}
-                                <ApplicationPhaseStepper status={app.status} />
+                                {/* Application Phase Stepper */}
+                                <ApplicationPhaseStepper status={app.status} pipelineStages={notice?.pipeline_stages} />
 
                                 {/* Answers breakdown */}
                                 <div className="space-y-3 text-sm text-slate-700">
@@ -231,29 +264,35 @@ const RecruitmentApplicationsContent = () => {
                                         <div key={key}>
                                             <span className="font-semibold text-[#0b1c30] block mb-1">{key}:</span>
                                             <a
-                                                href={fileObj.url}
+                                                href={getImageUrl(fileObj.url || fileObj.path)}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-[#2563eb] hover:bg-slate-50 transition-colors shadow-xs"
                                             >
-                                                📄 {fileObj.name || 'View Uploaded Document'} ↗
+                                                <FileText className="w-4 h-4 text-blue-600 inline shrink-0" />
+                                                <span>{fileObj.name || 'View Uploaded Document'}</span>
+                                                <ExternalLink className="w-3.5 h-3.5 inline shrink-0" />
                                             </a>
                                         </div>
                                     ))}
                                 </div>
 
                                 {/* Action Buttons depending on phase */}
-                                {(app.status === 'pending' || app.status === 'interview') && (
+                                {app.status !== 'accepted' && app.status !== 'rejected' && (
                                     <div className="pt-3 border-t border-slate-200 flex flex-wrap justify-end gap-2">
-                                        {app.status === 'pending' && (
-                                            <button
-                                                disabled={reviewingId === app.id}
-                                                onClick={() => handleReview(app.id, 'interview')}
-                                                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold rounded-lg transition-colors"
-                                            >
-                                                Advance to Interview
-                                            </button>
-                                        )}
+                                        {(() => {
+                                            const nextStage = getNextIntermediateStage(app.status);
+                                            if (!nextStage) return null;
+                                            return (
+                                                <button
+                                                    disabled={reviewingId === app.id}
+                                                    onClick={() => handleReview(app.id, nextStage.key)}
+                                                    className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold rounded-lg transition-colors"
+                                                >
+                                                    Advance to {nextStage.label}
+                                                </button>
+                                            );
+                                        })()}
                                         <button
                                             disabled={reviewingId === app.id}
                                             onClick={() => handleReview(app.id, 'accepted')}

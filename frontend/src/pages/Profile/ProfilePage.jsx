@@ -6,14 +6,9 @@ import clubService from '../../services/clubService';
 import api from '../../services/api';
 import { Link } from 'react-router-dom';
 import { formatSessionLabel, generateSessionOptions } from '../../utils/sessionUtils';
-
-const roleLabels = {
-    president:      'President',
-    vice_president: 'Vice President',
-    secretary:      'Secretary',
-    treasurer:      'Treasurer',
-    member:         'Member',
-};
+import { roleLabels } from '../../utils/roleUtils';
+import { formatDisplayDate } from '../../utils/dateUtils';
+import { MapPin } from 'lucide-react';
 
 const ProfilePage = () => {
     const { user, setUser } = useAuth();
@@ -161,14 +156,7 @@ const ProfilePage = () => {
         }
     };
 
-    const formatDate = (isoStr) => {
-        if (!isoStr) return 'N/A';
-        return new Date(isoStr).toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    };
+    const formatDate = (isoStr) => formatDisplayDate(isoStr) || 'N/A';
 
     return (
         <MainLayout>
@@ -545,7 +533,7 @@ const ProfilePage = () => {
                                                 {ev.location_value && (
                                                     <>
                                                         <span>&bull;</span>
-                                                        <span>📍 {ev.location_value}</span>
+                                                        <span className="inline-flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-slate-400 inline shrink-0" /> {ev.location_value}</span>
                                                     </>
                                                 )}
                                             </div>

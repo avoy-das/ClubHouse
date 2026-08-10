@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreRecruitmentApplicationRequest;
-use App\Models\Club;
 use App\Models\Notification;
 use App\Models\RecruitmentApplication;
 use App\Models\RecruitmentNotice;
@@ -68,7 +67,7 @@ class RecruitmentApplicationController extends Controller
                         $answers['custom_files'][$key] = [
                             'name' => $file->getClientOriginalName(),
                             'path' => $path,
-                            'url'  => '/storage/' . $path,
+                            'url'  => asset('storage/' . $path),
                         ];
                     }
                 }
@@ -81,7 +80,7 @@ class RecruitmentApplicationController extends Controller
                 $answers['custom_files'][$key] = [
                     'name' => $file->getClientOriginalName(),
                     'path' => $path,
-                    'url'  => '/storage/' . $path,
+                    'url'  => asset('storage/' . $path),
                 ];
             }
         }
@@ -90,7 +89,7 @@ class RecruitmentApplicationController extends Controller
             'recruitment_notice_id' => $recruitmentNotice->id,
             'user_id'               => $user->id,
             'answers'               => $answers,
-            'status'                => 'pending',
+            'status'                => $recruitmentNotice->getInitialStage(),
         ]);
 
         NotificationService::notifyUser(
@@ -136,8 +135,11 @@ class RecruitmentApplicationController extends Controller
     {
         $this->authorize('review', $application);
 
+        $notice = $application->recruitmentNotice;
+        $validStatuses = $notice->getAllValidStatuses();
+
         $request->validate([
-            'status' => 'required|in:interview,accepted,rejected',
+            'status' => 'required|string|in:' . implode(',', $validStatuses),
         ]);
 
         $status = $request->input('status');
@@ -150,17 +152,18 @@ class RecruitmentApplicationController extends Controller
         ]);
 
         if ($status === 'accepted') {
-            $membershipService->admitUser($application->recruitmentNotice->club, $application->user);
+            $membershipService->admitUser($notice->club, $application->user);
         }
 
-        $message = $status === 'interview'
-            ? "Your recruitment application for '{$application->recruitmentNotice->club->name}' has advanced to the Interview phase."
-            : "Your recruitment application for '{$application->recruitmentNotice->club->name}' has been {$status}.";
+        $stageLabel = $notice->getStageLabelFor($status);
+        $message = in_array($status, ['accepted', 'rejected'], true)
+            ? "Your recruitment application for '{$notice->club->name}' has been {$status}."
+            : "Your recruitment application for '{$notice->club->name}' has advanced to: {$stageLabel}.";
 
         Notification::create([
             'user_id'      => $application->user_id,
             'type'         => 'recruitment_application_' . $status,
-            'title'        => 'Recruitment Application ' . ucfirst($status),
+            'title'        => 'Recruitment Application Update',
             'message'      => $message,
             'related_type' => RecruitmentNotice::class,
             'related_id'   => $application->recruitment_notice_id,

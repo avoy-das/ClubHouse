@@ -6,6 +6,8 @@ import clubService from '../../services/clubService';
 import EventModal from '../../components/Events/EventModal';
 import { useAuth } from '../../context/AuthContext';
 import { getImageUrl } from '../../utils/imageUrl';
+import { formatDisplayDateTime } from '../../utils/dateUtils';
+import { Calendar } from 'lucide-react';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -107,18 +109,7 @@ const EventsPage = () => {
         }
     };
 
-    const formatDate = (isoStr) => {
-        if (!isoStr) return '';
-        const d = new Date(isoStr);
-        return d.toLocaleDateString(undefined, {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    };
+    const formatDate = (isoStr) => formatDisplayDateTime(isoStr);
 
     return (
         <MainLayout>
@@ -244,25 +235,32 @@ const EventsPage = () => {
                                     <div
                                         key={event.id}
                                         onClick={() => navigate(`/events/${event.id}`)}
-                                        className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between overflow-hidden"
+                                        className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between overflow-hidden group"
                                     >
                                         <div>
-                                            {getImageUrl(event.banner_url || event.banner_path) && (
+                                            {getImageUrl(event.banner_url || event.banner_path) ? (
                                                 <div className="h-36 -mx-5 -mt-5 mb-4 overflow-hidden bg-slate-100 border-b border-slate-200">
                                                     <img
                                                         src={getImageUrl(event.banner_url || event.banner_path)}
                                                         alt={event.title}
-                                                        className="w-full h-full object-cover"
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                     />
+                                                </div>
+                                            ) : (
+                                                <div className="h-36 -mx-5 -mt-5 mb-4 overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 border-b border-slate-200 flex items-center justify-center relative">
+                                                    <div className="absolute inset-0 bg-black/10" />
+                                                    <Calendar className="w-12 h-12 text-white/40 z-10" />
                                                 </div>
                                             )}
                                             <div className="flex items-start justify-between gap-2 mb-3">
                                                 <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">
                                                     {event.club?.name || 'Club Event'}
                                                 </span>
-                                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${statusBadgeStyles[event.status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                                                    {formattedStatus}
-                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${statusBadgeStyles[event.status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                                                        {formattedStatus}
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             <h3 className="font-bold text-slate-900 text-lg leading-snug mb-2 line-clamp-2">

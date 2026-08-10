@@ -150,6 +150,8 @@ const ClubList = () => {
                                                 <img
                                                     src={getImageUrl(club.banner_url || club.banner_path)}
                                                     alt={`${club.name} Banner`}
+                                                    loading="lazy"
+                                                    decoding="async"
                                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                 />
                                             ) : (
@@ -165,6 +167,10 @@ const ClubList = () => {
                                                 <img
                                                     src={getImageUrl(club.logo_url || club.logo_path)}
                                                     alt={club.name}
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                    width="56"
+                                                    height="56"
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (

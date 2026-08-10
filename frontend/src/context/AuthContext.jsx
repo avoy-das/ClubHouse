@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import authService from '../services/authService';
 
 const AuthContext = createContext(null);
@@ -6,8 +6,12 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
     const [user, setUser]       = useState(null);
     const [loading, setLoading] = useState(true);
+    const fetchedRef            = useRef(false);
 
     useEffect(() => {
+        if (fetchedRef.current) return;
+        fetchedRef.current = true;
+
         const loadUser = async () => {
             if (authService.isLoggedIn()) {
                 try {

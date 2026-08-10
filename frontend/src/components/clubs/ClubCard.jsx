@@ -14,7 +14,7 @@ const ClubCard = ({ club }) => {
                     <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xl overflow-hidden border">
                             {logoUrl ? (
-                                <img src={logoUrl} alt={club.name} className="w-full h-full object-cover" />
+                                <img src={logoUrl} alt={club.name} loading="lazy" decoding="async" width="48" height="48" className="w-full h-full object-cover" />
                             ) : (
                                 club.name?.substring(0, 2).toUpperCase() || 'CH'
                             )}

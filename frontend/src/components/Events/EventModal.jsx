@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
-import { AlertTriangle, Calendar, Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Calendar, Image as ImageIcon, Plus, Trash2, CalendarSearch } from 'lucide-react';
 import { formatForDatetimeLocal, datetimeLocalToISO, formatDisplayDateTime } from '../../utils/dateUtils';
 import { getImageUrl } from '../../utils/imageUrl';
 import compressImage from '../../utils/imageCompressor';
@@ -80,7 +80,9 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     })
                     .catch(() => {
                         setClubs([]);
-                        setNoExecutiveClubs(true);
+                        if (!defaultClubId) {
+                            setNoExecutiveClubs(true);
+                        }
                     })
                     .finally(() => setFetchingClubs(false));
             }
@@ -193,7 +195,11 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
             }
             onClose();
         } catch (err) {
-            const msg = err.response?.data?.message || (isEdit ? 'Failed to update event.' : 'Failed to create event.');
+            let msg = err.response?.data?.message || (isEdit ? 'Failed to update event.' : 'Failed to create event.');
+            if (err.response?.data?.errors) {
+                const firstErr = Object.values(err.response.data.errors).flat()[0];
+                if (firstErr) msg = firstErr;
+            }
             setError(msg);
         } finally {
             setLoading(false);
@@ -423,8 +429,8 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                             className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-between transition-colors"
                         >
                             <span className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-blue-600" />
-                                {showSchedule ? 'Hide Scheduled Events' : '📋 View Scheduled Events (Conflict Check)'}
+                                <CalendarSearch className="w-4 h-4 text-blue-600" />
+                                {showSchedule ? 'Hide Scheduled Events' : 'View Scheduled Events (Conflict Check)'}
                             </span>
                             <span className="text-xs text-slate-400 font-bold">{showSchedule ? '▲' : '▼'}</span>
                         </button>
@@ -488,7 +494,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                         <div className="flex items-center justify-between">
                             <div>
                                 <label className="block text-xs font-bold text-[#0b1c30]">Custom Registration Form Fields</label>
-                                <p className="text-[11px] text-slate-500">Add custom text, selection, or file upload questions for event attendees.</p>
+                                <p className="text-[11px] text-slate-500">Add custom text, selection, or checkbox questions for event attendees.</p>
                             </div>
                             <button
                                 type="button"
@@ -540,7 +546,6 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                                     <option value="text">Short Text</option>
                                                     <option value="textarea">Long Text / Paragraph</option>
                                                     <option value="select">Dropdown Options</option>
-                                                    <option value="file">File Upload (Document/Image)</option>
                                                     <option value="checkbox">Confirmation Checkbox</option>
                                                 </select>
                                             </div>

@@ -4,10 +4,11 @@ import MainLayout from '../../layouts/MainLayout';
 import notificationService from '../../services/notificationService';
 import announcementService from '../../services/announcementService';
 import { getNotificationTargetUrl, isAnnouncementNotification } from '../../utils/notificationUtils';
+import { getImageUrl } from '../../utils/imageUrl';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import Modal from '../../components/ui/Modal';
-import { Bell, CheckCheck, ArrowRight, Check, Megaphone, Calendar, User, Building2 } from 'lucide-react';
+import { Bell, CheckCheck, ArrowRight, Check, Megaphone, Calendar, User, Building2, Paperclip, ExternalLink } from 'lucide-react';
 
 const NotificationList = () => {
     const navigate = useNavigate();
@@ -224,12 +225,14 @@ const NotificationList = () => {
                             {selectedAnnouncement.attachment_path && (
                                 <div className="pt-2 border-t border-slate-200">
                                     <a
-                                        href={`/storage/${selectedAnnouncement.attachment_path}`}
+                                        href={getImageUrl(selectedAnnouncement.attachment_url || selectedAnnouncement.attachment_path)}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold border border-blue-200 transition-colors shadow-2xs"
                                     >
-                                        📄 Attachment: {selectedAnnouncement.attachment_name || 'View Attachment'} ↗
+                                        <Paperclip className="w-3.5 h-3.5 text-blue-600 inline shrink-0" />
+                                        <span>Attachment: {selectedAnnouncement.attachment_name || 'View Attachment'}</span>
+                                        <ExternalLink className="w-3.5 h-3.5 inline shrink-0" />
                                     </a>
                                 </div>
                             )}

@@ -14,16 +14,20 @@ class UpdateRecruitmentNoticeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title'           => 'sometimes|nullable|string|max:255',
-            'session'         => 'sometimes|required|string|max:100',
-            'target_sessions' => 'nullable|array',
+            'title'             => 'sometimes|nullable|string|max:255',
+            'session'           => 'sometimes|required|string|max:100',
+            'target_sessions'   => 'nullable|array',
             'target_sessions.*' => 'integer|min:0|max:99',
-            'description'     => 'nullable|string',
-            'requirements'    => 'nullable|string',
-            'custom_fields'   => 'nullable|array',
-            'opens_at'        => 'sometimes|required|date',
-            'closes_at'       => 'sometimes|required|date',
-            'status'          => 'sometimes|in:draft,open,closed',
+            'description'       => 'nullable|string',
+            'requirements'      => 'nullable|string',
+            'custom_fields'     => 'nullable|array',
+            'pipeline_template' => 'nullable|string|in:simple,standard,multi_stage,custom',
+            'pipeline_stages'   => 'nullable|array|min:1|max:5',
+            'pipeline_stages.*.key'   => 'required_with:pipeline_stages|string|max:50',
+            'pipeline_stages.*.label' => 'required_with:pipeline_stages|string|max:100',
+            'opens_at'          => 'sometimes|required|date',
+            'closes_at'         => 'sometimes|required|date',
+            'status'            => 'sometimes|in:draft,open,closed',
         ];
     }
 }

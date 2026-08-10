@@ -31,7 +31,7 @@ class StoreEventRequest extends FormRequest
             'visibility'     => ['required', 'in:public,members_only'],
             'location_type'  => ['required', 'in:physical,online'],
             'location_value' => ['nullable', 'string', 'max:500'],
-            'starts_at'      => ['required', 'date', 'after:now'],
+            'starts_at'      => ['required', 'date', 'after:now - 10 minutes'],
             'ends_at'        => ['required', 'date', 'after:starts_at'],
             'capacity'       => ['required', 'integer', 'min:1'],
             'custom_fields'  => ['nullable', 'array'],

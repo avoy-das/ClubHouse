@@ -166,7 +166,7 @@ class EventController extends Controller
         $user = Auth::user();
         $data = $request->validated();
 
-        // Must be exec of the target club (admin who is not club exec at the same time cannot create event)
+        // Must be exec of the target club
         if (!$this->isClubExec($user->id, (int)$data['club_id'])) {
             return response()->json([
                 'message' => 'Only club executives can create events.',
@@ -276,17 +276,19 @@ class EventController extends Controller
         $event->load(['club:id,name', 'creator:id,name'])
               ->loadCount('registrations');
 
-        $isRegistered = \App\Models\EventRegistration::where('event_id', $event->id)
+        $userRegistration = \App\Models\EventRegistration::where('event_id', $event->id)
             ->where('user_id', $user->id)
-            ->exists();
+            ->first();
+        $isRegistered = (bool)$userRegistration;
 
         $canManage = $user->is_admin || $event->created_by === $user->id || $this->isExec($user->id, $event->club_id);
 
         return response()->json([
-            'event'           => $event,
-            'spots_remaining' => $event->spotsRemaining(),
-            'is_registered'   => $isRegistered,
-            'can_manage'      => $canManage,
+            'event'             => $event,
+            'spots_remaining'   => $event->spotsRemaining(),
+            'is_registered'     => $isRegistered,
+            'user_registration' => $userRegistration,
+            'can_manage'        => $canManage,
         ]);
     }
 
@@ -615,21 +617,41 @@ class EventController extends Controller
     {
         $now = now();
 
-        // C. Drafted event automatically goes to cancelled if set time is reached without being published
-        Event::where('status', 'draft')
+        // Check if there are any events that need updating to avoid write locks on every GET request.
+        $hasDraftsToCancel = Event::where('status', 'draft')
             ->where('starts_at', '<=', $now)
-            ->update(['status' => 'cancelled']);
+            ->exists();
 
-        // B. Published event automatically goes to ongoing when set time starts
-        Event::where('status', 'published')
+        $hasPublishedToOngoing = Event::where('status', 'published')
             ->where('starts_at', '<=', $now)
             ->where('ends_at', '>', $now)
-            ->update(['status' => 'ongoing']);
+            ->exists();
+
+        $hasOngoingToComplete = Event::whereIn('status', ['published', 'ongoing'])
+            ->where('ends_at', '<=', $now)
+            ->exists();
+
+        // C. Drafted event automatically goes to cancelled if set time is reached without being published
+        if ($hasDraftsToCancel) {
+            Event::where('status', 'draft')
+                ->where('starts_at', '<=', $now)
+                ->update(['status' => 'cancelled']);
+        }
+
+        // B. Published event automatically goes to ongoing when set time starts
+        if ($hasPublishedToOngoing) {
+            Event::where('status', 'published')
+                ->where('starts_at', '<=', $now)
+                ->where('ends_at', '>', $now)
+                ->update(['status' => 'ongoing']);
+        }
 
         // B. Published or ongoing event automatically goes to completed when set time ends
-        Event::whereIn('status', ['published', 'ongoing'])
-            ->where('ends_at', '<=', $now)
-            ->update(['status' => 'completed']);
+        if ($hasOngoingToComplete) {
+            Event::whereIn('status', ['published', 'ongoing'])
+                ->where('ends_at', '<=', $now)
+                ->update(['status' => 'completed']);
+        }
     }
 
     /**

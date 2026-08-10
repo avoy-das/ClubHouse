@@ -6,14 +6,14 @@
 
 ## 1. Database Architecture & Migrations
 
-The database comprises 17 primary domain tables managed through 41 Laravel migrations.
+The database comprises 17 primary domain tables managed through 50 Laravel migrations.
 
 ### Table Schema Summary
 
 1. **`users`**: Platform users (students and admins).
-   - Columns: `id`, `name`, `student_id`, `email`, `password`, `department`, `phone`, `is_admin` (boolean), `deleted_at`, `timestamps`.
+   - Columns: `id`, `name`, `student_id`, `email`, `password`, `department`, `phone`, `session`, `is_admin` (boolean), `deleted_at`, `timestamps`.
 2. **`clubs`**: University clubs.
-   - Columns: `id`, `name`, `slug` (unique), `description`, `category`, `logo_path`, `status` (`pending`, `approved`, `rejected`, `suspended`), `permission_doc_path`, `created_by` (FK -> `users`), `timestamps`.
+   - Columns: `id`, `name`, `slug` (unique), `description`, `category`, `logo_path`, `banner_path`, `advisor_name`, `advisor_email`, `advisor_phone`, `status` (`pending`, `approved`, `rejected`, `suspended`), `permission_doc_path`, `created_by` (FK -> `users`), `timestamps`.
 3. **`club_positions`**: Executive & member roles defined per club.
    - Columns: `id`, `club_id` (FK), `title`, `can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`, `is_default`, `is_executive`, `timestamps`.
 4. **`club_members`**: Club membership links.
@@ -23,15 +23,15 @@ The database comprises 17 primary domain tables managed through 41 Laravel migra
 6. **`membership_requests`**: Student join requests for clubs.
    - Columns: `id`, `club_id` (FK), `user_id` (FK), `status` (`pending`, `approved`, `rejected`), `message`, `reviewed_by` (FK -> `users`), `reviewed_at`, `timestamps`.
 7. **`events`**: Club hosted events.
-   - Columns: `id`, `club_id` (FK), `title`, `slug` (unique), `description`, `location`, `start_time`, `end_time`, `capacity`, `is_members_only` (boolean), `status` (`draft`, `published`, `cancelled`, `completed`), `created_by` (FK -> `users`), `timestamps`.
+   - Columns: `id`, `club_id` (FK), `title`, `slug` (unique), `description`, `location`, `start_time`, `end_time`, `capacity`, `is_members_only` (boolean), `status` (`draft`, `published`, `cancelled`, `completed`), `banner_path`, `custom_fields` (JSON), `created_by` (FK -> `users`), `timestamps`.
 8. **`event_registrations`**: Student event bookings and attendance records.
-   - Columns: `id`, `event_id` (FK), `user_id` (FK), `registered_at`, `attended` (boolean), `attended_at`, `timestamps`. Unique `(event_id, user_id)`.
+   - Columns: `id`, `event_id` (FK), `user_id` (FK), `answers` (JSON), `registered_at`, `attended` (boolean), `attended_at`, `timestamps`. Unique `(event_id, user_id)`.
 9. **`certificates`**: Attendance verification certificates.
    - Columns: `id`, `event_registration_id` (FK), `certificate_code` (unique string), `issued_at`, `file_path`, `timestamps`.
 10. **`announcements`**: Targeted announcements.
-    - Columns: `id`, `club_id` (FK, nullable for global), `title`, `content`, `target_type` (`all`, `club_members`, `executive_only`, `specific_users`), `is_pinned` (boolean), `created_by` (FK -> `users`), `timestamps`.
+    - Columns: `id`, `club_id` (FK, nullable for global), `title`, `content`, `target_type` (`all`, `club_members`, `executive_only`, `specific_users`), `attachment_path`, `sender_role`, `is_pinned` (boolean), `created_by` (FK -> `users`), `timestamps`.
 11. **`recruitment_notices`**: Club recruitment posts.
-    - Columns: `id`, `club_id` (FK), `title`, `description`, `session`, `start_date`, `end_date`, `status` (`draft`, `open`, `closed`), `custom_fields` (JSON), `timestamps`.
+    - Columns: `id`, `club_id` (FK), `title`, `description`, `session`, `target_sessions` (JSON), `start_date`, `end_date`, `status` (`draft`, `open`, `closed`), `custom_fields` (JSON), `timestamps`.
 12. **`recruitment_applications`**: Applications submitted by students.
     - Columns: `id`, `recruitment_notice_id` (FK), `user_id` (FK), `answers` (JSON), `attachment_path`, `status` (`pending`, `accepted`, `rejected`), `notes`, `reviewed_by` (FK -> `users`), `reviewed_at`, `timestamps`.
 13. **`event_feedback`**: Student event reviews.
@@ -39,7 +39,7 @@ The database comprises 17 primary domain tables managed through 41 Laravel migra
 14. **`notifications`**: System notifications for users.
     - Columns: `id`, `user_id` (FK), `title`, `message`, `type`, `data` (JSON), `read_at`, `timestamps`.
 15. **`audit_logs`**: System audit trail.
-    - Columns: `id`, `user_id` (FK, nullable), `action`, `model_type`, `model_id`, `payload` (JSON), `ip_address`, `timestamps`.
+    - Columns: `id`, `user_id` (FK, nullable), `club_id` (FK, nullable), `action`, `model_type`, `model_id`, `payload` (JSON), `ip_address`, `timestamps`.
 16. **`club_galleries`**: Photo and image media uploaded for a club.
     - Columns: `id`, `club_id` (FK), `image_path`, `caption`, `uploaded_by` (FK -> `users`), `timestamps`.
 17. **`club_edit_requests`**: Proposed updates submitted by club executives requiring admin review.
@@ -76,13 +76,13 @@ The database comprises 17 primary domain tables managed through 41 Laravel migra
 
 ---
 
-## 3. Request Validation (16 Form Requests)
+## 3. Request Validation (18 Form Requests)
 
 All incoming mutation requests are validated via classes under `app/Http/Requests`:
 - `RegisterRequest`, `LoginRequest`
-- `StoreClubRequest`, `UpdateClubRequest`
+- `CreateClubRequest`, `StoreClubRequest`, `UpdateClubRequest`
 - `StoreClubPositionRequest`, `UpdateClubPositionRequest`
-- `StoreEventRequest`, `UpdateEventRequest`
+- `StoreEventRequest`, `UpdateEventRequest`, `UpdateEventStatusRequest`
 - `StoreEventFeedbackRequest`, `MarkAttendanceRequest`
 - `StoreAnnouncementRequest`, `UpdateAnnouncementRequest`
 - `StoreMembershipRequestRequest`
@@ -117,3 +117,4 @@ The [ClubMembershipService](file:///c:/Users/Popular%20Computer/ClubHouse/backen
 Global and aliased middleware are configured in [bootstrap/app.php](file:///c:/Users/Popular%20Computer/ClubHouse/backend/bootstrap/app.php):
 - `auth:sanctum`: Enforces Bearer token verification.
 - `is_admin`: Enforces global admin privilege check (`IsAdmin` middleware class).
+

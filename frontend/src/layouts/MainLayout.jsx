@@ -43,13 +43,13 @@ const MainLayout = ({ children }) => {
 
         if (user) {
             fetchUnread();
-            const interval = setInterval(fetchUnread, 30000);
+            const interval = setInterval(fetchUnread, 45000);
             return () => {
                 active = false;
                 clearInterval(interval);
             };
         }
-    }, [user, location.pathname]);
+    }, [user?.id]);
 
     const toggleSidebar = () => {
         setIsCollapsed((prev) => {

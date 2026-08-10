@@ -4,7 +4,7 @@ The RESTful API backend for the **ClubHouse** University Club Management Platfor
 
 ---
 
-## 🛠 Features & Capabilities
+## Features & Capabilities
 
 - **Sanctum Bearer Token Auth**: Registration, login, profile management, password updates, and token revocation.
 - **Dynamic Club Executive Authorization**: Flexible, club-defined positions with granular permission flags (`can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`).
@@ -19,14 +19,14 @@ The RESTful API backend for the **ClubHouse** University Club Management Platfor
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 - PHP >= 8.2 (extensions: `pdo`, `sqlite` or `pdo_mysql`, `mbstring`, `openssl`, `bcmath`, `curl`)
 - Composer >= 2.0
 
 ---
 
-## 🚀 Installation & Setup
+## Installation & Setup
 
 1. **Navigate to backend directory**:
    ```bash
@@ -59,7 +59,7 @@ The RESTful API backend for the **ClubHouse** University Club Management Platfor
 
 ---
 
-## 🧪 Testing
+## Testing
 
 Run PHPUnit tests using Artisan:
 ```bash
@@ -68,13 +68,13 @@ php artisan test
 
 ---
 
-## 📂 Key Directory Layout
+## Key Directory Layout
 
 - `app/Http/Controllers/` — 22 RESTful API controllers
-- `app/Http/Requests/` — 16 Form Request validation classes
+- `app/Http/Requests/` — 18 Form Request validation classes
 - `app/Models/` — 17 Eloquent domain models
 - `app/Observers/` — `AuditObserver.php` for action logging
 - `app/Policies/` — 7 Laravel policy authorization classes
 - `app/Services/` — Encapsulated membership business logic
-- `database/migrations/` — 41 Schema migration files
+- `database/migrations/` — 50 Schema migration files
 - `routes/api.php` — Primary RESTful API route definitions
