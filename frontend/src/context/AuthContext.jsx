@@ -18,10 +18,14 @@ export const AuthProvider = ({ children }) => {
                     const data = await authService.me();
                     setUser(data);
                 } catch {
+                    localStorage.removeItem('token');
                     setUser(null);
+                } finally {
+                    setLoading(false);
                 }
+            } else {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
         loadUser();

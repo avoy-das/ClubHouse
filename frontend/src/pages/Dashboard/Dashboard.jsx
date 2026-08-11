@@ -168,9 +168,9 @@ const Dashboard = () => {
                             <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs space-y-4">
                                 <div className="flex items-center justify-between">
                                     <h2 className="text-lg font-bold text-[#1b1c19] flex items-center gap-2 font-heading">
-                                        <Building2 className="w-5 h-5 text-[#d95e36]" /> My Clubs
+                                        <Building2 className="w-5 h-5 text-[#ba3d15]" /> My Clubs
                                     </h2>
-                                    <Link to="/clubs" className="text-xs font-bold text-[#d95e36] hover:underline flex items-center gap-1">
+                                    <Link to="/clubs" aria-label="View all clubs" className="text-xs font-bold text-[#ba3d15] hover:underline flex items-center gap-1">
                                         View All <ArrowRight className="w-3.5 h-3.5" />
                                     </Link>
                                 </div>
@@ -191,6 +191,7 @@ const Dashboard = () => {
                                             <Link
                                                 key={c.id}
                                                 to={`/clubs/${c.id}`}
+                                                aria-label={`View ${c.name} club details`}
                                                 className="p-4 rounded-xl border border-[#e4e2dd] bg-[#f5f3ee] hover:bg-[#eae8e3] transition-colors flex items-center gap-3 group"
                                             >
                                                 <div className="w-10 h-10 bg-[#1c1b1b] text-white rounded-lg flex items-center justify-center font-bold text-sm shrink-0 group-hover:scale-105 transition-transform overflow-hidden">
@@ -201,7 +202,7 @@ const Dashboard = () => {
                                                     )}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="font-bold text-xs text-[#1b1c19] truncate group-hover:text-[#d95e36] transition-colors">
+                                                    <div className="font-bold text-xs text-[#1b1c19] truncate group-hover:text-[#ba3d15] transition-colors">
                                                         {c.name}
                                                     </div>
                                                     <div className="text-[11px] text-[#615e57] capitalize">{c.pivot?.role || 'Member'}</div>
@@ -216,9 +217,9 @@ const Dashboard = () => {
                             <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs space-y-4">
                                 <div className="flex items-center justify-between">
                                     <h2 className="text-lg font-bold text-[#1b1c19] flex items-center gap-2 font-heading">
-                                        <Calendar className="w-5 h-5 text-[#d95e36]" /> Upcoming Campus Events
+                                        <Calendar className="w-5 h-5 text-[#ba3d15]" /> Upcoming Campus Events
                                     </h2>
-                                    <Link to="/events" className="text-xs font-bold text-[#d95e36] hover:underline flex items-center gap-1">
+                                    <Link to="/events" aria-label="View all events" className="text-xs font-bold text-[#ba3d15] hover:underline flex items-center gap-1">
                                         View All <ArrowRight className="w-3.5 h-3.5" />
                                     </Link>
                                 </div>
@@ -233,6 +234,7 @@ const Dashboard = () => {
                                                 <Link
                                                     key={ev.id}
                                                     to={`/events/${ev.id}`}
+                                                    aria-label={`View event details for ${ev.title}`}
                                                     className="p-3.5 rounded-xl border border-[#e4e2dd] hover:border-[#cbc6bd] hover:shadow-xs transition-all flex items-center gap-3.5 group bg-white"
                                                 >
                                                     {bannerUrl ? (
@@ -248,7 +250,7 @@ const Dashboard = () => {
                                                         <h3 className="text-sm font-bold text-[#1b1c19] truncate group-hover:text-[#2563eb] transition-colors">{ev.title}</h3>
                                                         <p className="text-xs text-[#615e57] line-clamp-1">{ev.description || 'No description provided.'}</p>
                                                         <div className="flex items-center gap-2 text-[11px] text-[#615e57] pt-0.5 flex-wrap">
-                                                            <span className="font-semibold text-[#d95e36]">
+                                                            <span className="font-semibold text-[#ba3d15]">
                                                                 {formatDisplayDateTime(ev.starts_at || ev.start_time)}
                                                             </span>
                                                             {ev.location && (
@@ -285,7 +287,7 @@ const Dashboard = () => {
                             <div className="bg-white rounded-2xl border border-[#e4e2dd] p-6 shadow-xs">
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className="text-base font-bold text-[#1b1c19] flex items-center gap-2 font-heading">
-                                        <Bell className="w-5 h-5 text-[#d95e36]" /> Notifications
+                                        <Bell className="w-5 h-5 text-[#ba3d15]" /> Notifications
                                     </h2>
                                     {unreadCount > 0 && (
                                         <span className="bg-[#ba1a1a] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -322,7 +324,8 @@ const Dashboard = () => {
                                         })}
                                         <Link
                                             to="/notifications"
-                                            className="block text-center text-xs font-bold text-[#d95e36] hover:underline pt-2"
+                                            aria-label="View all notifications"
+                                            className="block text-center text-xs font-bold text-[#ba3d15] hover:underline pt-2"
                                         >
                                             View All Notifications &rarr;
                                         </Link>

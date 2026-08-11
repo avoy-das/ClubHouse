@@ -533,7 +533,6 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                                     value={field.label || ''}
                                                     onChange={(e) => updateCustomField(idx, 'label', e.target.value)}
                                                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 bg-white"
-                                                    required
                                                 />
                                             </div>
 

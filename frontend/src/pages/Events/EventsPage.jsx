@@ -142,8 +142,9 @@ const EventsPage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 {/* Search */}
                 <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Search Event</label>
+                    <label htmlFor="events-search-input" className="block text-xs font-medium text-slate-600 mb-1">Search Event</label>
                     <input
+                        id="events-search-input"
                         type="text"
                         placeholder="Search by event title..."
                         value={search}
@@ -154,10 +155,12 @@ const EventsPage = () => {
 
                 {/* Club Filter */}
                 <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Club</label>
+                    <label htmlFor="events-club-select" className="block text-xs font-medium text-slate-600 mb-1">Club</label>
                     <select
+                        id="events-club-select"
                         value={clubId}
                         onChange={handleClubChange}
+                        aria-label="Filter events by club"
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-slate-50"
                     >
                         <option value="">All Clubs</option>
@@ -171,10 +174,12 @@ const EventsPage = () => {
 
                 {/* Date Preset */}
                 <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Date</label>
+                    <label htmlFor="events-date-select" className="block text-xs font-medium text-slate-600 mb-1">Date</label>
                     <select
+                        id="events-date-select"
                         value={datePreset}
                         onChange={handleDatePresetChange}
+                        aria-label="Filter events by date"
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-slate-50"
                     >
                         <option value="">All Dates</option>
@@ -187,10 +192,12 @@ const EventsPage = () => {
 
                 {/* Status */}
                 <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+                    <label htmlFor="events-status-select" className="block text-xs font-medium text-slate-600 mb-1">Status</label>
                     <select
+                        id="events-status-select"
                         value={statusFilter}
                         onChange={handleStatusChange}
+                        aria-label="Filter events by status"
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-slate-50"
                     >
                         <option value="">All Statuses</option>
@@ -222,12 +229,12 @@ const EventsPage = () => {
                             <svg className="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            <h3 className="text-base font-semibold text-slate-700">No events match your filters</h3>
+                            <h2 className="text-base font-semibold text-slate-700">No events match your filters</h2>
                             <p className="text-slate-400 text-sm mt-1">Try resetting or broadening your filter criteria.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {events.map(event => {
+                            {events.map((event, index) => {
                                 const isFull = event.capacity !== null && event.registrations_count >= event.capacity;
                                 const formattedStatus = event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Published';
 
@@ -243,6 +250,9 @@ const EventsPage = () => {
                                                     <img
                                                         src={getImageUrl(event.banner_url || event.banner_path)}
                                                         alt={event.title}
+                                                        loading={index === 0 ? 'eager' : 'lazy'}
+                                                        {...(index === 0 ? { fetchpriority: 'high' } : {})}
+                                                        decoding="async"
                                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                     />
                                                 </div>
@@ -263,9 +273,9 @@ const EventsPage = () => {
                                                 </div>
                                             </div>
 
-                                            <h3 className="font-bold text-slate-900 text-lg leading-snug mb-2 line-clamp-2">
+                                            <h2 className="font-bold text-slate-900 text-lg leading-snug mb-2 line-clamp-2">
                                                 {event.title}
-                                            </h3>
+                                            </h2>
 
                                             <div className="space-y-1.5 text-xs text-slate-500 mb-4">
                                                 <div className="flex items-center gap-2">
@@ -289,7 +299,7 @@ const EventsPage = () => {
                                         <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                                             {event.capacity !== null ? (
                                                 isFull ? (
-                                                    <span className="text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                                                    <span className="text-red-800 font-semibold bg-red-50 px-2 py-0.5 rounded border border-red-100">
                                                         Fully Booked
                                                     </span>
                                                 ) : (
@@ -298,7 +308,7 @@ const EventsPage = () => {
                                                     </span>
                                                 )
                                             ) : (
-                                                <span className="text-emerald-600 font-medium">Unlimited capacity</span>
+                                                <span className="text-emerald-800 font-medium">Unlimited capacity</span>
                                             )}
 
                                             <span className="text-indigo-600 font-medium hover:underline flex items-center gap-1">

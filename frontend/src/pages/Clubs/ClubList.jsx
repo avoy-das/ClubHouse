@@ -108,16 +108,21 @@ const ClubList = () => {
                     />
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 </div>
-                <select
-                    value={category}
-                    onChange={e => setCategory(e.target.value)}
-                    className="px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] bg-white text-[#0b1c30]"
-                >
-                    <option value="">All Categories</option>
-                    {categories.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                    ))}
-                </select>
+                <div>
+                    <label htmlFor="category-select" className="sr-only">Filter clubs by category</label>
+                    <select
+                        id="category-select"
+                        value={category}
+                        onChange={e => setCategory(e.target.value)}
+                        aria-label="Filter clubs by category"
+                        className="px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] bg-white text-[#0b1c30]"
+                    >
+                        <option value="">All Categories</option>
+                        {categories.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             {/* States */}
@@ -137,7 +142,7 @@ const ClubList = () => {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filtered.map(club => (
+                            {filtered.map((club, index) => (
                                 <div
                                     key={club.id}
                                     onClick={() => navigate(`/clubs/${club.id}`)}
@@ -150,7 +155,8 @@ const ClubList = () => {
                                                 <img
                                                     src={getImageUrl(club.banner_url || club.banner_path)}
                                                     alt={`${club.name} Banner`}
-                                                    loading="lazy"
+                                                    loading={index === 0 ? 'eager' : 'lazy'}
+                                                    {...(index === 0 ? { fetchpriority: 'high' } : {})}
                                                     decoding="async"
                                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                 />
@@ -197,9 +203,9 @@ const ClubList = () => {
                                             )}
 
                                             <div className="flex items-start justify-between gap-2 mb-1 pr-14">
-                                                <h3 className="font-bold text-[#0b1c30] text-base leading-tight group-hover:text-blue-600 transition-colors">
+                                                <h2 className="font-bold text-[#0b1c30] text-base leading-tight group-hover:text-blue-600 transition-colors">
                                                     {club.name}
-                                                </h3>
+                                                </h2>
                                             </div>
 
                                             <div className="mb-2">
