@@ -25,7 +25,8 @@ import {
     Briefcase,
     Crown,
     ArrowUpDown,
-    CheckCircle2
+    CheckCircle2,
+    Lock
 } from 'lucide-react';
 
 const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
@@ -312,6 +313,16 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
 
             {loading ? (
                 <LoadingSpinner />
+            ) : !myMembership && !isSystemAdmin ? (
+                <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-xs space-y-3">
+                    <div className="w-12 h-12 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center mx-auto">
+                        <Lock className="w-6 h-6 text-slate-400" />
+                    </div>
+                    <h3 className="text-base font-bold text-[#0b1c30]">Member Directory Restricted</h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                        You must be an active member or affiliated with this club to view the full committee roster and general members directory.
+                    </p>
+                </div>
             ) : (
                 <>
                     {/* SECTION 1 — CLUB COMMITTEE */}
