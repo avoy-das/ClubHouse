@@ -29,6 +29,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Support\Facades\RateLimiter::for('login', function (\Illuminate\Http\Request $request) {
+            $email = strtolower($request->input('email', ''));
+            return [
+                \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($email . '|' . $request->ip()),
+                \Illuminate\Cache\RateLimiting\Limit::perMinute(30)->by($request->ip()),
+            ];
+        });
+
+        \Illuminate\Support\Facades\RateLimiter::for('register', function (\Illuminate\Http\Request $request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(3)->by($request->ip());
+        });
+
+        \Illuminate\Support\Facades\RateLimiter::for('change-password', function (\Illuminate\Http\Request $request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->user()?->id ?: $request->ip());
+        });
+
         // Define explicit morph map for stable audit target_type strings across class refactors
         Relation::morphMap([
             'Club'                   => Club::class,

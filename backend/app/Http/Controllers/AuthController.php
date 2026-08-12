@@ -115,7 +115,7 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
-            'new_password'     => ['required', 'string', 'min:8', 'confirmed'],
+            'new_password'     => ['required', 'string', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers()],
         ]);
 
         if (!Hash::check($validated['current_password'], $user->password)) {
@@ -127,6 +127,9 @@ class AuthController extends Controller
         $user->update([
             'password' => \Illuminate\Support\Facades\Hash::make($validated['new_password']),
         ]);
+
+        $user->tokens()->delete();
+        $newToken = $user->createToken('auth_token')->plainTextToken;
 
         AuditService::log('auth.password.changed', $user, [], $user->id);
 
@@ -141,6 +144,21 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Password updated successfully.',
+            'token'   => $newToken,
+        ]);
+    }
+
+    public function logoutAll(): JsonResponse
+    {
+        $user = auth()->user();
+        $user->tokens()->delete();
+
+        AuditService::log('auth.logout_all', $user, [
+            'ip' => request()->ip(),
+        ], $user->id);
+
+        return response()->json([
+            'message' => 'Logged out of all devices successfully.',
         ]);
     }
 

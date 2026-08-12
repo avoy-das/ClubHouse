@@ -357,7 +357,9 @@ class ClubController extends Controller
         $user = $request->user();
         $q = trim($request->input('q', ''));
 
-        $membersQuery = ClubMember::where('status', 'active')
+        $membersQuery = ClubMember::where(function ($q) {
+                $q->where('status', 'active')->orWhereNull('status');
+            })
             ->with([
                 'user:id,name,student_id,email,department,phone,session',
                 'club:id,name',

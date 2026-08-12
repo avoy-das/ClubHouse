@@ -24,8 +24,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\SearchController;
 
 // Public
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login',    [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
+Route::post('/login',    [AuthController::class, 'login'])->middleware('throttle:login');
 Route::get('/clubs',     [ClubController::class, 'index']);
 Route::get('/clubs/{club}', [ClubController::class, 'show'])->where('club', '[0-9]+');
 
@@ -33,17 +33,16 @@ Route::get('/clubs/{club}', [ClubController::class, 'show'])->where('club', '[0-
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout',               [AuthController::class, 'logout']);
+    Route::post('/logout-all',           [AuthController::class, 'logoutAll']);
     Route::get('/me',                    [AuthController::class, 'me']);
     Route::put('/me',                    [AuthController::class, 'updateProfile']);
-    Route::post('/me/change-password',   [AuthController::class, 'changePassword']);
+    Route::post('/me/change-password',   [AuthController::class, 'changePassword'])->middleware('throttle:change-password');
     Route::get('/me/memberships',        [AuthController::class, 'myMemberships']);
     Route::get('/dashboard',             [DashboardController::class, 'index']);
     Route::get('/search',                SearchController::class);
 
     // Clubs — authenticated user & executive actions
     Route::get('/clubs/executive',                   [ClubController::class, 'executiveClubs']);
-    Route::get('/clubs',                             [ClubController::class, 'index']);
-    Route::get('/clubs/{club}',                      [ClubController::class, 'show'])->where('club', '[0-9]+');
     Route::get('/clubs/{club}/members',               [ClubController::class, 'members']);
     Route::post('/clubs',                            [ClubController::class, 'store']);
     Route::put('/clubs/{club}',                       [ClubController::class, 'update']);
@@ -91,6 +90,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/clubs/{club}/suspend', [ClubController::class, 'suspend']);
         Route::post('/admin/clubs/{club}/activate', [ClubController::class, 'activate']);
 
+        // Legacy / non-prefixed admin club action aliases
+        Route::post('/clubs/{club}/approve', [ClubController::class, 'approve']);
+        Route::post('/clubs/{club}/reject',  [ClubController::class, 'reject']);
+        Route::post('/clubs/{club}/suspend', [ClubController::class, 'suspend']);
+        Route::post('/clubs/{club}/activate', [ClubController::class, 'activate']);
+
         Route::get('/admin/club-edit-requests',                            [ClubEditRequestController::class, 'indexAdmin']);
         Route::post('/admin/club-edit-requests/{clubEditRequest}/approve', [ClubEditRequestController::class, 'approve']);
         Route::post('/admin/club-edit-requests/{clubEditRequest}/reject',  [ClubEditRequestController::class, 'reject']);
@@ -98,13 +103,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/reports/clubs/{club}', [ReportController::class, 'clubReport']);
 
     });
-
-    // Clubs
-    Route::apiResource('clubs', ClubController::class)->except(['index', 'show']);
-    Route::post('/clubs/{club}/approve', [ClubController::class, 'approve'])->middleware('is_admin');
-    Route::post('/clubs/{club}/reject',  [ClubController::class, 'reject'])->middleware('is_admin');
-    Route::post('/clubs/{club}/suspend', [ClubController::class, 'suspend'])->middleware('is_admin');
-    Route::post('/clubs/{club}/activate', [ClubController::class, 'activate'])->middleware('is_admin');
 
     // Club positions (executive role catalogue per club)
     Route::apiResource('clubs.positions', ClubPositionController::class)->shallow();
@@ -121,7 +119,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/club-members/{member}/positions/{position}', [ClubMemberPositionController::class, 'destroy']);
 
     // Announcements
-    Route::post('/announcements', [AnnouncementController::class, 'storeGlobal'])->middleware('is_admin');
     Route::get('/announcements', [AnnouncementController::class, 'allAnnouncements']);
     Route::get('/announcements/creation-context', [AnnouncementController::class, 'creationContext']);
     Route::post('/announcements', [AnnouncementController::class, 'store']);
@@ -130,7 +127,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('clubs.announcements', AnnouncementController::class)->shallow();
 
     // Events
-    Route::get('/events', [EventController::class, 'index']);
     Route::apiResource('clubs.events', EventController::class)->shallow();
 
     // Certificates

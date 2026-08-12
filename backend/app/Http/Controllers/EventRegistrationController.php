@@ -35,10 +35,11 @@ class EventRegistrationController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->query('search');
-            $query->whereHas('user', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('student_id', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+            $escaped = '%' . addcslashes($search, '%_\\') . '%';
+            $query->whereHas('user', function ($q) use ($escaped) {
+                $q->where('name', 'like', $escaped)
+                  ->orWhere('student_id', 'like', $escaped)
+                  ->orWhere('email', 'like', $escaped);
             });
         }
 
@@ -93,11 +94,22 @@ class EventRegistrationController extends Controller
             $answersData = [];
         }
 
+        $allowedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'];
+
+        // Validate uploaded files
+        $request->validate([
+            'answers_files.*' => 'file|max:5120|mimes:pdf,doc,docx,jpg,jpeg,png,webp',
+        ]);
+
         if ($request->hasFile('answers_files')) {
             $uploadedFiles = $request->file('answers_files');
             if (is_array($uploadedFiles)) {
                 foreach ($uploadedFiles as $key => $file) {
                     if ($file && $file->isValid()) {
+                        $ext = strtolower($file->getClientOriginalExtension());
+                        if (!in_array($ext, $allowedExtensions, true)) {
+                            return response()->json(['message' => 'Invalid file format uploaded.'], 422);
+                        }
                         $path = $file->store('event_answers', 'public');
                         $answersData['custom_files'][$key] = [
                             'name' => $file->getClientOriginalName(),
@@ -111,6 +123,10 @@ class EventRegistrationController extends Controller
 
         foreach ($request->allFiles() as $key => $file) {
             if ($key !== 'answers_files' && !is_array($file) && $file->isValid()) {
+                $ext = strtolower($file->getClientOriginalExtension());
+                if (!in_array($ext, $allowedExtensions, true) || $file->getSize() > 5242880) {
+                    return response()->json(['message' => 'Invalid file format or file size exceeded (max 5MB).'], 422);
+                }
                 $path = $file->store('event_answers', 'public');
                 $answersData['custom_files'][$key] = [
                     'name' => $file->getClientOriginalName(),

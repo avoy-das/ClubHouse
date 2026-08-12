@@ -33,9 +33,11 @@ class CertificateController extends Controller
         }
 
         $event = $certificate->registration->event;
-        $userName = $certificate->registration->user->name;
-        $studentId = $certificate->registration->user->student_id;
-        $clubName = $event->club->name ?? 'ClubHouse';
+        $userName  = htmlspecialchars($certificate->registration->user->name, ENT_QUOTES, 'UTF-8');
+        $studentId = htmlspecialchars($certificate->registration->user->student_id, ENT_QUOTES, 'UTF-8');
+        $clubName  = htmlspecialchars($event->club->name ?? 'ClubHouse', ENT_QUOTES, 'UTF-8');
+        $eventTitle = htmlspecialchars($event->title, ENT_QUOTES, 'UTF-8');
+        $certNumber = htmlspecialchars($certificate->certificate_number, ENT_QUOTES, 'UTF-8');
 
         // Generate dynamic HTML certificate for instant viewing/printing/downloading
         $html = "
@@ -43,7 +45,7 @@ class CertificateController extends Controller
         <html>
         <head>
             <meta charset='utf-8'>
-            <title>Certificate of Participation - {$certificate->certificate_number}</title>
+            <title>Certificate of Participation - {$certNumber}</title>
             <style>
                 body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f3f4f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
                 .cert-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 8px double #2563eb; width: 750px; text-align: center; position: relative; }
@@ -64,14 +66,14 @@ class CertificateController extends Controller
                 <div class='recipient'>{$userName}</div>
                 <div class='student-id'>Student ID: {$studentId}</div>
                 <div class='text'>
-                    for successfully participating in the event <span class='event-title'>\"{$event->title}\"</span> 
+                    for successfully participating in the event <span class='event-title'>\"{$eventTitle}\"</span> 
                     organized by <strong>{$clubName}</strong> on " . $event->start_at->format('F j, Y') . ".
                 </div>
                 <div class='footer'>
                     <div>
                         <strong>Issued Date:</strong> " . $certificate->issued_at->format('M d, Y') . "
                     </div>
-                    <div class='cert-no'>No: {$certificate->certificate_number}</div>
+                    <div class='cert-no'>No: {$certNumber}</div>
                 </div>
             </div>
             <script>window.onload = function() { window.print(); };</script>
@@ -81,6 +83,7 @@ class CertificateController extends Controller
 
         return response($html, 200, [
             'Content-Type' => 'text/html',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:;",
         ]);
     }
 }

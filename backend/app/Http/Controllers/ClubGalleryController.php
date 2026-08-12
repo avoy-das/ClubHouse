@@ -22,12 +22,14 @@ class ClubGalleryController extends Controller
         }
 
         $request->validate([
-            'image_path' => 'required|string|max:255',
-            'caption'    => 'nullable|string|max:255',
+            'image'   => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'caption' => 'nullable|string|max:255',
         ]);
 
+        $imagePath = $request->file('image')->store('clubs/galleries', 'public');
+
         $item = $club->galleries()->create([
-            'image_path'  => $request->input('image_path'),
+            'image_path'  => $imagePath,
             'caption'     => $request->input('caption'),
             'uploaded_by' => $user->id,
         ]);

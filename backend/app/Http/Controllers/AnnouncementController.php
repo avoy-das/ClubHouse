@@ -154,12 +154,17 @@ class AnnouncementController extends Controller
         $execClubs = $user->getExecutiveClubs();
         $canCreate = $user->is_admin || $execClubs->count() > 0;
 
+        // Batch load user membership records for all executive clubs to eliminate N+1 queries
+        $execClubIds = $execClubs->pluck('id')->toArray();
+        $membershipsByClub = ClubMember::whereIn('club_id', $execClubIds)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->get()
+            ->keyBy('club_id');
+
         // Enhance exec_clubs with user's specific role title in each club
-        $enhancedExecClubs = $execClubs->map(function ($club) use ($user) {
-            $member = ClubMember::where('club_id', $club->id)
-                ->where('user_id', $user->id)
-                ->where('status', 'active')
-                ->first();
+        $enhancedExecClubs = $execClubs->map(function ($club) use ($membershipsByClub) {
+            $member = $membershipsByClub->get($club->id);
 
             $roleLabel = $member ? match (strtolower($member->role ?? 'member')) {
                 'president'      => 'President',
@@ -201,7 +206,7 @@ class AnnouncementController extends Controller
 
         $validated = $request->validate([
             'title'          => 'required|string|max:255',
-            'body'           => 'required|string',
+            'body'           => 'required|string|max:20000',
             'is_pinned'      => 'boolean',
             'from_identity'  => 'nullable|string', // 'admin' or 'club_{id}'
             'from_type'      => 'required_without:from_identity|string|in:admin,club',
@@ -209,7 +214,7 @@ class AnnouncementController extends Controller
             'target_type'    => 'required|string|in:all_users,specific_user,club_executives,club_members,specific_club_member,public',
             'target_club_id' => 'nullable|exists:clubs,id',
             'target_user_id' => 'nullable|exists:users,id',
-            'attachment'     => 'nullable|file|max:10240', // 10MB file limit
+            'attachment'     => 'nullable|file|max:10240|mimes:pdf,doc,docx,xls,xlsx,csv,txt,jpg,jpeg,png,webp', // 10MB file limit
         ]);
 
         if (!empty($validated['from_identity'])) {
@@ -384,17 +389,15 @@ class AnnouncementController extends Controller
         $recipientUserIds = array_unique($recipientUserIds);
         $announcement->recipients()->syncWithoutDetaching($recipientUserIds);
 
-        // Notify recipients
-        foreach ($recipientUserIds as $recipientId) {
-            NotificationService::notifyUser(
-                $recipientId,
-                'announcement_posted',
-                'New Announcement',
-                "New announcement from {$senderRoleLabel}: '{$announcement->title}'",
-                Announcement::class,
-                $announcement->id
-            );
-        }
+        // Notify recipients in a single bulk insertion query
+        NotificationService::notifyUserIds(
+            $recipientUserIds,
+            'announcement_posted',
+            'New Announcement',
+            "New announcement from {$senderRoleLabel}: '{$announcement->title}'",
+            Announcement::class,
+            $announcement->id
+        );
 
         return response()->json($announcement->load(['club', 'author', 'targetClub', 'targetUser']), 201);
     }

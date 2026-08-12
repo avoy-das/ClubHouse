@@ -30,6 +30,7 @@ class SearchController extends Controller
                 $q->where('name', 'LIKE', $escaped)
                   ->orWhere('description', 'LIKE', $escaped);
             })
+            ->limit(25)
             ->get();
 
         // 2. Events (title, description)
@@ -41,6 +42,7 @@ class SearchController extends Controller
                   ->orWhere('description', 'LIKE', $escaped);
             })
             ->latest()
+            ->limit(25)
             ->get();
 
         // 3. Recruitment Notices (title, description)
@@ -57,6 +59,7 @@ class SearchController extends Controller
                 $q->where('title', 'LIKE', $escaped)
                   ->orWhere('description', 'LIKE', $escaped);
             })
+            ->limit(25)
             ->get();
 
         $results = [
@@ -68,12 +71,13 @@ class SearchController extends Controller
         // 4. Members (users: name, student_id) - Admin ONLY
         if ($user && $user->is_admin) {
             $members = User::query()
+                ->select(['id', 'name', 'student_id', 'email', 'department', 'session'])
                 ->where(function ($q) use ($escaped) {
                     $q->where('name', 'LIKE', $escaped)
                       ->orWhere('student_id', 'LIKE', $escaped);
                 })
-                ->get()
-                ->makeHidden(['password', 'remember_token']);
+                ->limit(25)
+                ->get();
 
             $results['members'] = $members;
         }

@@ -19,13 +19,13 @@ class UpdateClubRequest extends FormRequest
         return [
             'name'          => 'sometimes|string|max:255|unique:clubs,name,' . $clubId,
             'category'      => 'sometimes|in:Academic,Technology,Cultural,Sports,Arts & Media,Business & Entrepreneurship,Community Service,Environment,Health & Wellness,Recreation & Hobby,Other',
-            'description'   => 'sometimes|string',
+            'description'   => 'sometimes|string|max:10000',
             'department'    => 'nullable|string|max:255',
             'contact_email' => 'sometimes|email',
             'contact_phone' => 'nullable|string|max:20',
             'logo'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'banner'        => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-            'reason'        => 'sometimes|string',
+            'reason'        => 'sometimes|string|max:2000',
         ];
     }
 }

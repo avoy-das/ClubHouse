@@ -57,12 +57,23 @@ class RecruitmentApplicationController extends Controller
             $answers = [];
         }
 
+        $allowedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'];
+
+        // Validate uploaded files
+        $request->validate([
+            'answers_files.*' => 'file|max:5120|mimes:pdf,doc,docx,jpg,jpeg,png,webp',
+        ]);
+
         // Process any uploaded custom files
         if ($request->hasFile('answers_files')) {
             $uploadedFiles = $request->file('answers_files');
             if (is_array($uploadedFiles)) {
                 foreach ($uploadedFiles as $key => $file) {
                     if ($file && $file->isValid()) {
+                        $ext = strtolower($file->getClientOriginalExtension());
+                        if (!in_array($ext, $allowedExtensions, true)) {
+                            return response()->json(['message' => 'Invalid file format uploaded.'], 422);
+                        }
                         $path = $file->store('recruitment_applications', 'public');
                         $answers['custom_files'][$key] = [
                             'name' => $file->getClientOriginalName(),
@@ -76,6 +87,10 @@ class RecruitmentApplicationController extends Controller
 
         foreach ($request->allFiles() as $key => $file) {
             if ($key !== 'answers_files' && !is_array($file) && $file->isValid()) {
+                $ext = strtolower($file->getClientOriginalExtension());
+                if (!in_array($ext, $allowedExtensions, true) || $file->getSize() > 5242880) {
+                    return response()->json(['message' => 'Invalid file format or file size exceeded (max 5MB).'], 422);
+                }
                 $path = $file->store('recruitment_applications', 'public');
                 $answers['custom_files'][$key] = [
                     'name' => $file->getClientOriginalName(),
