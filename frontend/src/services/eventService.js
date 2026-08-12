@@ -1,55 +1,75 @@
 import api from './api';
+import { getCached, invalidateCache } from './apiCache';
 
 const eventService = {
     // Get list of events with query filters
     getEvents: (params = {}) =>
         api.get('/events', { params }),
 
-    // Get single event details
+    // Get single event details (30 second TTL)
     getEvent: (id) =>
-        api.get(`/events/${id}`),
+        getCached(`events:${id}`, 30000, () => api.get(`/events/${id}`)),
 
     // Register authenticated user for an event
-    registerEvent: (id, data) =>
-        api.post(`/events/${id}/register`, data),
+    registerEvent: async (id, data) => {
+        const res = await api.post(`/events/${id}/register`, data);
+        invalidateCache('events:*');
+        return res;
+    },
 
     // Cancel registration for an event
-    cancelRegistration: (id) =>
-        api.delete(`/events/${id}/register`),
+    cancelRegistration: async (id) => {
+        const res = await api.delete(`/events/${id}/register`);
+        invalidateCache('events:*');
+        return res;
+    },
 
     // Get events user is registered for
     getMyEvents: (status = 'upcoming') =>
         api.get('/events', { params: { registered: 'true', status } }),
 
     // Create a new event (Exec/Admin)
-    createEvent: (data) => {
+    createEvent: async (data) => {
+        let res;
         if (typeof FormData !== 'undefined' && data instanceof FormData) {
-            return api.post('/events', data, {
+            res = await api.post('/events', data, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
+        } else {
+            res = await api.post('/events', data);
         }
-        return api.post('/events', data);
+        invalidateCache('events:*');
+        return res;
     },
 
     // Update existing event details (Exec/Admin)
-    updateEvent: (id, data) => {
+    updateEvent: async (id, data) => {
+        let res;
         if (typeof FormData !== 'undefined' && data instanceof FormData) {
             data.append('_method', 'PUT');
-            return api.post(`/events/${id}`, data, {
+            res = await api.post(`/events/${id}`, data, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
+        } else {
+            res = await api.put(`/events/${id}`, data);
         }
-        return api.put(`/events/${id}`, data);
+        invalidateCache('events:*');
+        return res;
     },
 
-
     // Update event status: draft -> published -> ongoing -> completed / cancelled (Exec/Admin)
-    updateEventStatus: (id, status) =>
-        api.patch(`/events/${id}/status`, { status }),
+    updateEventStatus: async (id, status) => {
+        const res = await api.patch(`/events/${id}/status`, { status });
+        invalidateCache('events:*');
+        return res;
+    },
 
     // Delete a draft or cancelled event (Exec/Admin)
-    deleteEvent: (id) =>
-        api.delete(`/events/${id}`),
+    deleteEvent: async (id) => {
+        const res = await api.delete(`/events/${id}`);
+        invalidateCache('events:*');
+        return res;
+    },
 
     // Get registrations checklist for an event (Exec/Admin)
     getEventRegistrations: (id, params = {}) =>
@@ -63,9 +83,29 @@ const eventService = {
     getAttendanceReport: (eventId) =>
         api.get(`/events/${eventId}/attendance-report`),
 
-    // Get schedule of all ongoing and upcoming events for overlap/conflict checking
+    // Get schedule of all ongoing and upcoming events for overlap/conflict checking (60 second TTL)
     getSchedule: () =>
-        api.get('/events/schedule'),
+        getCached('events:schedule', 60000, () => api.get('/events/schedule')),
+
+    // Get feedback summary & status for an event
+    getFeedbackSummary: (eventId) =>
+        api.get(`/events/${eventId}/feedback/summary`),
+
+    // Get full list of feedback entries for an event (Exec/Admin)
+    getEventFeedback: (eventId) =>
+        api.get(`/events/${eventId}/feedback`),
+
+    // Submit new event feedback (Attendee)
+    submitFeedback: (eventId, data) =>
+        api.post(`/events/${eventId}/feedback`, data),
+
+    // Update existing event feedback (Attendee)
+    updateFeedback: (eventId, data) =>
+        api.put(`/events/${eventId}/feedback`, data),
+
+    // Delete existing event feedback (Attendee)
+    deleteFeedback: (eventId) =>
+        api.delete(`/events/${eventId}/feedback`),
 };
 
 export default eventService;

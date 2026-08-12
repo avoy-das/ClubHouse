@@ -126,7 +126,7 @@ class RecruitmentApplicationController extends Controller
             $user->id
         );
 
-        \App\Services\AuditService::log('recruitment.application.submitted', $application, ['title' => $recruitmentNotice->title], $user->id);
+        \App\Services\AuditService::log('recruitment.application_submitted', $application, ['title' => $recruitmentNotice->title], $user->id);
 
         return response()->json($application, 201);
     }
@@ -184,7 +184,13 @@ class RecruitmentApplicationController extends Controller
             'related_id'   => $application->recruitment_notice_id,
         ]);
 
-        \App\Services\AuditService::log('recruitment.application.' . $status, $application, ['status' => $status], $user->id);
+        if (in_array($status, ['accepted', 'rejected'], true)) {
+            \App\Services\AuditService::log('recruitment.application_' . $status, $application, [
+                'status'         => $status,
+                'applicant_name' => $application->user?->name,
+                'notice_title'   => $notice->title,
+            ], $user->id);
+        }
 
         return response()->json($application->load(['user', 'reviewer']));
     }

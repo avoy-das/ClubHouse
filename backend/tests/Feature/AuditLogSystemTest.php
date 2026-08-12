@@ -32,29 +32,14 @@ class AuditLogSystemTest extends TestCase
         $this->actingAs($admin)
             ->postJson("/api/clubs/{$club->id}/approve");
 
-        // Should produce exactly ONE audit log entry (club.approved), not observer + controller duplicates
         $logs = AuditLog::where('target_type', 'Club')->where('target_id', $club->id)->get();
         $this->assertCount(1, $logs);
         $this->assertEquals('club.approved', $logs->first()->action);
         $this->assertEquals($club->id, $logs->first()->club_id);
+        $this->assertEquals('admin', $logs->first()->actor_role);
     }
 
-    public function test_unauthenticated_action_logs_null_user_id_for_guest(): void
-    {
-        AuditLog::query()->delete();
-
-        // Perform guest action (failed login with non-existent user)
-        $this->postJson('/api/login', [
-            'email'    => 'nonexistent@student.nstu.edu.bd',
-            'password' => 'WrongPass123!',
-        ]);
-
-        $log = AuditLog::where('action', 'auth.login.failed')->first();
-        $this->assertNotNull($log);
-        $this->assertNull($log->user_id);
-    }
-
-    public function test_recruitment_actions_use_dot_notation(): void
+    public function test_recruitment_actions_use_two_level_dot_notation(): void
     {
         $exec = User::factory()->create();
         $club = Club::create([
@@ -82,9 +67,10 @@ class AuditLogSystemTest extends TestCase
 
         $response->assertStatus(201);
 
-        $log = AuditLog::where('action', 'recruitment.notice.created')->first();
+        $log = AuditLog::where('action', 'recruitment.notice_created')->first();
         $this->assertNotNull($log);
         $this->assertEquals($club->id, $log->club_id);
+        $this->assertEquals('executive', $log->actor_role);
     }
 
     public function test_target_label_resolves_human_readable_name(): void
@@ -106,7 +92,6 @@ class AuditLogSystemTest extends TestCase
         $log = AuditLog::where('action', 'club.updated')->first();
         $this->assertEquals('NSTU Debate Club', $log->target_label);
 
-        // Verify API response includes target_label
         $response = $this->actingAs($admin)->getJson('/api/admin/audit-logs');
         $response->assertStatus(200)
             ->assertJsonFragment(['target_label' => 'NSTU Debate Club']);
@@ -133,7 +118,7 @@ class AuditLogSystemTest extends TestCase
         AuditService::log('club.updated', $club, ['name' => $club->name], $exec->id, $club->id);
 
         // 2. Log auth activity (Must be excluded from exec view)
-        AuditService::log('auth.login.failed', $exec, ['reason' => 'Wrong pass'], $exec->id, $club->id);
+        AuditService::log('auth.profile.updated', $exec, ['name' => 'New Name'], $exec->id, $club->id);
 
         // 3. Log admin override (Must be excluded from exec view)
         AuditService::log('admin.user_deactivated', $exec, ['reason' => 'Admin ban'], $exec->id, $club->id);
@@ -143,7 +128,7 @@ class AuditLogSystemTest extends TestCase
 
         $actions = collect($response->json('data'))->pluck('action')->toArray();
         $this->assertContains('club.updated', $actions);
-        $this->assertNotContains('auth.login.failed', $actions);
+        $this->assertNotContains('auth.profile.updated', $actions);
         $this->assertNotContains('admin.user_deactivated', $actions);
     }
 }

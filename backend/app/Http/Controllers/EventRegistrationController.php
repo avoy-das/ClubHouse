@@ -168,10 +168,6 @@ class EventRegistrationController extends Controller
             ], $code);
         }
 
-        AuditService::log('event.registered', $event, [
-            'user_id'  => $user->id,
-            'event_id' => $event->id,
-        ]);
 
         NotificationService::notifyUser(
             $user->id,
@@ -219,10 +215,6 @@ class EventRegistrationController extends Controller
 
         $registration->delete();
 
-        AuditService::log('event.registration_cancelled', $event, [
-            'user_id'  => $user->id,
-            'event_id' => $event->id,
-        ]);
 
         return response()->json([
             'message'             => 'Registration successfully cancelled.',

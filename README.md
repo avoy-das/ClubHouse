@@ -5,7 +5,7 @@
 [![Styling - Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20CSS-38bdf8.svg)](https://tailwindcss.com)
 [![Auth - Laravel Sanctum](https://img.shields.io/badge/Auth-Laravel%20Sanctum-orange.svg)](https://laravel.com/docs/sanctum)
 
-**ClubHouse** is a comprehensive, centralized web platform for managing university club activities. It streamlines club discovery and membership management, event creation with custom registration fields, attendance tracking, auto-generated certificates, announcements with attachments, recruitment drives, feedback collection, global search, and university administration oversight.
+**ClubHouse** is a comprehensive, centralized web platform for managing university club activities. It streamlines club discovery and membership management, event creation with custom registration fields, attendance tracking, announcements with attachments, recruitment drives, feedback collection, global search, and university administration oversight.
 
 ---
 
@@ -26,8 +26,7 @@ ClubHouse/
 2. **Club Management & Custom Positions**: Full club lifecycle (creation requests, admin approval, suspension, edit requests), advisor contact information, banner uploads, customizable executive positions, dynamic permission flags (`can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`), and presidency transfer capabilities.
 3. **Membership Requests & Roster**: Student membership applications, executive review workflows, active member rosters, committee assignments, and position management.
 4. **Events & Registration**: Public and members-only events, cover banners, dynamic custom registration questions and attendee answer submissions, capacity limits, registration cancellation, attendance tracking, and CSV attendance reporting.
-5. **Certificates & Verification**: Automatic certificate generation upon verified event attendance with download links and verification codes.
-6. **Announcements**: Targeted global, club-wide, executive-only, or student-specific announcements with file attachments, sender roles, unpin capabilities, and notification delivery.
+5. **Announcements**: Targeted global, club-wide, executive-only, or student-specific announcements with file attachments, sender roles, unpin capabilities, and notification delivery.
 7. **Recruitment Drives**: Custom multi-field recruitment notices targeting specific sessions, application submission with attachment links, and executive application reviews.
 8. **Feedback & Ratings**: Event rating and review collection restricted to confirmed attendees.
 9. **Notifications & Audit Logging**: Real-time unread notification counters, mark-as-read controls, and system-wide action audit trail logging via Eloquent observers.
@@ -120,7 +119,7 @@ For detailed architectural specifications and development guidelines:
 
 - **Platform Admin (`is_admin = true`)**: Full access to admin dashboard (`/admin/clubs`, `/admin/users`, `/admin/audit-logs`, `/admin/reports`), club approval/suspension, club edit request approvals, global announcements, user role updates, and system report generation.
 - **Club Executive**: Derived dynamically per club based on assigned `club_positions` with active permission flags (`can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`).
-- **Club Member**: Student with an approved membership (`status = active`). Can view members-only events, post feedback, view targeted announcements, and receive certificates.
+- **Club Member**: Student with an approved membership (`status = active`). Can view members-only events, post feedback, and view targeted announcements.
 - **Student User**: Registered platform user. Can browse clubs, request membership, register for public events, view recruitment notices, apply for club recruitment, search the platform, and manage profile settings.
 
 ---

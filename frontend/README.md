@@ -64,7 +64,7 @@ npm run preview
 
 - `src/components/` — Subdirectories for layout shells (`AppLayout`, `Navbar`, `SearchBar`), UI primitives (`Badge`, `Modal`, `Button`, `Card`, `ErrorBanner`, `SuccessBanner`, `LoadingSpinner`), club components (`ClubCard`, `EditClubModal`, `MembersDirectory`, `PositionAssignment`, `TransferPresidencyModal`), event components (`EventModal`, `MarkAttendanceModal`), and admin components (`UserManagementSection`).
 - `src/context/` — React Context providers (`AuthContext`, `ClubPermissionsContext`).
-- `src/pages/` — 13 Feature page modules (Admin, Announcements, Certificates, Clubs, Dashboard, Events, Login, Notifications, Profile, Recruitment, Register, Search, Users).
+- `src/pages/` — 12 Feature page modules (Admin, Announcements, Clubs, Dashboard, Events, Login, Notifications, Profile, Recruitment, Register, Search, Users).
 - `src/routes/` — Route guards (`ProtectedRoute`, `AdminRoute`, `ClubExecutiveRoute`).
-- `src/services/` — 11 Axios-based API service files.
+- `src/services/` — 10 Axios-based API service files.
 - `src/App.jsx` — React Router v7 routes map.

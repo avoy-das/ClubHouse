@@ -27,21 +27,4 @@ class LoginRequest extends FormRequest
             'password' => ['required', 'string'],
         ];
     }
-
-    protected function failedValidation(Validator $validator): void
-    {
-        $email = $this->input('email');
-        $user = $email ? User::where('email', strtolower($email))->first() : null;
-
-        AuditService::log('auth.login.failed', $user, [
-            'email'      => $email,
-            'ip'         => $this->ip(),
-            'user_agent' => $this->userAgent(),
-            'status'     => 'failed',
-            'reason'     => 'Validation failed',
-            'errors'     => $validator->errors()->toArray(),
-        ], $user?->id);
-
-        parent::failedValidation($validator);
-    }
 }

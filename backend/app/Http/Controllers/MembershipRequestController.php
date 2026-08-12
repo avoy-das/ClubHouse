@@ -6,6 +6,7 @@ use App\Http\Requests\StoreMembershipRequestRequest;
 use App\Models\Club;
 use App\Models\MembershipRequest;
 use App\Models\Notification;
+use App\Services\AuditService;
 use App\Services\ClubMembershipService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
@@ -46,6 +47,11 @@ class MembershipRequestController extends Controller
             $club->id,
             $user->id
         );
+
+        AuditService::log('membership.request_submitted', $membershipRequest, [
+            'applicant_name' => $user->name,
+            'club_name'      => $club->name,
+        ], $user->id, $club->id);
 
         return response()->json($membershipRequest, 201);
     }
@@ -104,6 +110,12 @@ class MembershipRequestController extends Controller
             'related_type' => Club::class,
             'related_id'   => $membershipRequest->club_id,
         ]);
+
+        AuditService::log('membership.request_' . $status, $membershipRequest, [
+            'status'         => $status,
+            'applicant_name' => $membershipRequest->user->name,
+            'club_name'      => $membershipRequest->club->name,
+        ], $user->id, $membershipRequest->club_id);
 
         return response()->json($membershipRequest->load(['user', 'reviewer']));
     }

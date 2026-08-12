@@ -2,12 +2,18 @@
 
 namespace App\Providers;
 
+use App\Models\Announcement;
 use App\Models\Club;
+use App\Models\ClubEditRequest;
+use App\Models\ClubGallery;
 use App\Models\ClubMember;
+use App\Models\ClubMemberPosition;
+use App\Models\ClubPosition;
 use App\Models\Event;
+use App\Models\EventFeedback;
 use App\Models\EventRegistration;
 use App\Models\MembershipRequest;
-use App\Models\ClubEditRequest;
+use App\Models\Notification;
 use App\Models\RecruitmentApplication;
 use App\Models\RecruitmentNotice;
 use App\Models\User;
@@ -56,6 +62,12 @@ class AppServiceProvider extends ServiceProvider
             'RecruitmentNotice'      => RecruitmentNotice::class,
             'RecruitmentApplication' => RecruitmentApplication::class,
             'ClubEditRequest'        => ClubEditRequest::class,
+            'EventFeedback'          => EventFeedback::class,
+            'Announcement'           => Announcement::class,
+            'ClubGallery'            => ClubGallery::class,
+            'ClubMemberPosition'     => ClubMemberPosition::class,
+            'ClubPosition'           => ClubPosition::class,
+            'Notification'           => Notification::class,
         ]);
 
         // Explicit domain logging is handled via AuditService::log() in Controllers/Requests.

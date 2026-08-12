@@ -72,56 +72,58 @@ const RecruitmentListContent = () => {
         setLoading(true);
         setError(null);
         try {
-            let res;
-            if (clubId) {
-                res = await recruitmentService.listForClub(clubId);
-                try {
-                    const clubRes = await clubService.getClub(clubId);
-                    setCurrentClub(clubRes.data || clubRes);
-                } catch {
-                    // Ignore single club fetch error
-                }
-            } else {
-                res = await recruitmentService.listAll();
-            }
-            const list = res.data || res;
+            const admin = isAdmin();
+
+            // Fire all independent network requests in parallel
+            const noticesPromise = clubId
+                ? recruitmentService.listForClub(clubId)
+                : recruitmentService.listAll();
+
+            const currentClubPromise = clubId
+                ? clubService.getClub(clubId).catch(() => null)
+                : Promise.resolve(null);
+
+            const membershipsPromise = authService.getMyMemberships().catch(() => []);
+
+            const allClubsPromise = admin
+                ? clubService.getClubs().catch(() => [])
+                : Promise.resolve([]);
+
+            const [noticesRes, currentClubRes, membersRes, allClubsRes] = await Promise.all([
+                noticesPromise,
+                currentClubPromise,
+                membershipsPromise,
+                allClubsPromise,
+            ]);
+
+            // Process notices
+            const list = noticesRes.data || noticesRes;
             const loadedNotices = Array.isArray(list) ? list : [];
             setNotices(loadedNotices);
 
-            // Fetch memberships to identify actual executive clubs
-            let execClubIdsList = [];
-            try {
-                const membersRes = await authService.getMyMemberships();
-                const memberships = membersRes.data || membersRes || [];
-                const execMemberships = memberships.filter(m =>
-                    m.status === 'active' &&
-                    (m.role !== 'member' || (m.positions && m.positions.some(p => p.position?.is_executive || p.position?.can_manage_recruitment)))
-                );
-                execClubIdsList = execMemberships.map(m => m.club_id || m.club?.id).filter(Boolean);
-            } catch {
-                // Ignore membership fetch error
+            if (currentClubRes) {
+                setCurrentClub(currentClubRes.data || currentClubRes);
             }
+
+            // Process memberships
+            const memberships = membersRes.data || membersRes || [];
+            const execMemberships = memberships.filter(m =>
+                m.status === 'active' &&
+                (m.role !== 'member' || (m.positions && m.positions.some(p => p.position?.is_executive || p.position?.can_manage_recruitment)))
+            );
+            const execClubIdsList = execMemberships.map(m => m.club_id || m.club?.id).filter(Boolean);
             setMyExecClubIds(execClubIdsList);
 
             // Determine executive clubs and eligibility
             let clubsList = [];
             let execFlag = false;
 
-            if (isAdmin()) {
+            if (admin) {
                 execFlag = true;
-                const allClubsRes = await clubService.list();
                 clubsList = (allClubsRes.data || allClubsRes || []).filter(c => c.status === 'approved');
             } else {
                 if (execClubIdsList.length > 0) {
                     execFlag = true;
-                }
-                const membersRes = await authService.getMyMemberships();
-                const memberships = membersRes.data || membersRes || [];
-                const execMemberships = memberships.filter(m =>
-                    m.status === 'active' &&
-                    (m.role !== 'member' || (m.positions && m.positions.some(p => p.position?.is_executive || p.position?.can_manage_recruitment)))
-                );
-                if (execMemberships.length > 0) {
                     clubsList = execMemberships.map(m => m.club).filter(Boolean);
                 }
             }
@@ -145,7 +147,7 @@ const RecruitmentListContent = () => {
             setAvailableClubs(annotatedClubs);
 
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to load recruitment data');
+            setError(err.response?.data?.message || err.message || 'Failed to load recruitment data');
         } finally {
             setLoading(false);
         }
@@ -449,10 +451,11 @@ const RecruitmentListContent = () => {
                     {/* Filters bar */}
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
                         <div className="relative w-full md:w-80">
-                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
                                 placeholder="Search by campaign, title, or club..."
+                                aria-label="Search recruitment campaigns"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-blue-500 bg-slate-50/50"
@@ -499,7 +502,7 @@ const RecruitmentListContent = () => {
                         <div className="bg-white p-12 text-center rounded-2xl shadow-xs border border-slate-200 text-slate-500 space-y-3">
                             <Target className="w-10 h-10 text-slate-300 mx-auto" />
                             <p className="text-base font-semibold text-slate-700">No recruitment campaigns found.</p>
-                            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                            <p className="text-xs text-slate-600 max-w-sm mx-auto">
                                 Try adjusting your search query or filter options.
                             </p>
                         </div>
@@ -535,7 +538,7 @@ const RecruitmentListContent = () => {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <h3 className="font-bold text-xl text-[#0b1c30] leading-snug">{notice.title}</h3>
+                                                    <h2 className="font-bold text-xl text-[#0b1c30] leading-snug">{notice.title}</h2>
                                                     {notice.club && (
                                                         <p className="text-xs font-semibold text-blue-600 flex items-center gap-1">
                                                             <Building2 className="w-3.5 h-3.5" /> {notice.club.name}
@@ -546,10 +549,10 @@ const RecruitmentListContent = () => {
                                                 {/* Action menu for execs */}
                                                 {(can('can_manage_recruitment') || isAdmin() || myExecClubIds.includes(notice.club_id)) && (
                                                     <div className="flex items-center space-x-1 shrink-0 bg-slate-50 p-1 rounded-lg border border-slate-200">
-                                                        <button onClick={() => handleEditOpen(notice)} className="p-1 text-slate-400 hover:text-blue-600 rounded transition-colors" title="Edit Campaign">
+                                                        <button onClick={() => handleEditOpen(notice)} aria-label="Edit Campaign" className="p-1.5 text-slate-600 hover:text-blue-600 rounded transition-colors" title="Edit Campaign">
                                                             <Pencil className="w-3.5 h-3.5" />
                                                         </button>
-                                                        <button onClick={() => setDeleteConfirmNotice(notice)} className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors" title="Delete Campaign">
+                                                        <button onClick={() => setDeleteConfirmNotice(notice)} aria-label="Delete Campaign" className="p-1.5 text-slate-600 hover:text-rose-600 rounded transition-colors" title="Delete Campaign">
                                                             <Trash className="w-3.5 h-3.5" />
                                                         </button>
                                                     </div>

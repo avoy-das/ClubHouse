@@ -42,10 +42,9 @@ frontend/src/
 │   ├── AuthContext.jsx                # User state, token management, login/logout
 │   └── ClubPermissionsContext.jsx     # Club-level executive permission resolver
 │
-├── pages/                             # 13 Feature Page Modules
+├── pages/                             # 12 Feature Page Modules
 │   ├── Admin/                         # Admin portal (AdminClubList, AdminClubs, AdminUsers, AdminAuditLogs, AdminReports)
 │   ├── Announcements/                 # Announcement feeds and creation forms
-│   ├── Certificates/                  # MyCertificates list and download buttons
 │   ├── Clubs/                         # ClubList, ClubDetail, CreateClub, ClubForm, ClubMembers
 │   ├── Dashboard/                     # Personalized dashboard (Student/Executive/Admin views)
 │   ├── Events/                        # EventsPage, EventDetailPage, EventDetail, EventAttendance, EventForm, EventList
@@ -67,7 +66,6 @@ frontend/src/
 │   ├── announcementService.js
 │   ├── api.js                         # Shared Axios instance with Bearer token interceptor
 │   ├── authService.js
-│   ├── certificateService.js
 │   ├── clubService.js
 │   ├── eventService.js
 │   ├── membershipService.js
@@ -94,10 +92,9 @@ All HTTP communication is routed through service modules built on top of [api.js
 4. **`membershipService.js`**: `submitRequest`, `listRequests`, `reviewRequest`.
 5. **`announcementService.js`**: `list`, `getCreationContext`, `create`, `createGlobal`, `unpin`, `listClubMembers`.
 6. **`recruitmentService.js`**: `list`, `get`, `create`, `update`, `delete`, `apply`, `listApplications`, `reviewApplication`.
-7. **`certificateService.js`**: `myCertificates`, `downloadCertificate`.
-8. **`notificationService.js`**: `list`, `getUnreadCount`, `markRead`, `markAllRead`.
-9. **`adminService.js`**: `listClubs`, `approveClub`, `rejectClub`, `suspendClub`, `deleteClub`, `listUsers`, `updateUser`, `deleteUser`, `getOverview`, `getClubReport`, `getAuditLogs`.
-10. **`searchService.js`**: `query` (Searches clubs, events, announcements, and recruitment).
+7. **`notificationService.js`**: `list`, `getUnreadCount`, `markRead`, `markAllRead`.
+8. **`adminService.js`**: `listClubs`, `approveClub`, `rejectClub`, `suspendClub`, `deleteClub`, `listUsers`, `updateUser`, `deleteUser`, `getOverview`, `getClubReport`, `getAuditLogs`.
+9. **`searchService.js`**: `query` (Searches clubs, events, announcements, and recruitment).
 
 ---
 

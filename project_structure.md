@@ -9,12 +9,15 @@ A complete, production-ready university/organization club management platform bu
 ```
 backend/
 ├── app/
+│   ├── Console/
+│   │   └── Commands/                     # Console commands & scheduled tasks
+│   │       └── UpdateEventStatuses.php   # Lifecycle auto-transition (Upcoming -> Ongoing -> Completed)
+│   │
 │   ├── Http/
-│   │   ├── Controllers/                  # 22 RESTful Controllers
+│   │   ├── Controllers/                  # 21 RESTful Controllers
 │   │   │   ├── AnnouncementController.php
 │   │   │   ├── AuditLogController.php
 │   │   │   ├── AuthController.php
-│   │   │   ├── CertificateController.php
 │   │   │   ├── ClubController.php
 │   │   │   ├── ClubEditRequestController.php
 │   │   │   ├── ClubGalleryController.php
@@ -34,10 +37,11 @@ backend/
 │   │   │   ├── SearchController.php
 │   │   │   └── UserController.php
 │   │   │
-│   │   ├── Middleware/
-│   │   │   └── IsAdmin.php               # Admin privilege guard
+│   │   ├── Middleware/                   # Custom HTTP Middleware
+│   │   │   ├── IsAdmin.php               # Platform Admin privilege guard
+│   │   │   └── SecurityHeaders.php       # Security header hardening (CSP, HSTS, X-Frame-Options)
 │   │   │
-│   │   └── Requests/                     # 18 Form Request classes
+│   │   └── Requests/                     # 18 Form Request validation classes
 │   │       ├── CreateClubRequest.php
 │   │       ├── LoginRequest.php
 │   │       ├── MarkAttendanceRequest.php
@@ -57,10 +61,9 @@ backend/
 │   │       ├── UpdateEventStatusRequest.php
 │   │       └── UpdateRecruitmentNoticeRequest.php
 │   │
-│   ├── Models/                           # 17 Eloquent Domain Models
+│   ├── Models/                           # 16 Eloquent Domain Models
 │   │   ├── Announcement.php
 │   │   ├── AuditLog.php
-│   │   ├── Certificate.php
 │   │   ├── Club.php
 │   │   ├── ClubEditRequest.php
 │   │   ├── ClubGallery.php
@@ -77,7 +80,7 @@ backend/
 │   │   └── User.php
 │   │
 │   ├── Observers/
-│   │   └── AuditObserver.php             # Automated model audit logging
+│   │   └── AuditObserver.php             # Automated model audit logging dispatcher
 │   │
 │   ├── Policies/                         # 7 Authorization Policies
 │   │   ├── AnnouncementPolicy.php
@@ -91,10 +94,13 @@ backend/
 │   ├── Providers/
 │   │   └── AppServiceProvider.php
 │   │
-│   └── Services/
-│       └── ClubMembershipService.php     # Membership & permission rules logic
+│   └── Services/                         # 4 Core Business Logic & Domain Services
+│       ├── AuditService.php              # Centralized action & change auditing logger
+│       ├── CacheInvalidationService.php  # Tagged response & model cache clearing
+│       ├── ClubMembershipService.php     # Membership lifecycle & permission checks
+│       └── NotificationService.php       # System-wide in-app notifications creator
 │
-├── config/                               # 12 Configuration Files
+├── config/                               # 12 Framework Configuration Files
 │   ├── app.php
 │   ├── auth.php
 │   ├── cache.php
@@ -112,16 +118,19 @@ backend/
 │   ├── database.sqlite                   # SQLite development database file
 │   ├── factories/                        # Model factories for testing
 │   ├── seeders/                          # Database seeders
-│   └── migrations/                       # 50 Schema migrations
+│   └── migrations/                       # 55 Schema migrations
 │
 ├── routes/
 │   ├── api.php                           # Complete API endpoint routes
 │   ├── console.php                       # Console command routes
 │   └── web.php                           # Base web route
 │
-├── public/                               # Public assets & index.php entry
-├── storage/                              # Uploaded files, logs, and cache
-├── tests/                                # Feature and unit test suites
+├── tests/                                # Test Suite (19 Feature, 1 Unit)
+│   ├── Feature/                          # Controller, API, & Business logic feature tests
+│   └── Unit/                             # Unit tests
+│
+├── public/                               # Public assets & index.php entry point
+├── storage/                              # Uploaded files, logs, and framework cache
 ├── bootstrap/                            # Framework bootstrap & middleware configuration
 ├── composer.json / composer.lock
 ├── artisan
@@ -138,12 +147,21 @@ frontend/
 ├── src/
 │   ├── App.jsx                           # Main application router with route protection
 │   ├── main.jsx                          # React application entry point
-│   ├── index.css                         # Tailwind CSS base directive imports
+│   ├── index.css                         # Tailwind CSS base imports & custom styles
+│   │
+│   ├── assets/                           # Static visual assets & SVGs
+│   │   ├── hero.png
+│   │   ├── react.svg
+│   │   └── vite.svg
+│   │
+│   ├── layouts/                          # Top-level application layout shells
+│   │   └── MainLayout.jsx                # Unified header, search, notification drawer, & container
 │   │
 │   ├── components/                       # Shared UI & layout components
 │   │   ├── admin/
-│   │   │   └── UserManagementSection.jsx
-│   │   ├── clubs/                        # Club specific components
+│   │   │   └── UserManagementSection.jsx # User management administrative table
+│   │   │
+│   │   ├── Clubs/                        # Club-specific modal & display components
 │   │   │   ├── AddCommitteeMemberModal.jsx
 │   │   │   ├── ClubAuditLogModal.jsx
 │   │   │   ├── ClubCard.jsx
@@ -153,59 +171,73 @@ frontend/
 │   │   │   ├── MembershipRequestList.jsx
 │   │   │   ├── PositionAssignment.jsx
 │   │   │   └── TransferPresidencyModal.jsx
-│   │   ├── Events/                       # Event specific components
+│   │   │
+│   │   ├── Events/                       # Event management & feedback components
 │   │   │   ├── AttendanceReportModal.jsx
+│   │   │   ├── EventFeedbackModal.jsx
 │   │   │   ├── EventModal.jsx
-│   │   │   └── MarkAttendanceModal.jsx
-│   │   ├── layout/
-│   │   │   ├── AppLayout.jsx             # Main layout shell
-│   │   │   ├── Navbar.jsx                # Header bar with unread badge & profile menu
-│   │   │   └── SearchBar.jsx             # Topbar search component
+│   │   │   ├── FeedbackListModal.jsx
+│   │   │   └── ViewResponsesModal.jsx
+│   │   │
+│   │   ├── layout/                       # Utility layout elements
+│   │   │   └── SearchBar.jsx             # Topbar dynamic search input
+│   │   │
 │   │   └── ui/                           # Reusable UI primitives
 │   │       ├── Badge.jsx
 │   │       ├── Button.jsx
 │   │       ├── Card.jsx
 │   │       ├── ErrorBanner.jsx
+│   │       ├── ErrorBoundary.jsx         # React error boundary component
 │   │       ├── LoadingSpinner.jsx
 │   │       ├── Modal.jsx
 │   │       └── SuccessBanner.jsx
 │   │
 │   ├── context/                          # React Context Providers
-│   │   ├── AuthContext.jsx               # Auth state, login, logout, user profile
-│   │   └── ClubPermissionsContext.jsx    # Club-level executive permission resolver
+│   │   ├── AuthContext.jsx               # Authentication, token persistence, & user state
+│   │   └── ClubPermissionsContext.jsx    # Dynamic club-level executive permission resolver
 │   │
-│   ├── pages/                            # 13 Page Feature Folders
-│   │   ├── Admin/                        # AdminClubList, AdminClubs, AdminUsers, AdminAuditLogs, AdminReports
+│   ├── hooks/                            # Custom React Hooks
+│   │   └── useDebounce.js                # Input debouncing hook for live search
+│   │
+│   ├── pages/                            # 11 Page Feature Folders
+│   │   ├── Admin/                        # AdminAuditLogs, AdminClubList, AdminReports, AdminUsers
 │   │   ├── Announcements/                # AnnouncementList
-│   │   ├── Certificates/                 # MyCertificates
-│   │   ├── Clubs/                        # ClubList, ClubDetail, CreateClub, ClubForm, ClubMembers
-│   │   ├── Dashboard/                    # Dashboard (Student, Executive, and Admin views)
-│   │   ├── Events/                       # EventsPage, EventDetailPage, EventDetail, EventAttendance, EventForm, EventList
+│   │   ├── Clubs/                        # ClubList, ClubDetail, CreateClub
+│   │   ├── Dashboard/                    # Unified Role Dashboard (Student, Executive, Admin)
+│   │   ├── Events/                       # EventsPage, EventDetailPage
 │   │   ├── Login/                        # Login
 │   │   ├── Notifications/                # NotificationList
 │   │   ├── Profile/                      # ProfilePage
 │   │   ├── Recruitment/                  # RecruitmentList, RecruitmentDetail, RecruitmentApplications
 │   │   ├── Register/                     # Register
-│   │   ├── Search/                       # SearchPage
-│   │   └── Users/                        # User administration
+│   │   └── Search/                       # SearchPage
 │   │
 │   ├── routes/                           # Route Protection Guards
 │   │   ├── ProtectedRoute.jsx            # Authentication guard
-│   │   ├── AdminRoute.jsx                # Platform Admin guard
+│   │   ├── AdminROute.jsx                # Platform Admin guard
 │   │   └── ClubExecutiveRoute.jsx        # Club Executive guard
 │   │
-│   └── services/                         # 11 Service Layer Modules
-│       ├── adminService.js
-│       ├── announcementService.js
-│       ├── api.js                        # Axios instance with Bearer token interceptor
-│       ├── authService.js
-│       ├── certificateService.js
-│       ├── clubService.js
-│       ├── eventService.js
-│       ├── membershipService.js
-│       ├── notificationService.js
-│       ├── recruitmentService.js
-│       └── searchService.js
+│   ├── services/                         # 11 Service Layer Modules
+│   │   ├── adminService.js               # Admin management endpoints
+│   │   ├── announcementService.js        # Announcement CRUD & targeting endpoints
+│   │   ├── api.js                        # Axios instance with auth request interceptors
+│   │   ├── apiCache.js                   # Client-side response caching & TTL manager
+│   │   ├── authService.js                # Authentication & user profile endpoints
+│   │   ├── clubService.js                # Club details, edit requests, & gallery API
+│   │   ├── eventService.js               # Events, attendance, & feedback API
+│   │   ├── membershipService.js          # Membership request management API
+│   │   ├── notificationService.js        # User notifications API
+│   │   ├── recruitmentService.js         # Notices & application pipeline API
+│   │   └── searchService.js              # Global search endpoint API
+│   │
+│   └── utils/                            # 7 Utility Helper Modules
+│       ├── auditLogUtils.js              # Audit log formatting helpers
+│       ├── dateUtils.js                  # Date & relative timestamp formatters
+│       ├── imageCompressor.js            # Client-side image optimization
+│       ├── imageUrl.js                   # Image URL resolution & storage path handler
+│       ├── notificationUtils.js          # In-app notification transformers
+│       ├── roleUtils.js                  # User role check helpers
+│       └── sessionUtils.js               # Academic session calculation utilities
 │
 ├── public/                               # Static public assets
 ├── package.json / package-lock.json
@@ -242,7 +274,6 @@ erDiagram
 
     Event ||--o{ EventRegistration : "tracks"
     Event ||--o{ EventFeedback : "receives"
-    EventRegistration ||--o| Certificate : "issues"
 
     RecruitmentNotice ||--o{ RecruitmentApplication : "collects"
 ```

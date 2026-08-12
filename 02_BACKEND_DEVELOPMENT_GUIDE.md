@@ -26,9 +26,7 @@ The database comprises 17 primary domain tables managed through 50 Laravel migra
    - Columns: `id`, `club_id` (FK), `title`, `slug` (unique), `description`, `location`, `start_time`, `end_time`, `capacity`, `is_members_only` (boolean), `status` (`draft`, `published`, `cancelled`, `completed`), `banner_path`, `custom_fields` (JSON), `created_by` (FK -> `users`), `timestamps`.
 8. **`event_registrations`**: Student event bookings and attendance records.
    - Columns: `id`, `event_id` (FK), `user_id` (FK), `answers` (JSON), `registered_at`, `attended` (boolean), `attended_at`, `timestamps`. Unique `(event_id, user_id)`.
-9. **`certificates`**: Attendance verification certificates.
-   - Columns: `id`, `event_registration_id` (FK), `certificate_code` (unique string), `issued_at`, `file_path`, `timestamps`.
-10. **`announcements`**: Targeted announcements.
+9. **`announcements`**: Targeted announcements.
     - Columns: `id`, `club_id` (FK, nullable for global), `title`, `content`, `target_type` (`all`, `club_members`, `executive_only`, `specific_users`), `attachment_path`, `sender_role`, `is_pinned` (boolean), `created_by` (FK -> `users`), `timestamps`.
 11. **`recruitment_notices`**: Club recruitment posts.
     - Columns: `id`, `club_id` (FK), `title`, `description`, `session`, `target_sessions` (JSON), `start_date`, `end_date`, `status` (`draft`, `open`, `closed`), `custom_fields` (JSON), `timestamps`.
@@ -59,7 +57,6 @@ The database comprises 17 primary domain tables managed through 50 Laravel migra
 | [MembershipRequestController](file:///c:/Users/Popular%20Computer/ClubHouse/backend/app/Http/Controllers/MembershipRequestController.php) | `index`, `store`, `review` |
 | [EventController](file:///c:/Users/Popular%20Computer/ClubHouse/backend/app/Http/Controllers/EventController.php) | `index`, `show`, `store`, `update`, `updateStatus`, `destroy`, `schedule` |
 | [EventRegistrationController](file:///c:/Users/Popular%20Computer/ClubHouse/backend/app/Http/Controllers/EventRegistrationController.php) | `index`, `register`, `cancel`, `updateAttendance`, `attendanceReport` |
-| [CertificateController](file:///c:/Users/Popular%20Computer/ClubHouse/backend/app/Http/Controllers/CertificateController.php) | `index`, `download` |
 | [AnnouncementController](file:///c:/Users/Popular%20Computer/ClubHouse/backend/app/Http/Controllers/AnnouncementController.php) | `index`, `store`, `storeGlobal`, `unpin`, `allAnnouncements`, `creationContext`, `clubMembers` |
 | [RecruitmentNoticeController](file:///c:/Users/Popular%20Computer/ClubHouse/backend/app/Http/Controllers/RecruitmentNoticeController.php) | `index`, `show`, `store`, `update`, `destroy` |
 | [RecruitmentApplicationController](file:///c:/Users/Popular%20Computer/ClubHouse/backend/app/Http/Controllers/RecruitmentApplicationController.php) | `index`, `store`, `review` |

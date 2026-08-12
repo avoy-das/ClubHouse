@@ -417,7 +417,14 @@ class AnnouncementController extends Controller
             'is_pinned' => 'sometimes|boolean',
         ]);
 
+        $wasPinned = $announcement->is_pinned;
         $announcement->update($validated);
+
+        if (isset($validated['is_pinned']) && $validated['is_pinned'] && !$wasPinned) {
+            AuditService::log('announcement.pinned', $announcement, [
+                'title' => $announcement->title,
+            ], $request->user()->id, $announcement->club_id);
+        }
 
         return response()->json($announcement->load(['club', 'author', 'targetClub', 'targetUser']));
     }
@@ -426,7 +433,9 @@ class AnnouncementController extends Controller
     {
         $this->authorize('delete', $announcement);
 
-        if ($request->user()->is_admin && $announcement->posted_by !== $request->user()->id) {
+        $isAdmin = $request->user()->is_admin;
+
+        if ($isAdmin && $announcement->posted_by !== $request->user()->id) {
             NotificationService::notifyUser(
                 $announcement->posted_by,
                 'announcement_deleted',
@@ -436,6 +445,10 @@ class AnnouncementController extends Controller
                 $announcement->id
             );
         }
+
+        AuditService::log($isAdmin ? 'admin.announcement_deleted' : 'announcement.deleted', $announcement, [
+            'title' => $announcement->title,
+        ], $request->user()->id, $announcement->club_id);
 
         if ($announcement->attachment_path) {
             Storage::disk('public')->delete($announcement->attachment_path);

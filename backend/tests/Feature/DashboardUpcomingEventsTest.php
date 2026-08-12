@@ -123,7 +123,10 @@ class DashboardUpcomingEventsTest extends TestCase
         EventRegistration::create(['event_id' => $pastEvent->id, 'user_id' => $this->user->id]);
         EventRegistration::create(['event_id' => $futureEvent->id, 'user_id' => $this->user->id]);
 
+        \Illuminate\Support\Facades\Artisan::call('events:update-statuses');
+
         $response = $this->actingAs($this->user)->getJson('/api/dashboard');
+
 
         $response->assertStatus(200);
 

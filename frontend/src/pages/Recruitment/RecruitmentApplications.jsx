@@ -230,10 +230,11 @@ const RecruitmentApplicationsContent = () => {
                 {/* Search and Stage Filter Bar */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-between border-b border-slate-100 pb-4">
                     <div className="relative w-full sm:w-72">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                             type="text"
                             placeholder="Search by candidate name, email, department..."
+                            aria-label="Search candidates by name, email, or department"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-blue-500 bg-slate-50/50"
@@ -279,9 +280,9 @@ const RecruitmentApplicationsContent = () => {
                             <div key={app.id} className="border border-slate-200 p-6 rounded-xl bg-[#f8f9ff] space-y-4">
                                 <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                                     <div>
-                                        <h4 className="font-bold text-[#0b1c30] text-base">
+                                        <h2 className="font-bold text-[#0b1c30] text-base">
                                             {app.user?.name || `Applicant #${app.user_id}`}
-                                        </h4>
+                                        </h2>
                                         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-0.5">
                                             <span>{app.user?.email}</span>
                                             {app.user?.department && (
@@ -302,7 +303,7 @@ const RecruitmentApplicationsContent = () => {
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         {app.status && <Badge status={app.status} />}
-                                        <span className="text-xs text-slate-400">
+                                        <span className="text-xs text-slate-600 font-medium">
                                             {new Date(app.created_at).toLocaleDateString()}
                                         </span>
                                     </div>

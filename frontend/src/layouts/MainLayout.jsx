@@ -14,7 +14,6 @@ import {
     Calendar,
     Megaphone,
     BellRing,
-    Award,
     PanelLeft,
     PanelLeftClose,
     Building2Icon,
@@ -70,7 +69,6 @@ const MainLayout = ({ children }) => {
         { to: '/events', label: 'Events', icon: Calendar },
         { to: '/recruitment', label: 'Recruitment', icon: Megaphone },
         { to: '/announcements', label: 'Announcements', icon: BellRing },
-        { to: '/certificates', label: 'Certificates', icon: Award },
         ...(isAdmin() ? [{ to: '/admin/users', label: 'User Management', icon: Users }] : []),
     ];
 
@@ -85,7 +83,7 @@ const MainLayout = ({ children }) => {
                             onClick={toggleSidebar}
                             aria-label={isCollapsed ? 'Expand Navigation Sidebar' : 'Collapse Navigation Sidebar'}
                             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-                            className="p-2 text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3] rounded-lg transition-colors flex items-center justify-center"
+                            className="p-2.5 min-w-[44px] min-h-[44px] text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3] rounded-lg transition-colors flex items-center justify-center"
                         >
                             {isCollapsed ? (
                                 <PanelLeft className="w-5 h-5 text-[#444748]" />
@@ -114,12 +112,13 @@ const MainLayout = ({ children }) => {
                         {/* Notification Bell */}
                         <Link
                             to="/notifications"
+                            aria-label="View Notifications"
                             title="Notifications"
-                            className="relative p-2 rounded-full text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3] transition-colors shrink-0"
+                            className="relative p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3] transition-colors shrink-0"
                         >
                             <Bell className="w-5 h-5" />
                             {unreadCount > 0 && (
-                                <span className="absolute -top-0.5 -right-0.5 bg-[#ba1a1a] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                                <span className="absolute top-1 right-1 bg-[#ba1a1a] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                                     {unreadCount > 99 ? '99+' : unreadCount}
                                 </span>
                             )}
@@ -128,7 +127,8 @@ const MainLayout = ({ children }) => {
                         {/* User profile */}
                         <Link
                             to="/profile"
-                            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#e8e2d9] hover:bg-[#dbdad5] text-[#1d1b16] transition-colors border border-[#cbc6bd]/50 shrink-0"
+                            aria-label={`User Profile: ${user?.name || 'User'}`}
+                            className="hidden md:flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-full bg-[#e8e2d9] hover:bg-[#dbdad5] text-[#1d1b16] transition-colors border border-[#cbc6bd]/50 shrink-0"
                         >
                             <User className="w-4 h-4 text-[#615e57] shrink-0" />
                             <span className="text-xs font-bold truncate max-w-[100px] xl:max-w-[140px]" title={user?.name}>
@@ -146,7 +146,8 @@ const MainLayout = ({ children }) => {
                         {isAdmin() && (
                             <Link
                                 to="/admin/clubs"
-                                className="px-3 py-1.5 text-xs font-bold bg-[#1c1b1b] text-white rounded-full hover:bg-[#30312e] transition-colors flex items-center gap-1 shadow-xs shrink-0"
+                                aria-label="Admin Suite Dashboard"
+                                className="px-3.5 py-2 min-h-[44px] text-xs font-bold bg-[#1c1b1b] text-white rounded-full hover:bg-[#30312e] transition-colors flex items-center gap-1 shadow-xs shrink-0"
                             >
                                 <Shield className="w-3.5 h-3.5 text-[#ffb59f]" />
                                 <span className="hidden sm:inline">Admin Suite</span>
@@ -156,7 +157,8 @@ const MainLayout = ({ children }) => {
                         {/* Logout Button */}
                         <button
                             onClick={handleLogout}
-                            className="p-2 text-[#444748] hover:text-[#1b1c19] border border-[#e4e2dd] hover:bg-[#eae8e3] rounded-full transition-colors flex items-center gap-1.5 text-xs font-semibold shrink-0"
+                            aria-label="Log Out of ClubHouse"
+                            className="p-2.5 min-h-[44px] min-w-[44px] text-[#444748] hover:text-[#1b1c19] border border-[#e4e2dd] hover:bg-[#eae8e3] rounded-full transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold shrink-0"
                             title="Logout"
                         >
                             <LogOut className="w-4 h-4" />

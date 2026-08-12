@@ -7,6 +7,19 @@ const adminService = {
         const queryParams = typeof params === 'number' ? { page: params } : params;
         return (await api.get('/admin/audit-logs', { params: queryParams })).data;
     },
+    exportAuditLogs: async (params = {}) => {
+        const response = await api.get('/admin/audit-logs/export', {
+            params,
+            responseType: 'blob',
+        });
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `audit_logs_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    },
     getUsers: async () => (await api.get('/users')).data,
     getUser: async (userId) => (await api.get(`/users/${userId}`)).data,
     updateUser: async (userId, data) => (await api.put(`/users/${userId}`, data)).data,

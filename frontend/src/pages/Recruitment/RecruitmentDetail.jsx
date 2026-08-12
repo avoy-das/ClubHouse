@@ -133,13 +133,13 @@ const RecruitmentDetailContent = () => {
                     {/* Notice Info */}
                     <div className="md:col-span-2 space-y-4">
                         <div>
-                            <h3 className="font-bold text-gray-800 text-lg mb-1">Campaign Overview</h3>
+                            <h2 className="font-bold text-gray-800 text-lg mb-1">Campaign Overview</h2>
                             <p className="text-gray-700 whitespace-pre-line leading-relaxed">{notice.description}</p>
                         </div>
 
                         {notice.requirements && (
                             <div className="bg-gray-50 p-4 rounded border">
-                                <h4 className="font-bold text-gray-800 text-sm mb-1">Requirements & Qualifications</h4>
+                                <h3 className="font-bold text-gray-800 text-sm mb-1">Requirements & Qualifications</h3>
                                 <p className="text-gray-700 text-sm whitespace-pre-line">{notice.requirements}</p>
                             </div>
                         )}
@@ -147,7 +147,7 @@ const RecruitmentDetailContent = () => {
 
                     {/* Meta Sidebar */}
                     <div className="bg-gray-50 p-6 rounded-lg border space-y-3 text-sm">
-                        <h4 className="font-bold text-gray-800 border-b pb-2">Timeline</h4>
+                        <h3 className="font-bold text-gray-800 border-b pb-2">Timeline</h3>
                         <div>
                             <span className="text-gray-500 block">Opens:</span>
                             <span className="font-medium text-gray-900">{new Date(notice.opens_at).toLocaleString()}</span>

@@ -34,10 +34,11 @@ const SearchBar = () => {
             <input
                 type="text"
                 placeholder="Search events, clubs..."
+                aria-label="Search events and clubs"
                 value={query}
                 onChange={handleChange}
                 maxLength={100}
-                className="w-full min-w-0 bg-[#f0eee9] text-[#1b1c19] placeholder-[#444748] text-xs rounded-full pl-10 pr-4 py-2 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:ring-1 focus:ring-[#1c1b1b] transition-all"
+                className="w-full min-w-0 bg-[#f0eee9] text-[#1b1c19] placeholder-[#444748] text-xs rounded-full pl-10 pr-4 py-2.5 min-h-[44px] border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:ring-1 focus:ring-[#1c1b1b] transition-all"
             />
         </form>
     );

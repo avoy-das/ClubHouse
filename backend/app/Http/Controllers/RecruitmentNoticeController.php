@@ -32,7 +32,7 @@ class RecruitmentNoticeController extends Controller
             }
         }
 
-        $notices = $query->with('club')->latest()->get();
+        $notices = $query->with('club:id,name,logo_path,category,department,status')->latest()->get();
 
         if ($user) {
             $userMemberClubIds = \App\Models\ClubMember::where('user_id', $user->id)
@@ -40,15 +40,14 @@ class RecruitmentNoticeController extends Controller
                 ->pluck('club_id')
                 ->toArray();
 
-            $userApps = \App\Models\RecruitmentApplication::where('user_id', $user->id)
+            $userApps = \App\Models\RecruitmentApplication::select(['id', 'recruitment_notice_id', 'user_id', 'status', 'created_at'])
+                ->where('user_id', $user->id)
                 ->get()
                 ->keyBy('recruitment_notice_id');
 
-            $notices->transform(function ($notice) use ($userMemberClubIds, $userApps) {
-                $noticeArray = $notice->toArray();
-                $noticeArray['is_member'] = in_array($notice->club_id, $userMemberClubIds);
-                $noticeArray['my_application'] = $userApps->get($notice->id);
-                return $noticeArray;
+            $notices->each(function ($notice) use ($userMemberClubIds, $userApps) {
+                $notice->setAttribute('is_member', in_array($notice->club_id, $userMemberClubIds));
+                $notice->setAttribute('my_application', $userApps->get($notice->id));
             });
         }
 
@@ -129,7 +128,7 @@ class RecruitmentNoticeController extends Controller
             );
         }
 
-        \App\Services\AuditService::log('recruitment.notice.created', $notice, ['title' => $notice->title], $request->user()->id);
+        \App\Services\AuditService::log('recruitment.notice_created', $notice, ['title' => $notice->title], $request->user()->id);
 
         return response()->json($notice->load('club'), 201);
     }
@@ -196,7 +195,7 @@ class RecruitmentNoticeController extends Controller
             );
         }
 
-        \App\Services\AuditService::log('recruitment.notice.updated', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
+        \App\Services\AuditService::log('recruitment.notice_updated', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
 
         return response()->json($recruitmentNotice->load('club'));
     }
@@ -205,7 +204,7 @@ class RecruitmentNoticeController extends Controller
     {
         $this->authorize('delete', $recruitmentNotice);
 
-        \App\Services\AuditService::log('recruitment.notice.deleted', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
+        \App\Services\AuditService::log('recruitment.notice_deleted', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
 
         $recruitmentNotice->delete();
 
