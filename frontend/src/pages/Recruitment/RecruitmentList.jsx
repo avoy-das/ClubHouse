@@ -466,8 +466,11 @@ const RecruitmentListContent = () => {
                             {/* Status Filter */}
                             <div className="flex items-center gap-1 text-xs">
                                 <Filter className="w-3.5 h-3.5 text-slate-500" />
-                                <span className="font-semibold text-slate-600">Status:</span>
+                                <label htmlFor="recruitment-status-filter-select" className="font-semibold text-slate-600">Status:</label>
                                 <select
+                                    id="recruitment-status-filter-select"
+                                    aria-label="Filter by campaign status"
+                                    data-testid="recruitment-status-filter"
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
                                     className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white outline-none focus:border-blue-500"
@@ -482,8 +485,11 @@ const RecruitmentListContent = () => {
                             {/* Club Filter */}
                             {!clubId && availableClubs.length > 0 && (
                                 <div className="flex items-center gap-1 text-xs">
-                                    <span className="font-semibold text-slate-600">Club:</span>
+                                    <label htmlFor="recruitment-club-filter-select" className="font-semibold text-slate-600">Club:</label>
                                     <select
+                                        id="recruitment-club-filter-select"
+                                        aria-label="Filter by organization or club"
+                                        data-testid="recruitment-club-filter"
                                         value={clubFilter}
                                         onChange={(e) => setClubFilter(e.target.value)}
                                         className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white outline-none focus:border-blue-500"
@@ -805,8 +811,11 @@ const RecruitmentListContent = () => {
 
                         {!isEditMode && (
                             <div>
-                                <label className="block text-xs font-bold text-[#0b1c30] mb-1">Target Organization / Club</label>
+                                <label htmlFor="recruitment-target-club-select" className="block text-xs font-bold text-[#0b1c30] mb-1">Target Organization / Club</label>
                                 <select
+                                    id="recruitment-target-club-select"
+                                    aria-label="Target Organization or Club"
+                                    data-testid="recruitment-modal-club-select"
                                     required
                                     className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] bg-white font-medium"
                                     value={selectedClubId}
@@ -854,8 +863,11 @@ const RecruitmentListContent = () => {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-[#0b1c30] mb-1">Campaign Session / Intake Year</label>
+                                <label htmlFor="recruitment-session-select" className="block text-xs font-bold text-[#0b1c30] mb-1">Campaign Session / Intake Year</label>
                                 <select
+                                    id="recruitment-session-select"
+                                    aria-label="Campaign Session or Intake Year"
+                                    data-testid="recruitment-modal-session-select"
                                     required
                                     className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] bg-white font-medium"
                                     value={session}
@@ -964,9 +976,12 @@ const RecruitmentListContent = () => {
                         <h4 className="text-sm font-bold text-[#0b1c30] border-b border-slate-100 pb-2">4. Evaluation Pipeline & Questions</h4>
 
                         <div>
-                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Evaluation Pipeline Steps</label>
+                            <label htmlFor="recruitment-pipeline-template-select" className="block text-xs font-bold text-[#0b1c30] mb-1">Evaluation Pipeline Steps</label>
                             {/* PIPELINE TEMPLATE: SIMPLE BY DEFAULT FIRST */}
                             <select
+                                id="recruitment-pipeline-template-select"
+                                aria-label="Evaluation Pipeline Steps Template"
+                                data-testid="recruitment-modal-pipeline-template-select"
                                 className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] bg-white font-medium mb-3"
                                 value={pipelineTemplate}
                                 onChange={(e) => {
@@ -1045,6 +1060,8 @@ const RecruitmentListContent = () => {
                                             <select
                                                 value={field.type}
                                                 onChange={(e) => updateCustomField(idx, 'type', e.target.value)}
+                                                aria-label="Field Input Type"
+                                                data-testid={`recruitment-custom-field-type-select-${idx}`}
                                                 className="text-xs border border-slate-300 rounded-lg px-2 py-1.5 outline-none focus:border-blue-500 bg-white font-medium"
                                             >
                                                 <option value="text">Text Input</option>

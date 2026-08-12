@@ -81,6 +81,7 @@ const MainLayout = ({ children }) => {
                     <div className="flex items-center gap-3 shrink-0">
                         <button
                             onClick={toggleSidebar}
+                            data-testid="sidebar-toggle-btn"
                             aria-label={isCollapsed ? 'Expand Navigation Sidebar' : 'Collapse Navigation Sidebar'}
                             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
                             className="p-2.5 min-w-[44px] min-h-[44px] text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3] rounded-lg transition-colors flex items-center justify-center"
@@ -92,7 +93,7 @@ const MainLayout = ({ children }) => {
                             )}
                         </button>
 
-                        <Link to="/dashboard" aria-label="ClubHouse Dashboard Home" className="flex items-center gap-2.5 group">
+                        <Link to="/dashboard" data-testid="brand-logo-link" aria-label="ClubHouse Dashboard Home" className="flex items-center gap-2.5 group">
                             <div className="w-9 h-9 bg-[#1c1b1b] rounded-full flex items-center justify-center text-white font-extrabold text-sm shadow-xs group-hover:bg-[#30312e] transition-colors">
                                 <Building2 className="w-5 h-5 text-white" />
                             </div>
@@ -112,6 +113,7 @@ const MainLayout = ({ children }) => {
                         {/* Notification Bell */}
                         <Link
                             to="/notifications"
+                            data-testid="nav-notifications-link"
                             aria-label="View Notifications"
                             title="Notifications"
                             className="relative p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3] transition-colors shrink-0"
@@ -127,6 +129,7 @@ const MainLayout = ({ children }) => {
                         {/* User profile */}
                         <Link
                             to="/profile"
+                            data-testid="nav-profile-link"
                             aria-label={`User Profile: ${user?.name || 'User'}`}
                             className="hidden md:flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-full bg-[#e8e2d9] hover:bg-[#dbdad5] text-[#1d1b16] transition-colors border border-[#cbc6bd]/50 shrink-0"
                         >
@@ -146,6 +149,7 @@ const MainLayout = ({ children }) => {
                         {isAdmin() && (
                             <Link
                                 to="/admin/clubs"
+                                data-testid="nav-admin-suite-link"
                                 aria-label="Admin Suite Dashboard"
                                 className="px-3.5 py-2 min-h-[44px] text-xs font-bold bg-[#1c1b1b] text-white rounded-full hover:bg-[#30312e] transition-colors flex items-center gap-1 shadow-xs shrink-0"
                             >
@@ -157,6 +161,7 @@ const MainLayout = ({ children }) => {
                         {/* Logout Button */}
                         <button
                             onClick={handleLogout}
+                            data-testid="logout-btn"
                             aria-label="Log Out of ClubHouse"
                             className="p-2.5 min-h-[44px] min-w-[44px] text-[#444748] hover:text-[#1b1c19] border border-[#e4e2dd] hover:bg-[#eae8e3] rounded-full transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold shrink-0"
                             title="Logout"
@@ -186,6 +191,7 @@ const MainLayout = ({ children }) => {
                                 <Link
                                     key={item.to}
                                     to={item.to}
+                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                                     title={isCollapsed ? item.label : undefined}
                                     className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${active
                                         ? 'bg-[#e8e2d9] text-[#1d1b16] shadow-xs font-bold'

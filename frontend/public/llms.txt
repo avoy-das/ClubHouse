@@ -1,0 +1,26 @@
+# ClubHouse - University Club Management System
+
+> Centralized web platform for university student clubs, events, recruitment applications, and campus announcements.
+
+## System Overview
+
+ClubHouse provides university students, club executives, and administrators with tools to discover clubs, register for campus events, apply for recruitment drives, and manage campus organizations.
+
+## Core Navigation & Routes
+
+- [Dashboard](/dashboard): Main user overview showing upcoming events, active club memberships, and campus announcements.
+- [Clubs Catalog](/clubs): Directory of active university clubs, department affiliations, executive members, and joining guidelines.
+- [Events Calendar](/events): Campus-wide events schedule with registration links, ticket availability, and venue details.
+- [Recruitment Drives](/recruitment): Active club executive and member recruitment postings with online application forms.
+- [Announcements](/announcements): Official campus and club updates, notices, and activity logs.
+- [User Profile](/profile): Personal user settings, registered events history, and submitted recruitment applications.
+
+## Authentication & Access
+
+- [Login](/login): Authentication portal for institutional student and admin accounts.
+- [Register](/register): Account registration page for new students.
+
+## Developer & API Documentation
+
+- [API Health Check](/api/health): Backend service health status endpoint.
+- [OpenAPI Spec](/api/documentation): Backend REST API endpoint documentation.
