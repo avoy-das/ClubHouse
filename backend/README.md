@@ -10,7 +10,6 @@ The RESTful API backend for the **ClubHouse** University Club Management Platfor
 - **Dynamic Club Executive Authorization**: Flexible, club-defined positions with granular permission flags (`can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`).
 - **Membership Lifecycle**: Join requests, executive review workflows, active member rosters, and position assignments.
 - **Events & Attendance**: Event publishing, registration capacity enforcement, attendance marking, CSV exports, and event feedback collection.
-- **Certificates**: Automated certificate generation for verified attendees with direct download links and verification codes.
 - **Targeted Announcements**: Audience targeting (all, club members, executive-only, or specific user lists) with pinning/unpinning.
 - **Recruitment Management**: Multi-notice recruitment listing, custom JSON fields for applications, attachment links, and status decisioning.
 - **Audit Logging**: Observer-based logging (`AuditObserver`) of critical model modifications into system audit logs.

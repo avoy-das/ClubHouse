@@ -9,9 +9,11 @@ use App\Models\ClubMember;
 use App\Models\User;
 use App\Models\AuditLog;
 use App\Services\AuditService;
+use App\Services\CacheInvalidationService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
@@ -129,9 +131,11 @@ class ClubController extends Controller
             return response()->json(['message' => 'Club not found.'], 404);
         }
 
-        $club->load('creator:id,name', 'members.user:id,name', 'members.positions.position');
+        $cachedClub = Cache::remember("clubhouse:clubs:show:{$club->id}", 180, function () use ($club) {
+            return $club->load('creator:id,name', 'members.user:id,name', 'members.positions.position');
+        });
 
-        return response()->json($club);
+        return response()->json($cachedClub);
     }
 
     // Admin only — view all clubs regardless of status
@@ -168,6 +172,8 @@ class ClubController extends Controller
         AuditService::log('club.approved', $club, [
             'previous_status' => 'pending',
         ]);
+
+        CacheInvalidationService::club($club->id);
 
         NotificationService::notifyUser(
             $club->created_by,

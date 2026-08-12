@@ -10,11 +10,10 @@ A complete, production-ready university/organization club management platform bu
 backend/
 ├── app/
 │   ├── Http/
-│   │   ├── Controllers/                  # 22 RESTful Controllers
+│   │   ├── Controllers/                  # 21 RESTful Controllers
 │   │   │   ├── AnnouncementController.php
 │   │   │   ├── AuditLogController.php
 │   │   │   ├── AuthController.php
-│   │   │   ├── CertificateController.php
 │   │   │   ├── ClubController.php
 │   │   │   ├── ClubEditRequestController.php
 │   │   │   ├── ClubGalleryController.php
@@ -57,10 +56,9 @@ backend/
 │   │       ├── UpdateEventStatusRequest.php
 │   │       └── UpdateRecruitmentNoticeRequest.php
 │   │
-│   ├── Models/                           # 17 Eloquent Domain Models
+│   ├── Models/                           # 16 Eloquent Domain Models
 │   │   ├── Announcement.php
 │   │   ├── AuditLog.php
-│   │   ├── Certificate.php
 │   │   ├── Club.php
 │   │   ├── ClubEditRequest.php
 │   │   ├── ClubGallery.php
@@ -174,10 +172,9 @@ frontend/
 │   │   ├── AuthContext.jsx               # Auth state, login, logout, user profile
 │   │   └── ClubPermissionsContext.jsx    # Club-level executive permission resolver
 │   │
-│   ├── pages/                            # 13 Page Feature Folders
+│   ├── pages/                            # 12 Page Feature Folders
 │   │   ├── Admin/                        # AdminClubList, AdminClubs, AdminUsers, AdminAuditLogs, AdminReports
 │   │   ├── Announcements/                # AnnouncementList
-│   │   ├── Certificates/                 # MyCertificates
 │   │   ├── Clubs/                        # ClubList, ClubDetail, CreateClub, ClubForm, ClubMembers
 │   │   ├── Dashboard/                    # Dashboard (Student, Executive, and Admin views)
 │   │   ├── Events/                       # EventsPage, EventDetailPage, EventDetail, EventAttendance, EventForm, EventList
@@ -194,12 +191,11 @@ frontend/
 │   │   ├── AdminRoute.jsx                # Platform Admin guard
 │   │   └── ClubExecutiveRoute.jsx        # Club Executive guard
 │   │
-│   └── services/                         # 11 Service Layer Modules
+│   └── services/                         # 10 Service Layer Modules
 │       ├── adminService.js
 │       ├── announcementService.js
 │       ├── api.js                        # Axios instance with Bearer token interceptor
 │       ├── authService.js
-│       ├── certificateService.js
 │       ├── clubService.js
 │       ├── eventService.js
 │       ├── membershipService.js
@@ -242,7 +238,6 @@ erDiagram
 
     Event ||--o{ EventRegistration : "tracks"
     Event ||--o{ EventFeedback : "receives"
-    EventRegistration ||--o| Certificate : "issues"
 
     RecruitmentNotice ||--o{ RecruitmentApplication : "collects"
 ```

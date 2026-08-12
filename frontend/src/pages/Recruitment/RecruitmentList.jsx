@@ -72,56 +72,58 @@ const RecruitmentListContent = () => {
         setLoading(true);
         setError(null);
         try {
-            let res;
-            if (clubId) {
-                res = await recruitmentService.listForClub(clubId);
-                try {
-                    const clubRes = await clubService.getClub(clubId);
-                    setCurrentClub(clubRes.data || clubRes);
-                } catch {
-                    // Ignore single club fetch error
-                }
-            } else {
-                res = await recruitmentService.listAll();
-            }
-            const list = res.data || res;
+            const admin = isAdmin();
+
+            // Fire all independent network requests in parallel
+            const noticesPromise = clubId
+                ? recruitmentService.listForClub(clubId)
+                : recruitmentService.listAll();
+
+            const currentClubPromise = clubId
+                ? clubService.getClub(clubId).catch(() => null)
+                : Promise.resolve(null);
+
+            const membershipsPromise = authService.getMyMemberships().catch(() => []);
+
+            const allClubsPromise = admin
+                ? clubService.getClubs().catch(() => [])
+                : Promise.resolve([]);
+
+            const [noticesRes, currentClubRes, membersRes, allClubsRes] = await Promise.all([
+                noticesPromise,
+                currentClubPromise,
+                membershipsPromise,
+                allClubsPromise,
+            ]);
+
+            // Process notices
+            const list = noticesRes.data || noticesRes;
             const loadedNotices = Array.isArray(list) ? list : [];
             setNotices(loadedNotices);
 
-            // Fetch memberships to identify actual executive clubs
-            let execClubIdsList = [];
-            try {
-                const membersRes = await authService.getMyMemberships();
-                const memberships = membersRes.data || membersRes || [];
-                const execMemberships = memberships.filter(m =>
-                    m.status === 'active' &&
-                    (m.role !== 'member' || (m.positions && m.positions.some(p => p.position?.is_executive || p.position?.can_manage_recruitment)))
-                );
-                execClubIdsList = execMemberships.map(m => m.club_id || m.club?.id).filter(Boolean);
-            } catch {
-                // Ignore membership fetch error
+            if (currentClubRes) {
+                setCurrentClub(currentClubRes.data || currentClubRes);
             }
+
+            // Process memberships
+            const memberships = membersRes.data || membersRes || [];
+            const execMemberships = memberships.filter(m =>
+                m.status === 'active' &&
+                (m.role !== 'member' || (m.positions && m.positions.some(p => p.position?.is_executive || p.position?.can_manage_recruitment)))
+            );
+            const execClubIdsList = execMemberships.map(m => m.club_id || m.club?.id).filter(Boolean);
             setMyExecClubIds(execClubIdsList);
 
             // Determine executive clubs and eligibility
             let clubsList = [];
             let execFlag = false;
 
-            if (isAdmin()) {
+            if (admin) {
                 execFlag = true;
-                const allClubsRes = await clubService.list();
                 clubsList = (allClubsRes.data || allClubsRes || []).filter(c => c.status === 'approved');
             } else {
                 if (execClubIdsList.length > 0) {
                     execFlag = true;
-                }
-                const membersRes = await authService.getMyMemberships();
-                const memberships = membersRes.data || membersRes || [];
-                const execMemberships = memberships.filter(m =>
-                    m.status === 'active' &&
-                    (m.role !== 'member' || (m.positions && m.positions.some(p => p.position?.is_executive || p.position?.can_manage_recruitment)))
-                );
-                if (execMemberships.length > 0) {
                     clubsList = execMemberships.map(m => m.club).filter(Boolean);
                 }
             }
@@ -145,7 +147,7 @@ const RecruitmentListContent = () => {
             setAvailableClubs(annotatedClubs);
 
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to load recruitment data');
+            setError(err.response?.data?.message || err.message || 'Failed to load recruitment data');
         } finally {
             setLoading(false);
         }

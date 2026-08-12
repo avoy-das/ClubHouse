@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\ClubEditRequestController;
 use App\Http\Controllers\DashboardController;
@@ -129,12 +128,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Events
     Route::apiResource('clubs.events', EventController::class)->shallow();
 
-    // Certificates
-    Route::get('/certificates', [CertificateController::class, 'index']);
-    Route::get('/certificates/{certificate}/download', [CertificateController::class, 'download']);
-
     // Feedback
+    Route::get('/events/{event}/feedback/summary', [EventFeedbackController::class, 'summary']);
+    Route::get('/events/{event}/feedback', [EventFeedbackController::class, 'index']);
     Route::post('/events/{event}/feedback', [EventFeedbackController::class, 'store']);
+    Route::put('/events/{event}/feedback', [EventFeedbackController::class, 'update']);
+    Route::delete('/events/{event}/feedback', [EventFeedbackController::class, 'destroy']);
 
     // Recruitment
     Route::get('/recruitment-notices', [RecruitmentNoticeController::class, 'index']);

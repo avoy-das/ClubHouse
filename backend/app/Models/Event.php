@@ -22,6 +22,7 @@ class Event extends Model
         'ends_at',
         'capacity',
         'custom_fields',
+        'feedback_policy',
     ];
 
     protected $casts = [

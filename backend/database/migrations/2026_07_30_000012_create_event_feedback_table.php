@@ -19,7 +19,7 @@ return new class extends Migration
                   ->constrained('users')
                   ->cascadeOnDelete();
 
-            $table->unsignedTinyInteger('rating')->nullable();
+            $table->unsignedTinyInteger('rating');
             $table->text('comment')->nullable();
             $table->timestamps();
 

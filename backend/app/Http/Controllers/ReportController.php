@@ -2,29 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Certificate;
 use App\Models\Club;
 use App\Models\ClubMember;
 use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\User;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 class ReportController extends Controller
 {
     public function overview(): JsonResponse
     {
-        return response()->json([
-            'total_users'         => User::count(),
-            'total_clubs'         => Club::where('status', 'approved')->count(),
-            'approved_clubs'      => Club::where('status', 'approved')->count(),
-            'pending_clubs'       => Club::where('status', 'pending')->count(),
-            'suspended_clubs'     => Club::where('status', 'suspended')->count(),
-            'total_memberships'   => ClubMember::where('status', 'active')->count(),
-            'total_events'        => Event::count(),
-            'total_registrations' => EventRegistration::count(),
-            'total_certificates'  => Certificate::count(),
-        ]);
+        $stats = Cache::remember('clubhouse:reports:overview', 300, function () {
+            return [
+                'total_users'         => User::count(),
+                'total_clubs'         => Club::where('status', 'approved')->count(),
+                'approved_clubs'      => Club::where('status', 'approved')->count(),
+                'pending_clubs'       => Club::where('status', 'pending')->count(),
+                'suspended_clubs'     => Club::where('status', 'suspended')->count(),
+                'total_memberships'   => ClubMember::where('status', 'active')->count(),
+                'total_events'        => Event::count(),
+                'total_registrations' => EventRegistration::count(),
+            ];
+        });
+
+        return response()->json($stats);
     }
 
     public function clubReport(Club $club): JsonResponse

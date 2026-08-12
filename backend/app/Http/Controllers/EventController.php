@@ -8,10 +8,12 @@ use App\Http\Requests\UpdateEventStatusRequest;
 use App\Models\Club;
 use App\Models\Event;
 use App\Services\AuditService;
+use App\Services\CacheInvalidationService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -130,26 +132,29 @@ class EventController extends Controller
         self::syncEventStatuses();
 
         $user = Auth::user();
+        $cacheKey = 'clubhouse:events:schedule:' . ($user->is_admin ? 'admin' : $user->id);
 
-        $query = Event::with('club:id,name')
-            ->whereIn('status', ['published', 'upcoming', 'ongoing'])
-            ->where(function ($q) {
-                $q->where('ends_at', '>=', now())
-                  ->orWhere('starts_at', '>=', now());
-            });
+        $events = Cache::remember($cacheKey, 120, function () use ($user) {
+            $query = Event::with('club:id,name')
+                ->whereIn('status', ['published', 'upcoming', 'ongoing'])
+                ->where(function ($q) {
+                    $q->where('ends_at', '>=', now())
+                      ->orWhere('starts_at', '>=', now());
+                });
 
-        if (!$user->is_admin) {
-            $query->where(function ($q) use ($user) {
-                $q->where('visibility', 'public')
-                  ->orWhereHas('club', function ($clubQuery) use ($user) {
-                      $clubQuery->whereHas('members', function ($memberQuery) use ($user) {
-                          $memberQuery->where('user_id', $user->id);
+            if (!$user->is_admin) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('visibility', 'public')
+                      ->orWhereHas('club', function ($clubQuery) use ($user) {
+                          $clubQuery->whereHas('members', function ($memberQuery) use ($user) {
+                              $memberQuery->where('user_id', $user->id);
+                          });
                       });
-                  });
-            });
-        }
+                });
+            }
 
-        $events = $query->orderBy('starts_at', 'asc')->get();
+            return $query->orderBy('starts_at', 'asc')->get();
+        });
 
         return response()->json($events);
     }
@@ -212,6 +217,8 @@ class EventController extends Controller
             'club_id'  => $event->club_id,
             'starts_at'=> $event->starts_at,
         ]);
+
+        CacheInvalidationService::event($event->club_id);
 
         if ($targetStatus === 'published') {
             $this->sendEventNotification($event, 'published', $user->id);
@@ -311,7 +318,7 @@ class EventController extends Controller
             ], 403);
         }
 
-        if (in_array($event->status, ['completed', 'cancelled'])) {
+        if (in_array($event->status, ['completed', 'cancelled']) || ($event->ends_at && $event->ends_at->isPast())) {
             return response()->json([
                 'message' => 'Cannot edit a completed or cancelled event.',
             ], 422);

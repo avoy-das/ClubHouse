@@ -34,8 +34,9 @@ class StoreEventRequest extends FormRequest
             'starts_at'      => ['required', 'date', 'after:now - 10 minutes'],
             'ends_at'        => ['required', 'date', 'after:starts_at'],
             'capacity'       => ['required', 'integer', 'min:1'],
-            'custom_fields'  => ['nullable', 'array'],
-            'status'         => ['nullable', 'string', 'in:draft,published,upcoming,ongoing,completed,cancelled'],
+            'custom_fields'   => ['nullable', 'array'],
+            'status'          => ['nullable', 'string', 'in:draft,published,upcoming,ongoing,completed,cancelled'],
+            'feedback_policy' => ['nullable', 'string', 'in:attended_only,registered_only,open_to_all'],
         ];
     }
 

@@ -5,7 +5,9 @@ import eventService from '../../services/eventService';
 import EventModal from '../../components/Events/EventModal';
 import AttendanceReportModal from '../../components/Events/AttendanceReportModal';
 import ViewResponsesModal from '../../components/Events/ViewResponsesModal';
-import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, Ban, Trash2, ArrowLeft, Building2, CheckCircle, FileText, Paperclip } from 'lucide-react';
+import EventFeedbackModal from '../../components/Events/EventFeedbackModal';
+import FeedbackListModal from '../../components/Events/FeedbackListModal';
+import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, Ban, Trash2, ArrowLeft, Building2, CheckCircle, FileText, Paperclip, Star, MessageSquare } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
 
 const statusBadgeStyles = {
@@ -56,6 +58,17 @@ const EventDetailPage = () => {
     const [customTextAnswers, setCustomTextAnswers] = useState({});
     const [customFileAnswers, setCustomFileAnswers] = useState({});
 
+    // Feedback states
+    const [feedbackSummary, setFeedbackSummary] = useState(null);
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+    const [isFeedbackListOpen, setIsFeedbackListOpen] = useState(false);
+
+    const loadFeedbackSummary = () => {
+        eventService.getFeedbackSummary(id)
+            .then(res => setFeedbackSummary(res.data))
+            .catch(() => { });
+    };
+
     useEffect(() => {
         setLoading(true);
         setError(null);
@@ -68,6 +81,7 @@ const EventDetailPage = () => {
                 setUserRegistration(data.user_registration || null);
                 setCanManage(data.can_manage || false);
                 setSpotsRemaining(data.spots_remaining);
+                loadFeedbackSummary();
             })
             .catch(err => {
                 if (err.response?.status === 404) {
@@ -295,11 +309,10 @@ const EventDetailPage = () => {
             {/* Notification Toast Banner */}
             {toast && (
                 <div
-                    className={`mb-6 p-4 rounded-xl text-sm border flex items-center justify-between ${
-                        toast.type === 'success'
+                    className={`mb-6 p-4 rounded-xl text-sm border flex items-center justify-between ${toast.type === 'success'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             : 'bg-rose-50 text-rose-800 border-rose-200'
-                    }`}
+                        }`}
                 >
                     <span>{toast.message}</span>
                     <button
@@ -327,12 +340,14 @@ const EventDetailPage = () => {
                         {/* Control Actions */}
                         <div className="flex flex-wrap items-center gap-2">
                             {/* Edit Event */}
-                            <button
-                                onClick={() => setIsEditOpen(true)}
-                                className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
-                            >
-                                <Edit className="w-4 h-4" /> Edit Event
-                            </button>
+                            {!isCompletedOrPast && (
+                                <button
+                                    onClick={() => setIsEditOpen(true)}
+                                    className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
+                                >
+                                    <Edit className="w-4 h-4" /> Edit Event
+                                </button>
+                            )}
 
                             {/* View Responses (Unified Roster & Custom Answers Modal) */}
                             <button
@@ -348,6 +363,14 @@ const EventDetailPage = () => {
                                 className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                             >
                                 <BarChart2 className="w-4 h-4" /> Attendance Report
+                            </button>
+
+                            {/* View Feedback Responses */}
+                            <button
+                                onClick={() => setIsFeedbackListOpen(true)}
+                                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
+                            >
+                                <MessageSquare className="w-4 h-4" /> Feedback ({feedbackSummary?.total_reviews || 0})
                             </button>
 
                             {/* Status Transitions */}
@@ -539,70 +562,157 @@ const EventDetailPage = () => {
 
                                     return (
                                         <div key={field.id || idx} className="p-4 bg-white border border-slate-200 rounded-xl space-y-2 text-xs">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className="font-bold text-[#0b1c30] text-sm">
-                                                #{idx + 1}. {fieldLabel}
-                                            </span>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="capitalize bg-slate-100 px-2 py-0.5 border border-slate-200 rounded text-[10px] text-slate-600 font-medium">
-                                                    {field.type || 'text'}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="font-bold text-[#0b1c30] text-sm">
+                                                    #{idx + 1}. {fieldLabel}
                                                 </span>
-                                                {field.required ? (
-                                                    <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded font-semibold text-[10px]">
-                                                        Required *
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="capitalize bg-slate-100 px-2 py-0.5 border border-slate-200 rounded text-[10px] text-slate-600 font-medium">
+                                                        {field.type || 'text'}
                                                     </span>
-                                                ) : (
-                                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-medium text-[10px]">
-                                                        Optional
-                                                    </span>
-                                                )}
+                                                    {field.required ? (
+                                                        <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded font-semibold text-[10px]">
+                                                            Required *
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-medium text-[10px]">
+                                                            Optional
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
+
+                                            {field.type === 'select' && field.options && (
+                                                <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap pt-0.5">
+                                                    <span className="font-semibold text-slate-600">Options:</span>
+                                                    {(Array.isArray(field.options) ? field.options : (field.options || '').split(',')).map((opt, oIdx) => (
+                                                        <span key={oIdx} className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[10px] text-slate-700">
+                                                            {typeof opt === 'string' ? opt.trim() : opt}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Submission Status or Preview */}
+                                            {isRegistered ? (
+                                                <div className="mt-2 pt-2 border-t border-slate-100">
+                                                    <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1">
+                                                        Your Submitted Answer
+                                                    </span>
+                                                    {userTextAns !== undefined ? (
+                                                        <p className="text-xs text-slate-800 font-medium bg-emerald-50/60 p-2 rounded border border-emerald-200/60">
+                                                            {userTextAns || 'N/A'}
+                                                        </p>
+                                                    ) : userFileAns ? (
+                                                        <a
+                                                            href={getImageUrl(userFileAns.url || userFileAns.path)}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold rounded border border-emerald-200 transition-colors text-xs"
+                                                        >
+                                                            <Paperclip className="w-3.5 h-3.5 text-emerald-600" />
+                                                            {userFileAns.name || 'View Uploaded File'}
+                                                        </a>
+                                                    ) : (
+                                                        <p className="text-xs text-slate-400 italic">No answer recorded.</p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="mt-1 pt-1 text-[11px] text-slate-400 italic">
+                                                    Prompted during event registration
+                                                </div>
+                                            )}
                                         </div>
-
-                                        {field.type === 'select' && field.options && (
-                                            <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap pt-0.5">
-                                                <span className="font-semibold text-slate-600">Options:</span>
-                                                {(Array.isArray(field.options) ? field.options : (field.options || '').split(',')).map((opt, oIdx) => (
-                                                    <span key={oIdx} className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[10px] text-slate-700">
-                                                        {typeof opt === 'string' ? opt.trim() : opt}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Submission Status or Preview */}
-                                        {isRegistered ? (
-                                            <div className="mt-2 pt-2 border-t border-slate-100">
-                                                <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1">
-                                                    Your Submitted Answer
-                                                </span>
-                                                {userTextAns !== undefined ? (
-                                                    <p className="text-xs text-slate-800 font-medium bg-emerald-50/60 p-2 rounded border border-emerald-200/60">
-                                                        {userTextAns || 'N/A'}
-                                                    </p>
-                                                ) : userFileAns ? (
-                                                    <a
-                                                        href={getImageUrl(userFileAns.url || userFileAns.path)}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold rounded border border-emerald-200 transition-colors text-xs"
-                                                    >
-                                                        <Paperclip className="w-3.5 h-3.5 text-emerald-600" />
-                                                        {userFileAns.name || 'View Uploaded File'}
-                                                    </a>
-                                                ) : (
-                                                    <p className="text-xs text-slate-400 italic">No answer recorded.</p>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="mt-1 pt-1 text-[11px] text-slate-400 italic">
-                                                Prompted during event registration
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            }); })()}
+                                    );
+                                });
+                            })()}
                         </div>
+                    </div>
+                )}
+
+                {/* Event Feedback & Ratings Section */}
+                {(event.status === 'completed' || event.status === 'cancelled' || (feedbackSummary && feedbackSummary.total_reviews > 0)) && (
+                    <div className="mt-8 p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    ★ Event Feedback & Ratings
+                                    {feedbackSummary && feedbackSummary.total_reviews > 0 && (
+                                        <span className="px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
+                                            {feedbackSummary.average_rating} / 5.0
+                                        </span>
+                                    )}
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    {feedbackSummary && feedbackSummary.total_reviews > 0
+                                        ? `Based on ${feedbackSummary.total_reviews} review${feedbackSummary.total_reviews === 1 ? '' : 's'}.`
+                                        : 'Feedback is collected after event completion.'}{' '}
+                                    {((event.feedback_policy || feedbackSummary?.feedback_policy) === 'open_to_all' ||
+                                      (event.feedback_policy || feedbackSummary?.feedback_policy) === 'registered_only') && (
+                                        <span className="font-medium text-slate-600">
+                                            {' '}({(event.feedback_policy || feedbackSummary?.feedback_policy) === 'open_to_all'
+                                                ? 'Policy: Open to All Students'
+                                                : 'Policy: All Registered Attendees'})
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                {feedbackSummary?.my_feedback ? (
+                                    <button
+                                        onClick={() => setIsFeedbackModalOpen(true)}
+                                        className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+                                    >
+                                        <MessageSquare className="w-4 h-4 text-indigo-600" />
+                                        Edit Your Feedback
+                                    </button>
+                                ) : feedbackSummary?.can_submit ? (
+                                    <button
+                                        onClick={() => setIsFeedbackModalOpen(true)}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+                                    >
+                                        <MessageSquare className="w-4 h-4" />
+                                        Submit Event Feedback
+                                    </button>
+                                ) : null}
+
+                                {canManage && (
+                                    <button
+                                        onClick={() => setIsFeedbackListOpen(true)}
+                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+                                    >
+                                        <MessageSquare className="w-4 h-4" />
+                                        View All Responses ({feedbackSummary?.total_reviews || 0})
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* User's existing feedback preview */}
+                        {feedbackSummary?.my_feedback && (
+                            <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-1.5 text-xs">
+                                <div className="flex items-center justify-between text-slate-700">
+                                    <span className="font-semibold text-slate-900">Your Submitted Review:</span>
+                                    <div className="flex items-center gap-1">
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <Star
+                                                key={s}
+                                                className={`w-3.5 h-3.5 ${s <= feedbackSummary.my_feedback.rating
+                                                        ? 'fill-amber-400 text-amber-400'
+                                                        : 'text-slate-200'
+                                                    }`}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                                {feedbackSummary.my_feedback.comment && (
+                                    <p className="text-slate-600 italic bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-1">
+                                        "{feedbackSummary.my_feedback.comment}"
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -619,8 +729,8 @@ const EventDetailPage = () => {
                                 {isCompletedOrPast
                                     ? 'Registration has closed.'
                                     : isFull
-                                    ? 'Capacity limit reached.'
-                                    : 'Registration is open for all authenticated members.'}
+                                        ? 'Capacity limit reached.'
+                                        : 'Registration is open for all authenticated members.'}
                             </span>
                         )}
                     </div>
@@ -775,6 +885,25 @@ const EventDetailPage = () => {
                 isOpen={isResponsesOpen}
                 onClose={() => setIsResponsesOpen(false)}
                 event={event}
+            />
+
+            <EventFeedbackModal
+                isOpen={isFeedbackModalOpen}
+                onClose={() => setIsFeedbackModalOpen(false)}
+                eventId={event.id}
+                eventTitle={event.title}
+                existingFeedback={feedbackSummary?.my_feedback}
+                onSuccess={(msg) => {
+                    setToast({ type: 'success', message: msg });
+                    loadFeedbackSummary();
+                }}
+            />
+
+            <FeedbackListModal
+                isOpen={isFeedbackListOpen}
+                onClose={() => setIsFeedbackListOpen(false)}
+                eventId={event.id}
+                eventTitle={event.title}
             />
         </MainLayout>
     );

@@ -27,7 +27,6 @@ const AnnouncementList = lazy(() => import('./pages/Announcements/AnnouncementLi
 const RecruitmentList = lazy(() => import('./pages/Recruitment/RecruitmentList'));
 const RecruitmentDetail = lazy(() => import('./pages/Recruitment/RecruitmentDetail'));
 const RecruitmentApplications = lazy(() => import('./pages/Recruitment/RecruitmentApplications'));
-const MyCertificates = lazy(() => import('./pages/Certificates/MyCertificates'));
 
 const App = () => {
     return (
@@ -63,7 +62,6 @@ const App = () => {
                             <Route path="/clubs/:clubId/recruitment"          element={<RecruitmentList />} />
                             <Route path="/clubs/:clubId/recruitment/:noticeId" element={<RecruitmentDetail />} />
                             <Route path="/clubs/:clubId/recruitment/:noticeId/applications" element={<RecruitmentApplications />} />
-                            <Route path="/certificates"                       element={<MyCertificates />} />
                         </Route>
 
                         {/* Admin only */}

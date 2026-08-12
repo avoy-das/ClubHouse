@@ -14,7 +14,6 @@ import {
     Calendar,
     Megaphone,
     BellRing,
-    Award,
     PanelLeft,
     PanelLeftClose,
     Building2Icon,
@@ -70,7 +69,6 @@ const MainLayout = ({ children }) => {
         { to: '/events', label: 'Events', icon: Calendar },
         { to: '/recruitment', label: 'Recruitment', icon: Megaphone },
         { to: '/announcements', label: 'Announcements', icon: BellRing },
-        { to: '/certificates', label: 'Certificates', icon: Award },
         ...(isAdmin() ? [{ to: '/admin/users', label: 'User Management', icon: Users }] : []),
     ];
 

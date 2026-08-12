@@ -23,7 +23,9 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
         capacity: 50,
         starts_at: '',
         ends_at: '',
+        feedback_policy: 'attended_only',
     });
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [warning, setWarning] = useState(null);
@@ -100,6 +102,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     capacity: eventToEdit.capacity || 50,
                     starts_at: formatForDatetimeLocal(eventToEdit.starts_at),
                     ends_at: formatForDatetimeLocal(eventToEdit.ends_at),
+                    feedback_policy: eventToEdit.feedback_policy || 'attended_only',
                 });
             } else {
                 setBannerPreview(null);
@@ -120,6 +123,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     capacity: 50,
                     starts_at: formatForDatetimeLocal(defaultStart),
                     ends_at: formatForDatetimeLocal(defaultEnd),
+                    feedback_policy: 'attended_only',
                 }));
             }
         }
@@ -166,6 +170,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
             payload.append('capacity', String(formData.capacity));
             payload.append('starts_at', datetimeLocalToISO(formData.starts_at));
             payload.append('ends_at', datetimeLocalToISO(formData.ends_at));
+            payload.append('feedback_policy', formData.feedback_policy || 'attended_only');
             payload.append('banner', bannerFile);
             payload.append('custom_fields', JSON.stringify(customFields));
         } else {
@@ -354,6 +359,24 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                 <option value="online">Online Stream / Video Link</option>
                             </select>
                         </div>
+                    </div>
+
+                    {/* Feedback Policy Setting */}
+                    <div>
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Feedback Policy *</label>
+                        <select
+                            name="feedback_policy"
+                            value={formData.feedback_policy || 'attended_only'}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb] bg-[#f8f9ff]"
+                        >
+                            <option value="attended_only">Attended Only (Check-in Required)</option>
+                            <option value="registered_only">All Registered Attendees (No Check-in Needed)</option>
+                            <option value="open_to_all">Open to All Students (Public Feedback)</option>
+                        </select>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                            Determines who can submit feedback after the event ends.
+                        </p>
                     </div>
 
                     {/* Location Value & Capacity */}

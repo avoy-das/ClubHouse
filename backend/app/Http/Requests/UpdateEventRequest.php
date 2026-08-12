@@ -33,8 +33,9 @@ class UpdateEventRequest extends FormRequest
             'starts_at'      => ['sometimes', 'date', 'after:now'],
             'ends_at'        => ['sometimes', 'date', 'after:starts_at'],
             'capacity'       => ['sometimes', 'integer', 'min:1'],
-            'custom_fields'  => ['sometimes', 'nullable', 'array'],
-            'status'         => ['sometimes', 'string', 'in:draft,published,upcoming,ongoing,completed,cancelled'],
+            'custom_fields'   => ['sometimes', 'nullable', 'array'],
+            'status'          => ['sometimes', 'string', 'in:draft,published,upcoming,ongoing,completed,cancelled'],
+            'feedback_policy' => ['sometimes', 'string', 'in:attended_only,registered_only,open_to_all'],
         ];
     }
 
