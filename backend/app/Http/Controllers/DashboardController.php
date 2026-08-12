@@ -18,11 +18,13 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        // User's active club memberships
-        $myClubs = ClubMember::where('user_id', $user->id)
-            ->where('status', 'active')
-            ->with(['club:id,name,category,department,status,logo_path', 'club.creator:id,name'])
-            ->get();
+        // User's active club memberships (Cached for 2 minutes)
+        $myClubs = Cache::remember("clubhouse:dashboard:clubs:{$user->id}", 120, function () use ($user) {
+            return ClubMember::where('user_id', $user->id)
+                ->where('status', 'active')
+                ->with(['club:id,name,category,department,status,logo_path', 'club.creator:id,name'])
+                ->get();
+        });
 
         $clubsList = $myClubs->map(function ($cm) {
             if (!$cm->club) return null;
@@ -30,9 +32,6 @@ class DashboardController extends Controller
             $c['pivot'] = ['role' => $cm->role, 'status' => $cm->status];
             return $c;
         })->filter()->values();
-
-        // Automatically sync event statuses based on current time
-        EventController::syncEventStatuses();
 
         // Cache upcoming events and counts for 2 minutes per user
         $cachedDashboardData = Cache::remember("clubhouse:dashboard:events:{$user->id}", 120, function () use ($user, $myClubs) {
@@ -107,13 +106,15 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        // Recent announcements from user's clubs
+        // Recent announcements from user's clubs (Cached for 2 minutes)
         $userClubIds = $myClubs->pluck('club_id');
-        $recentAnnouncements = Announcement::whereIn('club_id', $userClubIds)
-            ->with(['club:id,name', 'author:id,name'])
-            ->latest()
-            ->limit(5)
-            ->get();
+        $recentAnnouncements = Cache::remember("clubhouse:dashboard:announcements:{$user->id}", 120, function () use ($userClubIds) {
+            return Announcement::whereIn('club_id', $userClubIds)
+                ->with(['club:id,name', 'author:id,name'])
+                ->latest()
+                ->limit(5)
+                ->get();
+        });
 
         // Unread notification count
         $unreadCount = Notification::where('user_id', $user->id)

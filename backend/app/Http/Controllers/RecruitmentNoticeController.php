@@ -128,7 +128,7 @@ class RecruitmentNoticeController extends Controller
             );
         }
 
-        \App\Services\AuditService::log('recruitment.notice.created', $notice, ['title' => $notice->title], $request->user()->id);
+        \App\Services\AuditService::log('recruitment.notice_created', $notice, ['title' => $notice->title], $request->user()->id);
 
         return response()->json($notice->load('club'), 201);
     }
@@ -195,7 +195,7 @@ class RecruitmentNoticeController extends Controller
             );
         }
 
-        \App\Services\AuditService::log('recruitment.notice.updated', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
+        \App\Services\AuditService::log('recruitment.notice_updated', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
 
         return response()->json($recruitmentNotice->load('club'));
     }
@@ -204,7 +204,7 @@ class RecruitmentNoticeController extends Controller
     {
         $this->authorize('delete', $recruitmentNotice);
 
-        \App\Services\AuditService::log('recruitment.notice.deleted', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
+        \App\Services\AuditService::log('recruitment.notice_deleted', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
 
         $recruitmentNotice->delete();
 

@@ -7,6 +7,7 @@ use App\Models\ClubMember;
 use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 
 class ReportController extends Controller

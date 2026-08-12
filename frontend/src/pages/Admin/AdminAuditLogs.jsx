@@ -4,21 +4,22 @@ import MainLayout from '../../layouts/MainLayout';
 import adminService from '../../services/adminService';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
-import { Shield, FileText, ArrowLeft, ArrowRight, X, Info, Clock, User as UserIcon, Tag } from 'lucide-react';
-import { actionLabels, renderMetaSummary } from '../../utils/auditLogUtils';
+import { Shield, FileText, ArrowLeft, ArrowRight, X, Info, Clock, User as UserIcon, Tag, Download, Search, Filter } from 'lucide-react';
+import { actionLabels, renderMetaSummary, getRoleBadge } from '../../utils/auditLogUtils';
 
 const AdminAuditLogs = () => {
     const [logs, setLogs] = useState([]);
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
     const [loading, setLoading] = useState(true);
+    const [exporting, setExporting] = useState(false);
     const [error, setError] = useState(null);
     const [selectedLog, setSelectedLog] = useState(null);
 
     // Filters
-    const [userId, setUserId] = useState('');
-    const [clubId, setClubId] = useState('');
-    const [action, setAction] = useState('');
+    const [search, setSearch] = useState('');
+    const [role, setRole] = useState('');
+    const [category, setCategory] = useState('');
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
 
@@ -28,9 +29,9 @@ const AdminAuditLogs = () => {
         try {
             const params = {
                 page: pageNum,
-                ...(userId && { user_id: userId }),
-                ...(clubId && { club_id: clubId }),
-                ...(action && { action }),
+                ...(search && { search }),
+                ...(role && { role }),
+                ...(category && { category }),
                 ...(fromDate && { from: `${fromDate} 00:00:00` }),
                 ...(toDate && { to: `${toDate} 23:59:59` }),
             };
@@ -57,13 +58,31 @@ const AdminAuditLogs = () => {
     };
 
     const handleResetFilters = () => {
-        setUserId('');
-        setClubId('');
-        setAction('');
+        setSearch('');
+        setRole('');
+        setCategory('');
         setFromDate('');
         setToDate('');
         setPage(1);
         loadAuditLogs(1);
+    };
+
+    const handleExportCSV = async () => {
+        setExporting(true);
+        try {
+            const params = {
+                ...(search && { search }),
+                ...(role && { role }),
+                ...(category && { category }),
+                ...(fromDate && { from: `${fromDate} 00:00:00` }),
+                ...(toDate && { to: `${toDate} 23:59:59` }),
+            };
+            await adminService.exportAuditLogs(params);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to export audit logs to CSV');
+        } finally {
+            setExporting(false);
+        }
     };
 
     const formatDate = (isoStr) => {
@@ -86,69 +105,93 @@ const AdminAuditLogs = () => {
                         <h1 className="text-2xl font-bold text-[#0b1c30] flex items-center gap-2">
                             <Shield className="w-6 h-6 text-amber-500" /> Admin — System Audit Logs
                         </h1>
-                        <p className="text-slate-500 text-sm mt-0.5">Security and administrative action trail across the platform. Click any log entry for detailed breakdown.</p>
+                        <p className="text-slate-500 text-sm mt-0.5">Authoritative governance trail of consequential actions across the platform.</p>
                     </div>
-                    <div className="flex space-x-2 text-xs font-semibold">
+                    <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                        <button
+                            type="button"
+                            onClick={handleExportCSV}
+                            disabled={exporting}
+                            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                        >
+                            <Download className="w-3.5 h-3.5 text-emerald-600" />
+                            {exporting ? 'Exporting...' : 'Export CSV'}
+                        </button>
                         <Link to="/admin/clubs" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
                             Club Approval
                         </Link>
                         <Link to="/admin/users" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
                             User Directory
                         </Link>
-                        <Link to="/admin/reports" className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 rounded-lg border border-slate-200 text-[#0b1c30] transition-colors">
-                            Reports & Stats
-                        </Link>
                     </div>
                 </div>
 
-                {/* Filter Form */}
-                <form onSubmit={handleFilterSubmit} className="bg-white p-4 rounded-xl shadow-xs border border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end">
-                    <div>
-                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">User ID</label>
+                {/* Filter Bar */}
+                <form onSubmit={handleFilterSubmit} className="bg-white p-4 rounded-xl shadow-xs border border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end">
+                    <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1 flex items-center gap-1">
+                            <Search className="w-3 h-3 text-slate-400" /> Search (Name / Email / Action)
+                        </label>
                         <input
                             type="text"
-                            placeholder="e.g. 5"
-                            value={userId}
-                            onChange={(e) => setUserId(e.target.value)}
+                            placeholder="e.g. John Doe, President, or club.updated"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-[#2563eb] outline-none bg-white"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Action Category</label>
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Actor Role</label>
                         <select
-                            value={action}
-                            onChange={(e) => setAction(e.target.value)}
+                            value={role}
+                            onChange={(e) => setRole(e.target.value)}
                             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-[#2563eb] outline-none bg-white"
                         >
-                            <option value="">All Actions</option>
-                            <option value="auth.">auth.* (Authentication)</option>
-                            <option value="club.">club.* (Club Management)</option>
-                            <option value="event.">event.* (Events)</option>
-                            <option value="recruitment.">recruitment.* (Recruitment)</option>
-                            <option value="admin.">admin.* (Administrative)</option>
+                            <option value="">All Roles</option>
+                            <option value="admin">Administrator</option>
+                            <option value="executive">Club Executive</option>
+                            <option value="member">General Member</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">From Date</label>
-                        <input
-                            type="date"
-                            value={fromDate}
-                            onChange={(e) => setFromDate(e.target.value)}
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Category</label>
+                        <select
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
                             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-[#2563eb] outline-none bg-white"
-                        />
+                        >
+                            <option value="">All Categories</option>
+                            <option value="admin.">Admin Actions</option>
+                            <option value="club.">Club Governance & Lifecycle</option>
+                            <option value="membership.">Membership Requests</option>
+                            <option value="event.">Event Management</option>
+                            <option value="announcement.">Announcements</option>
+                            <option value="recruitment.">Recruitment</option>
+                            <option value="auth.">Security & Auth</option>
+                        </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">To Date</label>
-                        <input
-                            type="date"
-                            value={toDate}
-                            onChange={(e) => setToDate(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-[#2563eb] outline-none bg-white"
-                        />
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Date Range</label>
+                        <div className="grid grid-cols-2 gap-1">
+                            <input
+                                type="date"
+                                value={fromDate}
+                                onChange={(e) => setFromDate(e.target.value)}
+                                className="w-full px-2 py-2 text-xs border border-slate-200 rounded-lg focus:border-[#2563eb] outline-none bg-white"
+                                title="From Date"
+                            />
+                            <input
+                                type="date"
+                                value={toDate}
+                                onChange={(e) => setToDate(e.target.value)}
+                                className="w-full px-2 py-2 text-xs border border-slate-200 rounded-lg focus:border-[#2563eb] outline-none bg-white"
+                                title="To Date"
+                            />
+                        </div>
                     </div>
                     <div className="flex gap-2">
-                        <button type="submit" className="flex-1 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors shadow-xs">
-                            Filter
+                        <button type="submit" className="flex-1 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-semibold rounded-lg transition-colors shadow-xs flex items-center justify-center gap-1">
+                            <Filter className="w-3 h-3" /> Filter
                         </button>
                         <button type="button" onClick={handleResetFilters} className="px-3 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] border border-slate-300 text-xs font-semibold rounded-lg transition-colors">
                             Reset
@@ -186,6 +229,9 @@ const AdminAuditLogs = () => {
                                             const humanAction = actionLabels[log.action] || log.action;
                                             const actorName = log.user?.name || log.actor?.name || (log.user_id ? `User #${log.user_id}` : 'System');
                                             const actorEmail = log.user?.email || log.actor?.email;
+                                            const badge = getRoleBadge(log.actor_role);
+
+                                            const isSelfTarget = log.target_type === 'User' && String(log.target_id) === String(log.user_id);
 
                                             return (
                                                 <tr
@@ -197,11 +243,16 @@ const AdminAuditLogs = () => {
                                                         {formatDate(log.created_at)}
                                                     </td>
                                                     <td className="p-3.5">
-                                                        <div className="font-semibold text-[#0b1c30] group-hover:text-blue-600 transition-colors">
-                                                            {actorName}
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-semibold text-[#0b1c30] group-hover:text-blue-600 transition-colors">
+                                                                {actorName}
+                                                            </span>
+                                                            <span className={`px-1.5 py-0.5 text-[10px] font-bold uppercase rounded border ${badge.className}`}>
+                                                                {badge.label}
+                                                            </span>
                                                         </div>
                                                         {actorEmail && (
-                                                            <div className="text-[11px] text-slate-400 font-mono">{actorEmail}</div>
+                                                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">{actorEmail}</div>
                                                         )}
                                                     </td>
                                                     <td className="p-3.5">
@@ -209,21 +260,21 @@ const AdminAuditLogs = () => {
                                                         <span className="text-[11px] text-slate-400 font-mono">{log.action}</span>
                                                     </td>
                                                     <td className="p-3.5">
-                                                        {log.target_label ? (
+                                                        {isSelfTarget ? (
+                                                            <span className="text-xs text-slate-400 italic">Self / Profile</span>
+                                                        ) : log.target_label ? (
                                                             <div>
                                                                 <span className="font-semibold text-slate-900 block">{log.target_label}</span>
-                                                                {(log.target_type || log.subject_type) && (
+                                                                {log.target_type && (
                                                                     <span className="text-[11px] text-slate-400 font-mono">
-                                                                        {log.target_type || log.subject_type} #{log.target_id || log.subject_id || ''}
+                                                                        {log.target_type} #{log.target_id || ''}
                                                                     </span>
                                                                 )}
                                                             </div>
+                                                        ) : log.target_type ? (
+                                                            <span className="font-mono text-slate-700">{`${log.target_type} #${log.target_id || ''}`}</span>
                                                         ) : (
-                                                            log.target_type || log.subject_type ? (
-                                                                <span className="font-mono text-slate-700">{`${log.target_type || log.subject_type} #${log.target_id || log.subject_id || ''}`}</span>
-                                                            ) : (
-                                                                <span className="text-slate-400 text-xs">System</span>
-                                                            )
+                                                            <span className="text-slate-400 text-xs">System</span>
                                                         )}
                                                     </td>
                                                 </tr>
@@ -295,11 +346,16 @@ const AdminAuditLogs = () => {
                                     <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
                                         <UserIcon className="w-3 h-3 text-slate-400" /> Actor
                                     </span>
-                                    <p className="font-bold text-slate-900">
-                                        {selectedLog.user?.name || selectedLog.actor?.name || (selectedLog.user_id ? `User #${selectedLog.user_id}` : 'System / Guest')}
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-bold text-slate-900">
+                                            {selectedLog.user?.name || selectedLog.actor?.name || (selectedLog.user_id ? `User #${selectedLog.user_id}` : 'System / Guest')}
+                                        </p>
+                                        <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase rounded border ${getRoleBadge(selectedLog.actor_role).className}`}>
+                                            {getRoleBadge(selectedLog.actor_role).label}
+                                        </span>
+                                    </div>
                                     {(selectedLog.user?.email || selectedLog.actor?.email) && (
-                                        <p className="text-slate-500 font-mono text-[11px] truncate">{selectedLog.user?.email || selectedLog.actor?.email}</p>
+                                        <p className="text-slate-500 font-mono text-[11px] truncate mt-0.5">{selectedLog.user?.email || selectedLog.actor?.email}</p>
                                     )}
                                 </div>
 

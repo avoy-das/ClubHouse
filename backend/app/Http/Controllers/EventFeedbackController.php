@@ -110,11 +110,6 @@ class EventFeedbackController extends Controller
             'comment'  => $comment,
         ]);
 
-        AuditService::log('event.feedback_submitted', $feedback, [
-            'event_id' => $event->id,
-            'rating'   => $feedback->rating,
-        ]);
-
         NotificationService::notifyUser(
             $event->created_by,
             'event_feedback_submitted',

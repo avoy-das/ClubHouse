@@ -27,7 +27,8 @@ class AuthTest extends TestCase
                 'email' => ['Only official NSTU student emails (@student.nstu.edu.bd) are allowed to register.']
             ]);
 
-        $this->assertDatabaseHas('audit_logs', [
+        // Failed registration is excluded from audit log to prevent noise
+        $this->assertDatabaseMissing('audit_logs', [
             'action' => 'auth.register.failed',
         ]);
     }
@@ -75,7 +76,7 @@ class AuthTest extends TestCase
         ]);
     }
 
-    public function test_login_succeeds_logs_to_audit_logs(): void
+    public function test_login_succeeds_without_audit_log_noise(): void
     {
         $user = User::factory()->create([
             'email'    => 'testuser@student.nstu.edu.bd',
@@ -89,15 +90,13 @@ class AuthTest extends TestCase
 
         $response->assertStatus(200);
 
-        $this->assertDatabaseHas('audit_logs', [
-            'action'      => 'auth.login.success',
-            'user_id'     => $user->id,
-            'target_type' => 'User',
-            'target_id'   => $user->id,
+        // Routine logins are excluded from governance audit log
+        $this->assertDatabaseMissing('audit_logs', [
+            'action' => 'auth.login.success',
         ]);
     }
 
-    public function test_login_fails_invalid_credentials_logs_to_audit_logs(): void
+    public function test_login_fails_without_audit_log_noise(): void
     {
         $user = User::factory()->create([
             'email'    => 'testuser@student.nstu.edu.bd',
@@ -111,38 +110,7 @@ class AuthTest extends TestCase
 
         $response->assertStatus(401);
 
-        $this->assertDatabaseHas('audit_logs', [
-            'action'      => 'auth.login.failed',
-            'user_id'     => $user->id,
-            'target_type' => 'User',
-            'target_id'   => $user->id,
-        ]);
-    }
-
-    public function test_login_fails_non_existent_user_logs_to_audit_logs(): void
-    {
-        $response = $this->postJson('/api/login', [
-            'email'    => 'nonexistent@student.nstu.edu.bd',
-            'password' => 'secret123',
-        ]);
-
-        $response->assertStatus(401);
-
-        $this->assertDatabaseHas('audit_logs', [
-            'action'  => 'auth.login.failed',
-            'user_id' => null,
-        ]);
-    }
-
-    public function test_login_fails_validation_logs_to_audit_logs(): void
-    {
-        $response = $this->postJson('/api/login', [
-            'email' => 'not-an-email',
-        ]);
-
-        $response->assertStatus(422);
-
-        $this->assertDatabaseHas('audit_logs', [
+        $this->assertDatabaseMissing('audit_logs', [
             'action' => 'auth.login.failed',
         ]);
     }

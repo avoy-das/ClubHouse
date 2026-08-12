@@ -20,13 +20,15 @@ const authService = {
         invalidateCache('auth:*');
     },
 
-    me: async () => {
-        const response = await api.get('/me');
-        return response.data;
-    },
+    me: () =>
+        getCached('auth:me', 15000, async () => {
+            const response = await api.get('/me');
+            return response.data;
+        }),
 
     updateProfile: async (data) => {
         const response = await api.put('/me', data);
+        invalidateCache('auth:*');
         return response.data;
     },
 

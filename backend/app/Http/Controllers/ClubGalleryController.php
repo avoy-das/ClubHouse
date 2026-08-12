@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Club;
 use App\Models\ClubGallery;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -43,6 +44,10 @@ class ClubGalleryController extends Controller
         if (!$user->is_admin && !$user->hasClubPermission($gallery->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
+
+        AuditService::log('club.gallery_deleted', $gallery, [
+            'caption' => $gallery->caption,
+        ], $user->id, $gallery->club_id);
 
         $gallery->delete();
 

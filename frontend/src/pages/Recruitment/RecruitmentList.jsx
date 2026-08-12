@@ -451,10 +451,11 @@ const RecruitmentListContent = () => {
                     {/* Filters bar */}
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
                         <div className="relative w-full md:w-80">
-                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
                                 placeholder="Search by campaign, title, or club..."
+                                aria-label="Search recruitment campaigns"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-blue-500 bg-slate-50/50"
@@ -501,7 +502,7 @@ const RecruitmentListContent = () => {
                         <div className="bg-white p-12 text-center rounded-2xl shadow-xs border border-slate-200 text-slate-500 space-y-3">
                             <Target className="w-10 h-10 text-slate-300 mx-auto" />
                             <p className="text-base font-semibold text-slate-700">No recruitment campaigns found.</p>
-                            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                            <p className="text-xs text-slate-600 max-w-sm mx-auto">
                                 Try adjusting your search query or filter options.
                             </p>
                         </div>
@@ -537,7 +538,7 @@ const RecruitmentListContent = () => {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <h3 className="font-bold text-xl text-[#0b1c30] leading-snug">{notice.title}</h3>
+                                                    <h2 className="font-bold text-xl text-[#0b1c30] leading-snug">{notice.title}</h2>
                                                     {notice.club && (
                                                         <p className="text-xs font-semibold text-blue-600 flex items-center gap-1">
                                                             <Building2 className="w-3.5 h-3.5" /> {notice.club.name}
@@ -548,10 +549,10 @@ const RecruitmentListContent = () => {
                                                 {/* Action menu for execs */}
                                                 {(can('can_manage_recruitment') || isAdmin() || myExecClubIds.includes(notice.club_id)) && (
                                                     <div className="flex items-center space-x-1 shrink-0 bg-slate-50 p-1 rounded-lg border border-slate-200">
-                                                        <button onClick={() => handleEditOpen(notice)} className="p-1 text-slate-400 hover:text-blue-600 rounded transition-colors" title="Edit Campaign">
+                                                        <button onClick={() => handleEditOpen(notice)} aria-label="Edit Campaign" className="p-1.5 text-slate-600 hover:text-blue-600 rounded transition-colors" title="Edit Campaign">
                                                             <Pencil className="w-3.5 h-3.5" />
                                                         </button>
-                                                        <button onClick={() => setDeleteConfirmNotice(notice)} className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors" title="Delete Campaign">
+                                                        <button onClick={() => setDeleteConfirmNotice(notice)} aria-label="Delete Campaign" className="p-1.5 text-slate-600 hover:text-rose-600 rounded transition-colors" title="Delete Campaign">
                                                             <Trash className="w-3.5 h-3.5" />
                                                         </button>
                                                     </div>

@@ -39,8 +39,39 @@ class AuditService
             }
         }
 
+        $actorRole = null;
+        if ($resolvedUserId) {
+            $user = ($resolvedUserId === Auth::id() && Auth::user())
+                ? Auth::user()
+                : \App\Models\User::find($resolvedUserId);
+
+            if ($user) {
+                if ($user->is_admin) {
+                    $actorRole = 'admin';
+                } else {
+                    $execQuery = \App\Models\ClubMember::where('user_id', $user->id)
+                        ->where('status', 'active')
+                        ->where(function ($q) {
+                            $q->where('role', '!=', 'member')
+                              ->orWhereHas('positions', function ($p) {
+                                  $p->whereHas('position', function ($pos) {
+                                      $pos->where('is_executive', true);
+                                  });
+                              });
+                        });
+
+                    if ($resolvedClubId) {
+                        $execQuery->where('club_id', $resolvedClubId);
+                    }
+
+                    $actorRole = $execQuery->exists() ? 'executive' : 'member';
+                }
+            }
+        }
+
         AuditLog::create([
             'user_id'     => $resolvedUserId,
+            'actor_role'  => $actorRole,
             'club_id'     => $resolvedClubId,
             'action'      => $action,
             'target_type' => $targetType,

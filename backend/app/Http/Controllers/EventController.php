@@ -449,8 +449,10 @@ class EventController extends Controller
         $event->update(['status' => $newStatus]);
 
         AuditService::log('event.status_changed', $event, [
-            'from' => $oldStatus,
-            'to'   => $newStatus,
+            'previous_status' => $oldStatus,
+            'status'          => $newStatus,
+            'previous'        => ['status' => $oldStatus],
+            'changed'         => ['status' => $newStatus],
         ]);
 
         if ($newStatus === 'cancelled') {

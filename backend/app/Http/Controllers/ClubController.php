@@ -253,9 +253,19 @@ class ClubController extends Controller
 
         unset($data['logo'], $data['banner']);
 
+        $dirty = array_diff_key($data, ['logo' => true, 'banner' => true]);
+        $original = [];
+        foreach (array_keys($dirty) as $field) {
+            $original[$field] = $club->getOriginal($field);
+        }
+
         $club->update($data);
 
-        AuditService::log('club.updated', $club);
+        AuditService::log('club.updated', $club, [
+            'changed'        => array_intersect_key($club->getChanges(), $dirty),
+            'previous'       => $original,
+            'changed_fields' => array_keys($dirty),
+        ]);
 
         NotificationService::notifyClubMembers(
             $club->id,
@@ -520,10 +530,13 @@ class ClubController extends Controller
         }
 
         AuditService::log('club.member_role_updated', $club, [
-            'target_user_id' => $user->id,
-            'old_role'       => $oldRole,
-            'new_role'       => $newRole,
-            'updated_by'     => $authUser->id,
+            'target_user_id'   => $user->id,
+            'target_user_name' => $user->name,
+            'previous_role'    => $oldRole,
+            'new_role'         => $newRole,
+            'previous'         => ['role' => $oldRole],
+            'changed'          => ['role' => $newRole],
+            'updated_by'       => $authUser->id,
         ]);
 
         if ($oldRole !== $newRole) {

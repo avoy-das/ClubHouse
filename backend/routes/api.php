@@ -25,8 +25,11 @@ use App\Http\Controllers\SearchController;
 // Public
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
 Route::post('/login',    [AuthController::class, 'login'])->middleware('throttle:login');
-Route::get('/clubs',     [ClubController::class, 'index']);
-Route::get('/clubs/{club}', [ClubController::class, 'show'])->where('club', '[0-9]+');
+
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/clubs',        [ClubController::class, 'index']);
+    Route::get('/clubs/{club}', [ClubController::class, 'show'])->where('club', '[0-9]+');
+});
 
 // Authenticated
 Route::middleware('auth:sanctum')->group(function () {
@@ -156,6 +159,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin oversight reports & audit logs
     Route::middleware('is_admin')->group(function () {
         Route::get('/admin/reports/overview', [ReportController::class, 'overview']);
+        Route::get('/admin/audit-logs/export', [AuditLogController::class, 'export']);
         Route::get('/admin/audit-logs', [AuditLogController::class, 'index']);
     });
 });

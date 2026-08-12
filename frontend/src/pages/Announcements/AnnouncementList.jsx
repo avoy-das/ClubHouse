@@ -359,7 +359,7 @@ const AnnouncementListContent = () => {
                                         </span>
                                         {getTargetBadge(item)}
                                     </div>
-                                    <h3 className="font-bold text-base sm:text-lg text-[#0b1c30] tracking-tight leading-snug">{item.title}</h3>
+                                    <h2 className="font-bold text-base sm:text-lg text-[#0b1c30] tracking-tight leading-snug">{item.title}</h2>
                                 </div>
 
                                 {/* Top Right: Sender section, date below it */}
@@ -370,7 +370,7 @@ const AnnouncementListContent = () => {
                                             <span className="text-slate-500 ml-1 font-normal">({item.author.name})</span>
                                         )}
                                     </div>
-                                    <div className="text-[11px] text-slate-400 font-medium">
+                                    <div className="text-[11px] text-slate-600 font-medium">
                                         {new Date(item.created_at).toLocaleDateString(undefined, {
                                             month: 'short',
                                             day: 'numeric',
@@ -428,7 +428,7 @@ const AnnouncementListContent = () => {
                                     <div className="flex flex-wrap items-center gap-2">
                                         {getTargetBadge(item)}
                                     </div>
-                                    <h3 className="font-bold text-base sm:text-lg text-[#0b1c30] tracking-tight leading-snug">{item.title}</h3>
+                                    <h2 className="font-bold text-base sm:text-lg text-[#0b1c30] tracking-tight leading-snug">{item.title}</h2>
                                 </div>
 
                                 {/* Top Right: Sender section, date below it */}
@@ -439,7 +439,7 @@ const AnnouncementListContent = () => {
                                             <span className="text-slate-500 ml-1 font-normal">({item.author.name})</span>
                                         )}
                                     </div>
-                                    <div className="text-[11px] text-slate-400 font-medium">
+                                    <div className="text-[11px] text-slate-600 font-medium">
                                         {new Date(item.created_at).toLocaleDateString(undefined, {
                                             month: 'short',
                                             day: 'numeric',
@@ -520,9 +520,9 @@ const AnnouncementListContent = () => {
 
                     {/* Two-Column Side-by-Side FROM & TO Section */}
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5 pb-2 border-b border-slate-200">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5 pb-2 border-b border-slate-200">
                             <Send className="w-4 h-4 text-blue-600" /> Sender & Target Configuration
-                        </h4>
+                        </h3>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {/* FROM COLUMN (SINGLE DROPDOWN MENU) */}

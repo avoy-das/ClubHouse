@@ -42,16 +42,6 @@ class AuthController extends Controller
         $email = $credentials['email'] ?? null;
 
         if (!Auth::attempt($credentials)) {
-            $user = $email ? User::where('email', strtolower($email))->first() : null;
-
-            AuditService::log('auth.login.failed', $user, [
-                'email'      => $email,
-                'ip'         => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'status'     => 'failed',
-                'reason'     => 'Invalid credentials',
-            ], $user?->id);
-
             return response()->json([
                 'message' => 'Invalid credentials.',
             ], 401);
@@ -59,13 +49,6 @@ class AuthController extends Controller
 
         $user  = Auth::user();
         $token = $user->createToken('auth_token')->plainTextToken;
-
-        AuditService::log('auth.login.success', $user, [
-            'email'      => $user->email,
-            'ip'         => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'status'     => 'success',
-        ], $user->id);
 
         return response()->json([
             'user'  => $user,
