@@ -52,7 +52,7 @@ const Login = () => {
             {/* Login Card */}
             <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] shadow-xl border border-[#e4e2dd] w-full max-w-md">
                 {error && (
-                    <div className="bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb59f] px-4 py-3 rounded-2xl mb-6 text-xs font-semibold text-center">
+                    <div data-testid="login-error-alert" className="bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb59f] px-4 py-3 rounded-2xl mb-6 text-xs font-semibold text-center">
                         {error}
                     </div>
                 )}
@@ -68,6 +68,8 @@ const Login = () => {
                                 type="email"
                                 name="email"
                                 required
+                                data-testid="login-email-input"
+                                aria-label="Institutional Email"
                                 placeholder="hasan@student.nstu.edu.bd"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full pl-11 pr-4 py-3.5 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
@@ -84,11 +86,15 @@ const Login = () => {
                                 type={showPassword ? 'text' : 'password'}
                                 name="password"
                                 required
+                                data-testid="login-password-input"
+                                aria-label="Password"
                                 placeholder="••••••••"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full pl-11 pr-11 py-3.5 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
                             <button
                                 type="button"
+                                data-testid="login-show-password-btn"
+                                aria-label="Toggle password visibility"
                                 onClick={() => setShowPassword(!showPassword)}
                                 className="absolute right-4 text-[#615e57] hover:text-[#1b1c19] transition-colors"
                             >
@@ -112,6 +118,7 @@ const Login = () => {
                     <button
                         type="submit"
                         disabled={loading}
+                        data-testid="login-submit-btn"
                         className="w-full bg-[#1c1b1b] hover:bg-[#30312e] text-white font-bold py-3.5 rounded-full text-xs transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 mt-2"
                     >
                         <span>{loading ? 'Signing In...' : 'Sign In'}</span>
@@ -121,7 +128,7 @@ const Login = () => {
 
                 <p className="text-xs text-center text-[#615e57] pt-6 border-t border-[#f0eee9] mt-6">
                     Don't have an account?{' '}
-                    <Link to="/register" className="font-bold text-[#1b1c19] hover:underline">
+                    <Link to="/register" data-testid="login-register-link" className="font-bold text-[#1b1c19] hover:underline">
                         Register for an account
                     </Link>
                 </p>

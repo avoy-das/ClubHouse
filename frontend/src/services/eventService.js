@@ -2,9 +2,11 @@ import api from './api';
 import { getCached, invalidateCache } from './apiCache';
 
 const eventService = {
-    // Get list of events with query filters
-    getEvents: (params = {}) =>
-        api.get('/events', { params }),
+    // Get list of events with query filters (30 second TTL)
+    getEvents: (params = {}) => {
+        const cacheKey = `events:list:${JSON.stringify(params)}`;
+        return getCached(cacheKey, 30000, () => api.get('/events', { params }));
+    },
 
     // Get single event details (30 second TTL)
     getEvent: (id) =>
