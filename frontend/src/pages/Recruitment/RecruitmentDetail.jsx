@@ -191,7 +191,7 @@ const RecruitmentDetailContent = () => {
                                         {user?.session !== null && user?.session !== undefined ? (
                                             <> Your registered profile session is <span className="font-bold">{formatSessionLabel(user.session)}</span>.</>
                                         ) : (
-                                            <> You currently have no session specified on your profile.</>
+                                            <> You currently have no session specified on your profile. <Link to="/profile" className="font-bold text-rose-800 underline hover:text-rose-950 ml-1">Update Profile Session</Link></>
                                         )}
                                     </p>
                                 </div>

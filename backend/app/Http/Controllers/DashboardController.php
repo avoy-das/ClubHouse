@@ -44,24 +44,22 @@ class DashboardController extends Controller
 
         // Visibility restrictions for non-admins
         if (!$user->is_admin) {
-            $eventsQuery->where(function ($q) use ($user) {
+            $userClubIds = $myClubs->pluck('club_id');
+            $eventsQuery->where(function ($q) use ($userClubIds) {
                 $q->where('visibility', 'public')
-                  ->orWhereHas('club', function ($clubQuery) use ($user) {
-                      $clubQuery->whereHas('members', function ($memberQuery) use ($user) {
-                          $memberQuery->where('user_id', $user->id);
-                      });
-                  });
+                  ->orWhereIn('club_id', $userClubIds);
             });
         }
 
-        // Upcoming campus events sorted chronologically
+        $upcomingEventsCount = (clone $eventsQuery)->count();
+
+        // Upcoming campus events sorted chronologically (limit to top 5)
         $campusEvents = $eventsQuery->with(['club:id,name'])
             ->orderBy('starts_at', 'asc')
+            ->limit(5)
             ->get();
 
-        $upcomingEventsCount = $campusEvents->count();
-
-        $formattedEvents = $campusEvents->take(5)->map(function ($ev) use ($registeredEventIds) {
+        $formattedEvents = $campusEvents->map(function ($ev) use ($registeredEventIds) {
             return [
                 'id'            => $ev->id,
                 'title'         => $ev->title,

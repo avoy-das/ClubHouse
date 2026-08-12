@@ -164,6 +164,21 @@ class NotificationService
     }
 
     /**
+     * Send notification to a collection or array of specific user IDs.
+     */
+    public static function notifyUserIds(
+        iterable $userIds,
+        string $type,
+        string $title,
+        string $message,
+        ?string $relatedType = null,
+        ?int $relatedId = null,
+        ?int $excludeUserId = null
+    ): void {
+        self::sendBulkNotifications($userIds, $type, $title, $message, $relatedType, $relatedId, $excludeUserId);
+    }
+
+    /**
      * Helper to perform chunked bulk insertion of notifications.
      */
     private static function sendBulkNotifications(

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import clubService from '../../services/clubService';
 import EditAdvisorModal from './EditAdvisorModal';
@@ -25,7 +25,8 @@ import {
     Briefcase,
     Crown,
     ArrowUpDown,
-    CheckCircle2
+    CheckCircle2,
+    Lock
 } from 'lucide-react';
 
 const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
@@ -54,43 +55,103 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
     // Track role update state per user
     const [updatingUserId, setUpdatingUserId] = useState(null);
 
+    // Stable ref for the onClubUpdated callback to prevent infinite re-render loops
+    const onClubUpdatedRef = useRef(onClubUpdated);
+    useEffect(() => {
+        onClubUpdatedRef.current = onClubUpdated;
+    }, [onClubUpdated]);
+
+    // Data fetching handler
+    const loadData = useCallback(async () => {
+        if (!clubId) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const [clubRes, membersRes] = await Promise.allSettled([
+                clubService.getClub(clubId),
+                clubService.listMembers(clubId)
+            ]);
+
+            if (clubRes.status === 'fulfilled') {
+                const fetchedClub = clubRes.value.data?.data || clubRes.value.data || clubRes.value;
+                setClub(fetchedClub);
+                if (onClubUpdatedRef.current) onClubUpdatedRef.current(fetchedClub);
+            }
+
+            if (membersRes.status === 'fulfilled') {
+                const listData = membersRes.value.data?.data || membersRes.value.data || membersRes.value;
+                const membersArray = Array.isArray(listData) ? listData : (listData?.data || []);
+                setMembers(membersArray);
+            } else if (clubRes.status === 'fulfilled' && Array.isArray(clubRes.value.data?.members)) {
+                setMembers(clubRes.value.data.members);
+            } else {
+                setMembers([]);
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to load club members');
+        } finally {
+            setLoading(false);
+        }
+    }, [clubId]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    useEffect(() => {
+        if (initialClub) {
+            setClub(initialClub);
+            if (Array.isArray(initialClub.members) && initialClub.members.length > 0) {
+                setMembers((prev) => (prev.length === 0 ? initialClub.members : prev));
+            }
+        }
+    }, [initialClub]);
+
     // Permissions & Hierarchy check
-    const myMembership = useMemo(() => members.find((m) => m.user_id === user?.id), [members, user?.id]);
+    const safeMembers = useMemo(() => (Array.isArray(members) ? members : []), [members]);
+
+    const myMembership = useMemo(() => safeMembers.find((m) => m && (m.user_id === user?.id || m.user?.id === user?.id)), [safeMembers, user?.id]);
     const myRole = myMembership?.role?.toLowerCase() || '';
 
     const isSystemAdmin = isAdmin();
     const isPresident = myRole === 'president';
     const isSecretary = myRole === 'secretary';
-    const isExecutive = isSystemAdmin || ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(myRole);
+    const isExecutive = isSystemAdmin || ['president', 'vice_president', 'vice president', 'vp', 'secretary', 'treasurer', 'executive'].includes(myRole);
 
     const myRank = isSystemAdmin ? 100 : getRoleRank(myRole);
 
     const canEditAdvisor = isSystemAdmin || isPresident || isSecretary;
 
     // President Slot check
-    const currentPresident = useMemo(() => members.find((m) => m.role?.toLowerCase() === 'president'), [members]);
+    const currentPresident = useMemo(() => safeMembers.find((m) => m && m.role?.toLowerCase() === 'president'), [safeMembers]);
     const hasPresident = !!currentPresident;
 
     // Partition & sort members with useMemo
     const { rawCommittee, rawGeneral, committeeMembers, generalMembers } = useMemo(() => {
         const matchesQuery = (m) => {
+            if (!m) return false;
             if (!searchQuery.trim()) return true;
             const q = searchQuery.toLowerCase().trim();
-            const name = (m.user?.name || '').toLowerCase();
-            const studentId = (m.user?.student_id || '').toLowerCase();
-            const email = (m.user?.email || '').toLowerCase();
+            const name = (m.user?.name || m.name || '').toLowerCase();
+            const studentId = (m.user?.student_id || m.student_id || '').toLowerCase();
+            const email = (m.user?.email || m.email || '').toLowerCase();
             return name.includes(q) || studentId.includes(q) || email.includes(q);
         };
 
-        const committeeRaw = members.filter((m) => {
+        const isCommitteeMember = (m) => {
+            if (!m) return false;
             const role = (m.role || 'member').toLowerCase();
-            return ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(role);
-        });
+            if (['president', 'vice_president', 'vice president', 'vp', 'secretary', 'treasurer', 'executive', 'exec'].includes(role)) {
+                return true;
+            }
+            if (Array.isArray(m.positions) && m.positions.some((p) => p?.position?.is_executive)) {
+                return true;
+            }
+            return false;
+        };
 
-        const generalRaw = members.filter((m) => {
-            const role = (m.role || 'member').toLowerCase();
-            return !['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(role);
-        });
+        const committeeRaw = safeMembers.filter(isCommitteeMember);
+        const generalRaw = safeMembers.filter((m) => m && !isCommitteeMember(m));
 
         const committeeSorted = committeeRaw
             .filter(matchesQuery)
@@ -104,8 +165,8 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
             .filter(matchesQuery)
             .sort((a, b) => {
                 if (sortOrder === 'alpha') {
-                    const nameA = (a.user?.name || '').toLowerCase();
-                    const nameB = (b.user?.name || '').toLowerCase();
+                    const nameA = (a.user?.name || a.name || '').toLowerCase();
+                    const nameB = (b.user?.name || b.name || '').toLowerCase();
                     return nameA.localeCompare(nameB);
                 }
                 const dateA = new Date(a.joined_at || a.created_at || 0).getTime();
@@ -119,7 +180,7 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
             committeeMembers: committeeSorted,
             generalMembers: generalSorted,
         };
-    }, [members, searchQuery, sortOrder]);
+    }, [safeMembers, searchQuery, sortOrder]);
 
     // Role dropdown change handler
     const handleRoleChange = async (targetUserId, newRole) => {
@@ -252,6 +313,16 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
 
             {loading ? (
                 <LoadingSpinner />
+            ) : !myMembership && !isSystemAdmin ? (
+                <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-xs space-y-3">
+                    <div className="w-12 h-12 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center mx-auto">
+                        <Lock className="w-6 h-6 text-slate-400" />
+                    </div>
+                    <h3 className="text-base font-bold text-[#0b1c30]">Member Directory Restricted</h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                        You must be an active member or affiliated with this club to view the full committee roster and general members directory.
+                    </p>
+                </div>
             ) : (
                 <>
                     {/* SECTION 1 — CLUB COMMITTEE */}
@@ -554,7 +625,7 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
                 currentAdvisors={advisors}
                 advisorToEdit={advisorToEdit}
                 editIndex={advisorEditIndex}
-                onAdvisorUpdated={(newAdvisors) => {
+                onAdvisorsUpdated={(newAdvisors) => {
                     setClub((prev) => ({ ...prev, advisor: newAdvisors, advisors: newAdvisors }));
                 }}
             />

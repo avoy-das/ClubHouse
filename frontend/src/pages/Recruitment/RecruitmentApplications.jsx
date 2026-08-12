@@ -8,7 +8,7 @@ import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
-import { Check, X, ArrowLeft, Users, FileText, ExternalLink } from 'lucide-react';
+import { Check, X, ArrowLeft, Users, FileText, ExternalLink, Search, Filter } from 'lucide-react';
 import { formatSessionLabel } from '../../utils/sessionUtils';
 import { getImageUrl } from '../../utils/imageUrl';
 
@@ -108,6 +108,10 @@ const RecruitmentApplicationsContent = () => {
     const [success, setSuccess] = useState(null);
     const [reviewingId, setReviewingId] = useState(null);
 
+    // Filtering
+    const [stageFilter, setStageFilter] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
+
     const loadApplications = async () => {
         setLoading(true);
         setError(null);
@@ -157,19 +161,42 @@ const RecruitmentApplicationsContent = () => {
         return null;
     };
 
+    // Filter applications
+    const filteredApplications = applications.filter(app => {
+        if (stageFilter !== 'all' && app.status !== stageFilter) {
+            return false;
+        }
+        const q = searchQuery.toLowerCase().trim();
+        if (q) {
+            const nameMatch = app.user?.name?.toLowerCase().includes(q);
+            const emailMatch = app.user?.email?.toLowerCase().includes(q);
+            const deptMatch = app.user?.department?.toLowerCase().includes(q);
+            if (!nameMatch && !emailMatch && !deptMatch) return false;
+        }
+        return true;
+    });
+
+    // Metric counts
+    const totalCount = applications.length;
+    const pendingCount = applications.filter(a => a.status !== 'accepted' && a.status !== 'rejected').length;
+    const acceptedCount = applications.filter(a => a.status === 'accepted').length;
+    const rejectedCount = applications.filter(a => a.status === 'rejected').length;
+
     if (loading) return <LoadingSpinner />;
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl shadow-xs border border-slate-200">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#0b1c30] flex items-center gap-2">
+                    <h1 className="text-2xl font-extrabold text-[#0b1c30] flex items-center gap-2">
                         <Users className="w-6 h-6 text-blue-600" /> Review Recruitment Applications
                     </h1>
-                    <p className="text-slate-500 text-sm mt-0.5">Track applicant progress across phases (Application → Interview → Result) and manage memberships.</p>
+                    <p className="text-slate-500 text-xs mt-0.5">
+                        {notice?.title ? `Managing applications for "${notice.title}"` : 'Track applicant progress across evaluation stages.'}
+                    </p>
                 </div>
                 <Link to={clubId ? `/clubs/${clubId}/recruitment` : '/recruitment'}>
-                    <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-semibold rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5">
+                    <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-semibold rounded-xl border border-slate-300 transition-colors flex items-center gap-1.5">
                         <ArrowLeft className="w-4 h-4" /> Back to Recruitment
                     </button>
                 </Link>
@@ -178,16 +205,77 @@ const RecruitmentApplicationsContent = () => {
             {error && <ErrorBanner message={error} />}
             {success && <SuccessBanner message={success} />}
 
-            <div className="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
-                <h3 className="font-bold text-[#0b1c30] text-lg mb-4 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-blue-600" /> Submitted Applications ({applications.length})
-                </h3>
+            {/* Metrics Counters Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Applicants</span>
+                    <span className="text-2xl font-black text-[#0b1c30] mt-1 block">{totalCount}</span>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-blue-200 bg-blue-50/30 shadow-xs">
+                    <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider block">In Pipeline / Review</span>
+                    <span className="text-2xl font-black text-blue-700 mt-1 block">{pendingCount}</span>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-xs">
+                    <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">Accepted / Admitted</span>
+                    <span className="text-2xl font-black text-emerald-700 mt-1 block">{acceptedCount}</span>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/30 shadow-xs">
+                    <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">Rejected</span>
+                    <span className="text-2xl font-black text-rose-700 mt-1 block">{rejectedCount}</span>
+                </div>
+            </div>
 
-                {applications.length === 0 ? (
-                    <p className="text-slate-500 text-sm py-4">No applications submitted for this recruitment notice yet.</p>
+            {/* Main Applications Section */}
+            <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-4">
+                {/* Search and Stage Filter Bar */}
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between border-b border-slate-100 pb-4">
+                    <div className="relative w-full sm:w-72">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                            type="text"
+                            placeholder="Search by candidate name, email, department..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-blue-500 bg-slate-50/50"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                        {[
+                            { key: 'all', label: 'All' },
+                            { key: 'submitted', label: 'Submitted' },
+                            { key: 'shortlisted', label: 'Shortlisted' },
+                            { key: 'interview', label: 'Interview' },
+                            { key: 'accepted', label: 'Accepted' },
+                            { key: 'rejected', label: 'Rejected' },
+                        ].map(st => {
+                            const count = st.key === 'all' ? applications.length : applications.filter(a => a.status === st.key).length;
+                            return (
+                                <button
+                                    key={st.key}
+                                    onClick={() => setStageFilter(st.key)}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
+                                        stageFilter === st.key
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    }`}
+                                >
+                                    {st.label} ({count})
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {filteredApplications.length === 0 ? (
+                    <p className="text-slate-500 text-xs text-center py-8">
+                        {applications.length === 0
+                            ? 'No applications submitted for this recruitment notice yet.'
+                            : 'No applicants match the selected filter criteria.'}
+                    </p>
                 ) : (
-                    <div className="space-y-6">
-                        {applications.map((app) => (
+                    <div className="space-y-6 pt-2">
+                        {filteredApplications.map((app) => (
                             <div key={app.id} className="border border-slate-200 p-6 rounded-xl bg-[#f8f9ff] space-y-4">
                                 <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                                     <div>

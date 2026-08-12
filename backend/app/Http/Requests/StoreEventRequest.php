@@ -26,7 +26,7 @@ class StoreEventRequest extends FormRequest
         return [
             'club_id'        => ['required', 'integer', 'exists:clubs,id'],
             'title'          => ['required', 'string', 'max:255'],
-            'description'    => ['nullable', 'string'],
+            'description'    => ['nullable', 'string', 'max:10000'],
             'banner'         => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'visibility'     => ['required', 'in:public,members_only'],
             'location_type'  => ['required', 'in:physical,online'],

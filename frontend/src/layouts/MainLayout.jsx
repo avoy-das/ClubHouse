@@ -83,6 +83,7 @@ const MainLayout = ({ children }) => {
                     <div className="flex items-center gap-3 shrink-0">
                         <button
                             onClick={toggleSidebar}
+                            aria-label={isCollapsed ? 'Expand Navigation Sidebar' : 'Collapse Navigation Sidebar'}
                             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
                             className="p-2 text-[#444748] hover:text-[#1b1c19] hover:bg-[#eae8e3] rounded-lg transition-colors flex items-center justify-center"
                         >
@@ -93,7 +94,7 @@ const MainLayout = ({ children }) => {
                             )}
                         </button>
 
-                        <Link to="/dashboard" className="flex items-center gap-2.5 group">
+                        <Link to="/dashboard" aria-label="ClubHouse Dashboard Home" className="flex items-center gap-2.5 group">
                             <div className="w-9 h-9 bg-[#1c1b1b] rounded-full flex items-center justify-center text-white font-extrabold text-sm shadow-xs group-hover:bg-[#30312e] transition-colors">
                                 <Building2 className="w-5 h-5 text-white" />
                             </div>

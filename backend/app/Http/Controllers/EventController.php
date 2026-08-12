@@ -39,7 +39,8 @@ class EventController extends Controller
 
         // Text search by title
         if ($search) {
-            $query->where('title', 'like', '%' . $search . '%');
+            $escaped = '%' . addcslashes($search, '%_\\') . '%';
+            $query->where('title', 'like', $escaped);
         }
 
         // Scope to specific club if requested

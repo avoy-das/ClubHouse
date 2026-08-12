@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import recruitmentService from '../../services/recruitmentService';
@@ -11,7 +11,11 @@ import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import Modal from '../../components/ui/Modal';
-import { Target, Calendar, Clock, Plus, ArrowLeft, ArrowRight, Pencil, Trash, ClipboardList, Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+    Target, Calendar, Clock, Plus, ArrowLeft, ArrowRight, Pencil, Trash,
+    ClipboardList, Building2, AlertCircle, Search, Filter,
+    Users, Check
+} from 'lucide-react';
 import { formatForDateInput, dateInputToStartOfDayISO, dateInputToEndOfDayISO } from '../../utils/dateUtils';
 import { formatSessionLabel, generateSessionOptions } from '../../utils/sessionUtils';
 
@@ -30,28 +34,39 @@ const RecruitmentListContent = () => {
     const [currentClub, setCurrentClub] = useState(null);
     const [myExecClubIds, setMyExecClubIds] = useState([]);
 
-    // Modal state for creation/editing
+    // Active View Tab: 'browse' | 'my_applications' | 'manage'
+    const [activeTab, setActiveTab] = useState('browse');
+
+    // Filter states
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'open' | 'upcoming' | 'closed'
+    const [clubFilter, setClubFilter] = useState('all');
+
+    // Single-page form modal state for creation/editing
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editNoticeId, setEditNoticeId] = useState(null);
+
+    // Form fields
     const [selectedClubId, setSelectedClubId] = useState('');
     const [title, setTitle] = useState('');
-    const [session, setSession] = useState('');
-    const [description, setDescription] = useState('');
-    const [requirements, setRequirements] = useState('');
+    const [session, setSession] = useState('26');
+    const [targetSessions, setTargetSessions] = useState([23, 24]);
     const [opensAt, setOpensAt] = useState('');
     const [closesAt, setClosesAt] = useState('');
-    const [pipelineTemplate, setPipelineTemplate] = useState('multi_stage');
+    const [description, setDescription] = useState('');
+    const [requirements, setRequirements] = useState('');
+    // DEFAULT TO SIMPLE PIPELINE BY DEFAULT
+    const [pipelineTemplate, setPipelineTemplate] = useState('simple');
     const [pipelineStages, setPipelineStages] = useState([
-        { key: 'submitted', label: 'Application Submitted' },
-        { key: 'shortlisted', label: 'Shortlisted' },
-        { key: 'interview', label: 'Interview' }
+        { key: 'submitted', label: 'Application Submitted' }
     ]);
-    const status = 'open';
+    const [customFields, setCustomFields] = useState([]);
     const [submitting, setSubmitting] = useState(false);
 
-    // Ineligibility warning modal
+    // Modals
     const [showIneligibleModal, setShowIneligibleModal] = useState(false);
+    const [deleteConfirmNotice, setDeleteConfirmNotice] = useState(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -73,7 +88,7 @@ const RecruitmentListContent = () => {
             const loadedNotices = Array.isArray(list) ? list : [];
             setNotices(loadedNotices);
 
-            // Fetch memberships to identify actual executive clubs for review permissions
+            // Fetch memberships to identify actual executive clubs
             let execClubIdsList = [];
             try {
                 const membersRes = await authService.getMyMemberships();
@@ -123,7 +138,7 @@ const RecruitmentListContent = () => {
                 return {
                     ...club,
                     isEligible: !hasActive,
-                    ineligibleReason: hasActive ? 'Active recruitment campaign in progress' : null
+                    ineligibleReason: hasActive ? 'Active campaign already running' : null
                 };
             });
 
@@ -140,41 +155,26 @@ const RecruitmentListContent = () => {
         loadData();
     }, [clubId]);
 
-    const handleCreateSidebarClick = () => {
-        if (!isExecUser && !isAdmin()) {
-            setShowIneligibleModal(true);
-            return;
-        }
+    const isUserExecutive = can('can_manage_recruitment') || isAdmin() || isExecUser;
 
-        if (clubId) {
-            const hasActiveInThisClub = notices.some(n =>
-                String(n.club_id) === String(clubId) &&
-                n.status === 'open' &&
-                new Date(n.closes_at) > new Date()
-            );
-            if (hasActiveInThisClub) {
-                setShowIneligibleModal(true);
-                return;
-            }
-        }
+    // DYNAMIC CHECK: Check if currently selected club has an active recruitment notice
+    const activeCampaignForSelectedClub = useMemo(() => {
+        if (!selectedClubId) return null;
+        return notices.find(n =>
+            String(n.club_id) === String(selectedClubId) &&
+            n.status === 'open' &&
+            new Date(n.closes_at) > new Date() &&
+            (!isEditMode || String(n.id) !== String(editNoticeId))
+        );
+    }, [selectedClubId, notices, isEditMode, editNoticeId]);
 
-        if (availableClubs.length === 0) {
-            setShowIneligibleModal(true);
-            return;
-        }
-
-        // Pre-select club if clubId exists in URL or if only one club available
-        if (clubId) {
-            setSelectedClubId(clubId);
-        } else {
-            const firstEligible = availableClubs.find(c => c.isEligible);
-            setSelectedClubId(firstEligible ? String(firstEligible.id) : String(availableClubs[0]?.id || ''));
-        }
-
-        handleCreateOpen();
+    // Form actions
+    const handleTargetSessionToggle = (sessionValue) => {
+        const num = Number(sessionValue);
+        setTargetSessions(prev =>
+            prev.includes(num) ? prev.filter(s => s !== num) : [...prev, num]
+        );
     };
-
-    const [customFields, setCustomFields] = useState([]);
 
     const addCustomField = () => {
         setCustomFields(prev => [
@@ -195,37 +195,88 @@ const RecruitmentListContent = () => {
         setCustomFields(prev => prev.filter((_, i) => i !== index));
     };
 
-    const [targetSessions, setTargetSessions] = useState([]);
+    // Filter notices
+    const myAppliedNotices = useMemo(() => {
+        return notices.filter(n => Boolean(n.my_application));
+    }, [notices]);
 
-    const handleTargetSessionToggle = (sessionValue) => {
-        const num = Number(sessionValue);
-        setTargetSessions(prev =>
-            prev.includes(num) ? prev.filter(s => s !== num) : [...prev, num]
-        );
-    };
+    const filteredNotices = useMemo(() => {
+        return notices.filter(notice => {
+            // Search query
+            const q = searchQuery.toLowerCase().trim();
+            if (q) {
+                const titleMatch = notice.title?.toLowerCase().includes(q);
+                const clubMatch = notice.club?.name?.toLowerCase().includes(q);
+                const descMatch = notice.description?.toLowerCase().includes(q);
+                if (!titleMatch && !clubMatch && !descMatch) return false;
+            }
+
+            // Club filter
+            if (clubFilter !== 'all' && String(notice.club_id) !== String(clubFilter)) {
+                return false;
+            }
+
+            // Status filter
+            const now = new Date();
+            const opens = new Date(notice.opens_at);
+            const closes = new Date(notice.closes_at);
+
+            if (statusFilter === 'open') {
+                return notice.status === 'open' && now >= opens && now <= closes;
+            }
+            if (statusFilter === 'upcoming') {
+                return now < opens && notice.status === 'open';
+            }
+            if (statusFilter === 'closed') {
+                return now > closes || notice.status === 'closed';
+            }
+
+            return true;
+        });
+    }, [notices, searchQuery, statusFilter, clubFilter]);
 
     const handleCreateOpen = () => {
+        if (!isExecUser && !isAdmin()) {
+            setShowIneligibleModal(true);
+            return;
+        }
+
+        if (availableClubs.length === 0) {
+            setShowIneligibleModal(true);
+            return;
+        }
+
+        let targetClub = null;
+        if (clubId) {
+            setSelectedClubId(clubId);
+            targetClub = availableClubs.find(c => String(c.id) === String(clubId)) || currentClub;
+        } else {
+            const firstEligible = availableClubs.find(c => c.isEligible);
+            const initialId = firstEligible ? String(firstEligible.id) : String(availableClubs[0]?.id || '');
+            setSelectedClubId(initialId);
+            targetClub = availableClubs.find(c => String(c.id) === String(initialId));
+        }
+
         setIsEditMode(false);
         setEditNoticeId(null);
-        setTitle('');
+        setTitle(targetClub ? `${targetClub.name} Recruitment` : '');
         setSession('26');
-        setTargetSessions([23, 24]); // Default target sessions
+        setTargetSessions([23, 24]);
         setDescription('');
         setRequirements('');
         setCustomFields([]);
-        setPipelineTemplate('multi_stage');
+
+        // Default Evaluation Pipeline to Simple
+        setPipelineTemplate('simple');
         setPipelineStages([
-            { key: 'submitted', label: 'Application Submitted' },
-            { key: 'shortlisted', label: 'Shortlisted' },
-            { key: 'interview', label: 'Interview' }
+            { key: 'submitted', label: 'Application Submitted' }
         ]);
 
-        // Default start date = now, default end date = +14 days
         const now = new Date();
         const twoWeeks = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-
         setOpensAt(formatForDateInput(now));
         setClosesAt(formatForDateInput(twoWeeks));
+
         setIsModalOpen(true);
     };
 
@@ -239,11 +290,9 @@ const RecruitmentListContent = () => {
         setDescription(notice.description || '');
         setRequirements(notice.requirements || '');
         setCustomFields(Array.isArray(notice.custom_fields) ? notice.custom_fields : []);
-        setPipelineTemplate(notice.pipeline_template || 'multi_stage');
+        setPipelineTemplate(notice.pipeline_template || 'simple');
         setPipelineStages(Array.isArray(notice.pipeline_stages) ? notice.pipeline_stages : [
-            { key: 'submitted', label: 'Application Submitted' },
-            { key: 'shortlisted', label: 'Shortlisted' },
-            { key: 'interview', label: 'Interview' }
+            { key: 'submitted', label: 'Application Submitted' }
         ]);
 
         setOpensAt(formatForDateInput(notice.opens_at));
@@ -257,10 +306,10 @@ const RecruitmentListContent = () => {
         setError(null);
         try {
             const targetClubObj = availableClubs.find(c => String(c.id) === String(selectedClubId)) || currentClub;
-            const defaultTitle = targetClubObj ? `${targetClubObj.name} Recruitment` : 'Club Recruitment';
+            const finalTitle = title.trim() || (targetClubObj ? `${targetClubObj.name} Recruitment` : 'Club Recruitment');
 
             const payload = {
-                title: defaultTitle,
+                title: finalTitle,
                 session,
                 target_sessions: targetSessions,
                 description,
@@ -270,7 +319,7 @@ const RecruitmentListContent = () => {
                 pipeline_stages: pipelineStages,
                 opens_at: dateInputToStartOfDayISO(opensAt),
                 closes_at: dateInputToEndOfDayISO(closesAt),
-                status,
+                status: 'open',
             };
 
             if (isEditMode) {
@@ -291,253 +340,406 @@ const RecruitmentListContent = () => {
         }
     };
 
-    const handleDelete = async (noticeId) => {
-        if (!window.confirm('Are you sure you want to delete this recruitment notice?')) return;
+    const confirmDelete = async () => {
+        if (!deleteConfirmNotice) return;
         try {
-            await recruitmentService.remove(noticeId);
+            await recruitmentService.remove(deleteConfirmNotice.id);
+            setDeleteConfirmNotice(null);
             loadData();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to delete recruitment notice.');
         }
     };
 
-    const isUserExecutive = can('can_manage_recruitment') || isAdmin() || isExecUser;
-
-    const activeNoticeForClub = notices.find(n =>
-        n.status === 'open' &&
-        new Date(n.closes_at) > new Date() &&
-        (!clubId || String(n.club_id) === String(clubId))
-    );
-    const hasActiveRecruitmentInClub = Boolean(activeNoticeForClub);
-
     if (loading) return <LoadingSpinner />;
 
     return (
-        <div className="flex flex-col md:flex-row gap-6">
-            {/* Action Sidebar */}
-            <div className="w-full md:w-64 shrink-0">
-                <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden sticky top-6">
-                    <div className="p-4 bg-slate-900 text-white">
-                        <h3 className="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-                            <Target className="w-4 h-4 text-blue-400" />
-                            Recruitment Hub
-                        </h3>
+        <div className="space-y-6">
+            {/* Main Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl shadow-xs border border-slate-200">
+                <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold rounded-full mb-1">
+                        <Target className="w-3.5 h-3.5" /> Official Recruitment
                     </div>
-                    <div className="p-3 space-y-2">
-                        {isUserExecutive ? (
-                            <button
-                                onClick={handleCreateSidebarClick}
-                                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold rounded-xl shadow-xs transition-all ${clubId && hasActiveRecruitmentInClub
-                                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300'
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                    }`}
-                            >
-                                <Plus className="w-4 h-4" /> Start Recruitment Campaign
+                    <h1 className="text-2xl font-extrabold text-[#0b1c30]">
+                        {currentClub ? `${currentClub.name} Recruitment Hub` : 'Recruitment Hub'}
+                    </h1>
+                    <p className="text-slate-500 text-xs mt-0.5">
+                        {currentClub
+                            ? `Explore active recruitment campaigns and team opportunities for ${currentClub.name}.`
+                            : 'Explore open recruitment campaigns, track your applications, or manage club team drives.'}
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    {clubId && (
+                        <Link to={`/clubs/${clubId}`}>
+                            <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-semibold rounded-xl border border-slate-300 transition-colors flex items-center gap-1.5">
+                                <ArrowLeft className="w-4 h-4" /> Back to Club
                             </button>
-                        ) : (
-                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium space-y-1">
-                                <div className="flex items-center gap-1.5 font-bold text-amber-900">
-                                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                                    Executive Access Only
-                                </div>
-                                <p className="text-[11px] text-amber-700 leading-snug">
-                                    Only official club executives can launch recruitment campaigns.
-                                </p>
-                            </div>
-                        )}
-
+                        </Link>
+                    )}
+                    {isUserExecutive && (
                         <button
-                            onClick={() => {
-                                if (clubId && notices.length > 0) {
-                                    navigate(`/clubs/${clubId}/recruitment/${notices[0].id}/applications`);
-                                } else {
-                                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                                }
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
+                            onClick={handleCreateOpen}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
                         >
-                            <ClipboardList className="w-4 h-4 text-slate-500" /> View Applications
+                            <Plus className="w-4 h-4" /> Start Recruitment Campaign
                         </button>
-                    </div>
-
-                    {/* Executive eligibility list snippet */}
-                    {isExecUser && availableClubs.length > 0 && (
-                        <div className="p-3.5 border-t border-slate-100 bg-slate-50/70">
-                            <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1">
-                                <Building2 className="w-3.5 h-3.5 text-slate-500" /> Eligible Clubs
-                            </div>
-                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                                {availableClubs.map(c => (
-                                    <div key={c.id} className="flex items-center justify-between text-xs p-1.5 bg-white rounded-lg border border-slate-200">
-                                        <span className="font-semibold text-slate-800 truncate max-w-[110px]">{c.name}</span>
-                                        {c.isEligible ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
-                                                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Ready
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200" title="Active campaign already running">
-                                                Active
-                                            </span>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
                     )}
                 </div>
             </div>
 
-            {/* Main Content Area */}
-            <div className="flex-1 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl shadow-xs border border-slate-200">
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-2.5 py-0.5 bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold rounded-full mb-1">
-                            <Target className="w-3.5 h-3.5" /> Official Recruitment
-                        </div>
-                        <h1 className="text-2xl font-extrabold text-[#0b1c30]">
-                            {currentClub ? `${currentClub.name} Recruitment` : 'Member Recruitment'}
-                        </h1>
-                        <p className="text-slate-500 text-xs mt-0.5">
-                            {currentClub
-                                ? `Explore active recruitment campaigns and team opportunities for ${currentClub.name}.`
-                                : 'Explore open recruitment campaigns and join official student organization teams.'}
-                        </p>
-                    </div>
-                    <div className="flex space-x-3">
-                        {clubId && (
-                            <Link to={`/clubs/${clubId}`}>
-                                <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-semibold rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5">
-                                    <ArrowLeft className="w-4 h-4" /> Back to Club
-                                </button>
-                            </Link>
-                        )}
-                    </div>
-                </div>
+            {error && <ErrorBanner message={error} />}
 
-                {/* Executive Alert Banner when an active recruitment campaign is already running */}
-                {clubId && isUserExecutive && hasActiveRecruitmentInClub && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-amber-900">
-                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                            <h4 className="font-bold text-sm text-amber-900">Active Recruitment Campaign in Progress</h4>
-                            <p className="text-xs text-amber-800 leading-relaxed">
-                                An active recruitment campaign (<span className="font-semibold">{activeNoticeForClub?.title}</span>) is currently running for {currentClub?.name || 'this club'}. A club can host only 1 active recruitment campaign at a time. You can review submitted applications or manage campaign details below.
-                            </p>
-                        </div>
-                    </div>
-                )}
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-slate-200 bg-white px-4 pt-2 rounded-xl shadow-xs">
+                <button
+                    onClick={() => setActiveTab('browse')}
+                    className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-colors ${
+                        activeTab === 'browse'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                >
+                    <Search className="w-4 h-4" />
+                    Browse Campaigns
+                    <span className="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        {notices.length}
+                    </span>
+                </button>
 
-                {error && <ErrorBanner message={error} />}
+                <button
+                    onClick={() => setActiveTab('my_applications')}
+                    className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-colors ${
+                        activeTab === 'my_applications'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                >
+                    <ClipboardList className="w-4 h-4" />
+                    My Applications
+                    {myAppliedNotices.length > 0 && (
+                        <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            {myAppliedNotices.length}
+                        </span>
+                    )}
+                </button>
 
-                {notices.length === 0 ? (
-                    <div className="bg-white p-12 text-center rounded-2xl shadow-xs border border-slate-200 text-slate-500 space-y-3">
-                        <Target className="w-10 h-10 text-slate-300 mx-auto" />
-                        <p className="text-base font-semibold text-slate-700">
-                            {clubId
-                                ? `No recruitment is currently ongoing for ${currentClub?.name || 'this club'}.`
-                                : 'No open recruitment campaigns currently available.'}
-                        </p>
-                        <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                            {isUserExecutive && clubId
-                                ? 'As a club executive, you can launch a new recruitment campaign using the button in the sidebar.'
-                                : 'Check back later or contact club executives for upcoming recruitment announcements.'}
-                        </p>
-                        {isUserExecutive && clubId && (
-                            <div className="pt-2">
-                                <button
-                                    onClick={handleCreateSidebarClick}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5"
-                                >
-                                    <Plus className="w-4 h-4" /> Start Recruitment Campaign
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {notices.map((notice) => (
-                            <Card key={notice.id} className="flex flex-col justify-between hover:shadow-md transition-all border border-slate-200 bg-white rounded-2xl p-6 space-y-4">
-                                <div className="space-y-3">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                                                {notice.session && (
-                                                    <span className="inline-block bg-blue-100 text-blue-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border border-blue-200">
-                                                        Campaign Year: {formatSessionLabel(notice.session) || notice.session}
-                                                    </span>
-                                                )}
-                                                {Array.isArray(notice.target_sessions) && notice.target_sessions.length > 0 && (
-                                                    <span className="inline-block bg-slate-100 text-slate-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-slate-200">
-                                                        Target Sessions: {notice.target_sessions.map(s => formatSessionLabel(s) || s).join(', ')}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <h3 className="font-bold text-xl text-[#0b1c30] leading-snug">{notice.title}</h3>
-                                            {!clubId && notice.club && (
-                                                <p className="text-xs font-semibold text-blue-600 flex items-center gap-1 mt-1">
-                                                    <Building2 className="w-3.5 h-3.5" /> {notice.club.name}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {notice.is_member ? (
-                                                <span className="bg-amber-100 text-amber-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-amber-200">
-                                                    Already a Member
-                                                </span>
-                                            ) : notice.my_application ? (
-                                                <span className="bg-blue-100 text-blue-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-blue-200 capitalize">
-                                                    Applied ({notice.my_application.status})
-                                                </span>
-                                            ) : null}
-                                            {notice.status && <Badge status={notice.status} />}
-                                            {(can('can_manage_recruitment') || isAdmin() || availableClubs.some(c => c.id === notice.club_id)) && (
-                                                <div className="flex items-center space-x-1">
-                                                    <button onClick={() => handleEditOpen(notice)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Recruitment">
-                                                        <Pencil className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleDelete(notice.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete Recruitment">
-                                                        <Trash className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="text-xs text-slate-600 space-y-1.5 bg-[#f8f9ff] p-3 rounded-xl border border-slate-200">
-                                        <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-blue-600" /> Opens: {new Date(notice.opens_at).toLocaleString()}</div>
-                                        <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-amber-500" /> Closes: {new Date(notice.closes_at).toLocaleString()}</div>
-                                    </div>
-                                    <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">{notice.description}</p>
-                                </div>
-                                <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                                    <Link to={clubId ? `/clubs/${clubId}/recruitment/${notice.id}` : `/recruitment/${notice.id}`}>
-                                        <button className={`px-4 py-2 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 shadow-xs ${notice.is_member
-                                            ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
-                                            : notice.my_application
-                                                ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-300'
-                                                : 'bg-[#2563eb] hover:bg-[#0051d5] text-white'
-                                            }`}>
-                                            {notice.is_member
-                                                ? 'View Details (Member)'
-                                                : notice.my_application
-                                                    ? 'View My Application'
-                                                    : 'View Details & Apply'} <ArrowRight className="w-3.5 h-3.5" />
-                                        </button>
-                                    </Link>
-                                    {myExecClubIds.includes(notice.club_id) && (
-                                        <Link to={clubId ? `/clubs/${clubId}/recruitment/${notice.id}/applications` : `/recruitment/${notice.id}/applications`}>
-                                            <button className="px-3.5 py-2 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] border border-slate-300 text-xs font-bold rounded-xl transition-colors">
-                                                Review Applications
-                                            </button>
-                                        </Link>
-                                    )}
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
+                {isUserExecutive && (
+                    <button
+                        onClick={() => setActiveTab('manage')}
+                        className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-colors ${
+                            activeTab === 'manage'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        <Building2 className="w-4 h-4" />
+                        Executive Dashboard
+                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            {availableClubs.length} Club(s)
+                        </span>
+                    </button>
                 )}
             </div>
 
-            {/* Ineligibility Warning Modal */}
+            {/* TAB 1: BROWSE CAMPAIGNS */}
+            {activeTab === 'browse' && (
+                <div className="space-y-4">
+                    {/* Filters bar */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
+                        <div className="relative w-full md:w-80">
+                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <input
+                                type="text"
+                                placeholder="Search by campaign, title, or club..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-blue-500 bg-slate-50/50"
+                            />
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+                            {/* Status Filter */}
+                            <div className="flex items-center gap-1 text-xs">
+                                <Filter className="w-3.5 h-3.5 text-slate-500" />
+                                <span className="font-semibold text-slate-600">Status:</span>
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white outline-none focus:border-blue-500"
+                                >
+                                    <option value="all">All Campaigns</option>
+                                    <option value="open">Active / Open</option>
+                                    <option value="upcoming">Upcoming</option>
+                                    <option value="closed">Closed</option>
+                                </select>
+                            </div>
+
+                            {/* Club Filter */}
+                            {!clubId && availableClubs.length > 0 && (
+                                <div className="flex items-center gap-1 text-xs">
+                                    <span className="font-semibold text-slate-600">Club:</span>
+                                    <select
+                                        value={clubFilter}
+                                        onChange={(e) => setClubFilter(e.target.value)}
+                                        className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white outline-none focus:border-blue-500"
+                                    >
+                                        <option value="all">All Organizations</option>
+                                        {availableClubs.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {filteredNotices.length === 0 ? (
+                        <div className="bg-white p-12 text-center rounded-2xl shadow-xs border border-slate-200 text-slate-500 space-y-3">
+                            <Target className="w-10 h-10 text-slate-300 mx-auto" />
+                            <p className="text-base font-semibold text-slate-700">No recruitment campaigns found.</p>
+                            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                                Try adjusting your search query or filter options.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {filteredNotices.map((notice) => {
+                                const now = new Date();
+                                const opens = new Date(notice.opens_at);
+                                const closes = new Date(notice.closes_at);
+                                const isCurrentlyOpen = notice.status === 'open' && now >= opens && now <= closes;
+                                const isUpcoming = now < opens && notice.status === 'open';
+
+                                return (
+                                    <Card key={notice.id} className="flex flex-col justify-between hover:shadow-md transition-all border border-slate-200 bg-white rounded-2xl p-6 space-y-4 relative">
+                                        <div className="space-y-3">
+                                            {/* Top badges & Title */}
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="space-y-1">
+                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                        {notice.session && (
+                                                            <span className="bg-blue-50 text-blue-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-blue-200">
+                                                                Campaign Year: {formatSessionLabel(notice.session) || notice.session}
+                                                            </span>
+                                                        )}
+                                                        {isCurrentlyOpen && (
+                                                            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                                                                Accepting Applications
+                                                            </span>
+                                                        )}
+                                                        {isUpcoming && (
+                                                            <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                                                                Upcoming
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <h3 className="font-bold text-xl text-[#0b1c30] leading-snug">{notice.title}</h3>
+                                                    {notice.club && (
+                                                        <p className="text-xs font-semibold text-blue-600 flex items-center gap-1">
+                                                            <Building2 className="w-3.5 h-3.5" /> {notice.club.name}
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                {/* Action menu for execs */}
+                                                {(can('can_manage_recruitment') || isAdmin() || myExecClubIds.includes(notice.club_id)) && (
+                                                    <div className="flex items-center space-x-1 shrink-0 bg-slate-50 p-1 rounded-lg border border-slate-200">
+                                                        <button onClick={() => handleEditOpen(notice)} className="p-1 text-slate-400 hover:text-blue-600 rounded transition-colors" title="Edit Campaign">
+                                                            <Pencil className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button onClick={() => setDeleteConfirmNotice(notice)} className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors" title="Delete Campaign">
+                                                            <Trash className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Timeline box */}
+                                            <div className="text-xs text-slate-600 space-y-1 bg-[#f8f9ff] p-3 rounded-xl border border-slate-200">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                                                    <span>Opens: {new Date(notice.opens_at).toLocaleDateString()}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                                    <span>Closes: {new Date(notice.closes_at).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Target Student Batches */}
+                                            {Array.isArray(notice.target_sessions) && notice.target_sessions.length > 0 && (
+                                                <div className="text-xs text-slate-600">
+                                                    <span className="font-semibold text-slate-700">Eligible Batches: </span>
+                                                    <span>{notice.target_sessions.map(s => `Session ${formatSessionLabel(s) || s}`).join(', ')}</span>
+                                                </div>
+                                            )}
+
+                                            <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">{notice.description}</p>
+                                        </div>
+
+                                        {/* Card CTA Row */}
+                                        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                                            <Link to={clubId ? `/clubs/${clubId}/recruitment/${notice.id}` : `/recruitment/${notice.id}`}>
+                                                <button className={`px-4 py-2 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 shadow-xs ${
+                                                    notice.is_member
+                                                        ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                                        : notice.my_application
+                                                            ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-300'
+                                                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                }`}>
+                                                    {notice.is_member
+                                                        ? 'Already a Member'
+                                                        : notice.my_application
+                                                            ? 'View My Application'
+                                                            : 'View Campaign & Apply'} <ArrowRight className="w-3.5 h-3.5" />
+                                                </button>
+                                            </Link>
+
+                                            {myExecClubIds.includes(notice.club_id) && (
+                                                <Link to={clubId ? `/clubs/${clubId}/recruitment/${notice.id}/applications` : `/recruitment/${notice.id}/applications`}>
+                                                    <button className="px-3 py-1.5 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] border border-slate-300 text-xs font-bold rounded-xl transition-colors flex items-center gap-1">
+                                                        <Users className="w-3.5 h-3.5 text-blue-600" /> Review Applications
+                                                    </button>
+                                                </Link>
+                                            )}
+                                        </div>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* TAB 2: MY APPLICATIONS */}
+            {activeTab === 'my_applications' && (
+                <div className="space-y-4">
+                    {myAppliedNotices.length === 0 ? (
+                        <div className="bg-white p-12 text-center rounded-2xl shadow-xs border border-slate-200 text-slate-500 space-y-3">
+                            <ClipboardList className="w-10 h-10 text-slate-300 mx-auto" />
+                            <p className="text-base font-semibold text-slate-700">No applications submitted yet.</p>
+                            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                                Browse open recruitment campaigns to find available positions and submit your application.
+                            </p>
+                            <div className="pt-2">
+                                <button
+                                    onClick={() => setActiveTab('browse')}
+                                    className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-colors inline-flex items-center gap-1.5"
+                                >
+                                    Browse Open Campaigns <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {myAppliedNotices.map((notice) => {
+                                const app = notice.my_application;
+                                return (
+                                    <div key={notice.id} className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+                                                        {notice.club?.name || 'Club Organization'}
+                                                    </span>
+                                                </div>
+                                                <h3 className="text-lg font-bold text-[#0b1c30] mt-1">{notice.title}</h3>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {app.status && <Badge status={app.status} />}
+                                                <Link to={`/recruitment/${notice.id}`}>
+                                                    <button className="px-3 py-1.5 bg-[#f8f9ff] hover:bg-slate-100 text-[#0b1c30] text-xs font-bold rounded-xl border border-slate-300 transition-colors">
+                                                        View Details
+                                                    </button>
+                                                </Link>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-600 bg-slate-50 p-4 rounded-xl">
+                                            <div>
+                                                <span className="font-semibold text-slate-700 block">Submitted On:</span>
+                                                <span>{app.created_at ? new Date(app.created_at).toLocaleString() : 'N/A'}</span>
+                                            </div>
+                                            <div>
+                                                <span className="font-semibold text-slate-700 block">Campaign Session:</span>
+                                                <span>Session {formatSessionLabel(notice.session) || notice.session}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* TAB 3: EXECUTIVE DASHBOARD */}
+            {activeTab === 'manage' && isUserExecutive && (
+                <div className="space-y-4">
+                    <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xs space-y-2">
+                        <h3 className="text-lg font-bold flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-blue-400" /> Executive Recruitment Hub
+                        </h3>
+                        <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                            Manage recruitment drives for your executive organizations. Each club can host 1 active campaign at a time to ensure clear candidate evaluation.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {availableClubs.map((club) => {
+                            const activeNotice = notices.find(n => n.club_id === club.id && n.status === 'open');
+                            return (
+                                <Card key={club.id} className="p-6 bg-white border border-slate-200 rounded-2xl flex flex-col justify-between space-y-4">
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="font-bold text-base text-[#0b1c30]">{club.name}</h4>
+                                            {club.isEligible ? (
+                                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                                    Ready for Campaign
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                                    Campaign Active
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {activeNotice ? (
+                                            <div className="p-3 bg-[#f8f9ff] rounded-xl border border-slate-200 text-xs space-y-1">
+                                                <div className="font-bold text-slate-800">{activeNotice.title}</div>
+                                                <div className="text-slate-500">Closes: {new Date(activeNotice.closes_at).toLocaleDateString()}</div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-slate-500 italic">No active recruitment campaign running for this club.</p>
+                                        )}
+                                    </div>
+
+                                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                                        {activeNotice ? (
+                                            <Link to={`/clubs/${club.id}/recruitment/${activeNotice.id}/applications`}>
+                                                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5">
+                                                    <Users className="w-4 h-4" /> Review Applications
+                                                </button>
+                                            </Link>
+                                        ) : (
+                                            <button
+                                                onClick={handleCreateOpen}
+                                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                                            >
+                                                <Plus className="w-4 h-4" /> Launch Campaign
+                                            </button>
+                                        )}
+                                    </div>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Ineligibility Modal */}
             <Modal isOpen={showIneligibleModal} onClose={() => setShowIneligibleModal(false)} title="Recruitment Access Restricted">
                 <div className="space-y-4">
                     <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-3">
@@ -547,7 +749,7 @@ const RecruitmentListContent = () => {
                             <p className="text-xs text-amber-800 leading-relaxed">
                                 {!isExecUser && !isAdmin()
                                     ? "You are not registered as an active executive for any club. Only club executives and administrators have permission to launch recruitment campaigns."
-                                    : "All of your executive clubs currently have an active recruitment campaign in progress. Each club is permitted to host only 1 active recruitment campaign at a time."}
+                                    : "All of your executive clubs currently have an active recruitment campaign in progress."}
                             </p>
                         </div>
                     </div>
@@ -562,132 +764,207 @@ const RecruitmentListContent = () => {
                 </div>
             </Modal>
 
-            {/* Edit / Create Recruitment Campaign Modal */}
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditMode ? "Edit Recruitment Campaign" : "Launch New Recruitment Campaign"}>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {!isEditMode && (
-                        <div>
-                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Target Club</label>
-                            <select
-                                required
-                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
-                                value={selectedClubId}
-                                onChange={(e) => setSelectedClubId(e.target.value)}
-                            >
-                                <option value="" disabled>-- Select Club --</option>
-                                {availableClubs.map(c => (
-                                    <option key={c.id} value={c.id} disabled={!c.isEligible}>
-                                        {c.name} {!c.isEligible ? `(${c.ineligibleReason})` : ''}
-                                    </option>
-                                ))}
-                            </select>
+            {/* Delete Confirmation Modal */}
+            <Modal isOpen={Boolean(deleteConfirmNotice)} onClose={() => setDeleteConfirmNotice(null)} title="Delete Recruitment Campaign">
+                <div className="space-y-4">
+                    <div className="p-4 bg-rose-50 rounded-xl border border-rose-200 flex items-start gap-3">
+                        <Trash className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                            <h4 className="font-bold text-rose-900 text-sm">Confirm Permanent Deletion</h4>
+                            <p className="text-xs text-rose-800 leading-relaxed">
+                                Are you sure you want to delete <span className="font-bold">{deleteConfirmNotice?.title}</span>? This action cannot be undone and will remove all submitted candidate applications.
+                            </p>
                         </div>
-                    )}
-
-                    <div>
-                        <label className="block text-xs font-bold text-[#0b1c30] mb-1">Recruitment Campaign Year / Session</label>
-                        <select
-                            required
-                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] bg-white"
-                            value={session}
-                            onChange={(e) => setSession(e.target.value)}
+                    </div>
+                    <div className="flex justify-end space-x-3 pt-2">
+                        <button
+                            onClick={() => setDeleteConfirmNotice(null)}
+                            className="px-4 py-2 bg-white text-slate-700 border border-slate-300 text-xs font-bold rounded-xl hover:bg-slate-100 transition-colors"
                         >
-                            {generateSessionOptions().map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                    Session {opt.label}
-                                </option>
-                            ))}
-                        </select>
+                            Cancel
+                        </button>
+                        <button
+                            onClick={confirmDelete}
+                            className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-xs"
+                        >
+                            Yes, Delete Campaign
+                        </button>
                     </div>
+                </div>
+            </Modal>
 
-                    <div>
-                        <label className="block text-xs font-bold text-[#0b1c30] mb-1">
-                            Eligible Target Student Sessions (Checkboxes)
-                        </label>
-                        <p className="text-[11px] text-slate-500 mb-2">
-                            Select which student sessions are allowed to apply. Users in these sessions will be notified automatically.
-                        </p>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#f8f9ff] p-3 rounded-xl border border-slate-200">
-                            {generateSessionOptions(8, 0).map((opt) => {
-                                const isChecked = targetSessions.includes(opt.value);
-                                return (
-                                    <label
-                                        key={opt.value}
-                                        className={`flex items-center gap-2 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${isChecked
-                                            ? 'bg-blue-50 border-blue-300 text-blue-900 shadow-xs'
-                                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                            }`}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={() => handleTargetSessionToggle(opt.value)}
-                                            className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                                        />
-                                        <span>Session {opt.label}</span>
-                                    </label>
-                                );
-                            })}
+            {/* SINGLE PAGE RECRUITMENT FORM MODAL */}
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditMode ? "Edit Recruitment Campaign" : "Launch New Recruitment Campaign"} maxWidth="max-w-3xl">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* SECTION 1: IDENTITY & DYNAMIC WARNING */}
+                    <div className="space-y-4">
+                        <h4 className="text-sm font-bold text-[#0b1c30] border-b border-slate-100 pb-2">1. Organization & Campaign Identity</h4>
+
+                        {!isEditMode && (
+                            <div>
+                                <label className="block text-xs font-bold text-[#0b1c30] mb-1">Target Organization / Club</label>
+                                <select
+                                    required
+                                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] bg-white font-medium"
+                                    value={selectedClubId}
+                                    onChange={(e) => {
+                                        const id = e.target.value;
+                                        setSelectedClubId(id);
+                                        const target = availableClubs.find(c => String(c.id) === String(id));
+                                        if (target) setTitle(`${target.name} Recruitment`);
+                                    }}
+                                >
+                                    <option value="" disabled>-- Select Organization --</option>
+                                    {availableClubs.map(c => (
+                                        <option key={c.id} value={c.id}>
+                                            {c.name} {!c.isEligible ? `(Active Campaign Exists)` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* DYNAMIC WARNING BANNER: Triggers live if selected club already has an active recruitment campaign */}
+                        {activeCampaignForSelectedClub && (
+                            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-amber-900">
+                                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                <div className="space-y-1">
+                                    <h4 className="font-bold text-sm text-amber-900">Active Recruitment Campaign Exists</h4>
+                                    <p className="text-xs text-amber-800 leading-relaxed">
+                                        <span className="font-semibold">{activeCampaignForSelectedClub.club?.name || 'This organization'}</span> currently has an active recruitment campaign (<span className="font-bold">{activeCampaignForSelectedClub.title}</span>) running until {new Date(activeCampaignForSelectedClub.closes_at).toLocaleDateString()}. Please ensure you want to launch another active campaign before submitting.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-[#0b1c30] mb-1">Campaign Title</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g. Executive Team Recruitment 2026"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-[#0b1c30] mb-1">Campaign Session / Intake Year</label>
+                                <select
+                                    required
+                                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] bg-white font-medium"
+                                    value={session}
+                                    onChange={(e) => setSession(e.target.value)}
+                                >
+                                    {generateSessionOptions().map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            Session {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Starting Date (Starts 12:00 AM)</label>
-                            <input
-                                type="date"
-                                required
-                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
-                                value={opensAt}
-                                onChange={(e) => setOpensAt(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Ending Date (Ends 11:59 PM)</label>
-                            <input
-                                type="date"
-                                required
-                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
-                                value={closesAt}
-                                onChange={(e) => setClosesAt(e.target.value)}
-                            />
-                        </div>
-                    </div>
+                    {/* SECTION 2: ELIGIBILITY & SCHEDULE */}
+                    <div className="space-y-4 pt-2">
+                        <h4 className="text-sm font-bold text-[#0b1c30] border-b border-slate-100 pb-2">2. Eligibility & Application Timeline</h4>
 
-                    <div>
-                        <label className="block text-xs font-bold text-[#0b1c30] mb-1">Campaign Description</label>
-                        <textarea
-                            rows={3}
-                            required
-                            placeholder="Provide details about the recruitment campaign, open positions, and requirements..."
-                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-bold text-[#0b1c30] mb-1">Requirements & Qualifications</label>
-                        <textarea
-                            rows={3}
-                            placeholder="Minimum qualifications, skills, portfolio links, or prerequisites..."
-                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb]"
-                            value={requirements}
-                            onChange={(e) => setRequirements(e.target.value)}
-                        />
-                    </div>
-
-                    {/* Recruitment Process Pipeline Selector */}
-                    <div className="space-y-3 pt-3 border-t border-slate-100">
                         <div>
                             <label className="block text-xs font-bold text-[#0b1c30] mb-1">
-                                Recruitment Process Steps / Pipeline
+                                Eligible Student Batches (Who can apply?)
                             </label>
                             <p className="text-[11px] text-slate-500 mb-2">
-                                Choose how many evaluation steps applicants will pass through before a final decision.
+                                Select student session batches allowed to submit applications for this campaign.
                             </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#f8f9ff] p-3 rounded-xl border border-slate-200">
+                                {generateSessionOptions(8, 0).map((opt) => {
+                                    const isChecked = targetSessions.includes(opt.value);
+                                    return (
+                                        <label
+                                            key={opt.value}
+                                            className={`flex items-center gap-2 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${
+                                                isChecked
+                                                    ? 'bg-blue-50 border-blue-300 text-blue-900 shadow-xs'
+                                                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => handleTargetSessionToggle(opt.value)}
+                                                className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                                            />
+                                            <span>Session {opt.label}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-[#0b1c30] mb-1">Starting Date (Starts 12:00 AM)</label>
+                                <input
+                                    type="date"
+                                    required
+                                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+                                    value={opensAt}
+                                    onChange={(e) => setOpensAt(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-[#0b1c30] mb-1">Ending Date (Ends 11:59 PM)</label>
+                                <input
+                                    type="date"
+                                    required
+                                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+                                    value={closesAt}
+                                    onChange={(e) => setClosesAt(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* SECTION 3: OVERVIEW & REQUIREMENTS */}
+                    <div className="space-y-4 pt-2">
+                        <h4 className="text-sm font-bold text-[#0b1c30] border-b border-slate-100 pb-2">3. Campaign Details & Requirements</h4>
+
+                        <div>
+                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Campaign Overview & Description</label>
+                            <textarea
+                                rows={3}
+                                required
+                                placeholder="Provide details about open team roles, responsibilities, and campaign overview..."
+                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Requirements & Qualifications</label>
+                            <textarea
+                                rows={3}
+                                placeholder="Minimum qualifications, portfolio requirements, skills, or prerequisites..."
+                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+                                value={requirements}
+                                onChange={(e) => setRequirements(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* SECTION 4: PIPELINE & CUSTOM QUESTIONS */}
+                    <div className="space-y-4 pt-2">
+                        <h4 className="text-sm font-bold text-[#0b1c30] border-b border-slate-100 pb-2">4. Evaluation Pipeline & Questions</h4>
+
+                        <div>
+                            <label className="block text-xs font-bold text-[#0b1c30] mb-1">Evaluation Pipeline Steps</label>
+                            {/* PIPELINE TEMPLATE: SIMPLE BY DEFAULT FIRST */}
                             <select
-                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] bg-white font-medium"
+                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] bg-white font-medium mb-3"
                                 value={pipelineTemplate}
                                 onChange={(e) => {
                                     const t = e.target.value;
@@ -713,138 +990,79 @@ const RecruitmentListContent = () => {
                                 <option value="multi_stage">Multi-Stage — 3 Steps (Apply → Shortlist → Interview → Accept/Reject)</option>
                                 <option value="custom">Custom Pipeline Steps</option>
                             </select>
+
+                            <div className="bg-[#f8f9ff] p-3 rounded-xl border border-slate-200 space-y-2">
+                                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                    Stage Flow Preview:
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                                    {pipelineStages.map((stg, i) => (
+                                        <div key={stg.key || i} className="flex items-center gap-1.5">
+                                            <span className="bg-white border border-slate-300 font-semibold text-slate-800 px-2.5 py-1 rounded-lg text-xs shadow-2xs">
+                                                {stg.label}
+                                            </span>
+                                            <span className="text-slate-400 font-bold">&rarr;</span>
+                                        </div>
+                                    ))}
+                                    <span className="bg-emerald-50 border border-emerald-300 font-bold text-emerald-800 px-2.5 py-1 rounded-lg text-xs">
+                                        Accept / Reject
+                                    </span>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Pipeline Stage Preview / Custom Builder */}
-                        <div className="bg-[#f8f9ff] p-3 rounded-xl border border-slate-200 space-y-2">
-                            <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                                Stage Flow Preview:
-                            </div>
-                            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                                {pipelineStages.map((stg, i) => (
-                                    <div key={stg.key || i} className="flex items-center gap-1.5">
-                                        <span className="bg-white border border-slate-300 font-semibold text-slate-800 px-2.5 py-1 rounded-lg text-xs shadow-2xs">
-                                            {stg.label}
-                                        </span>
-                                        <span className="text-slate-400 font-bold">&rarr;</span>
-                                    </div>
-                                ))}
-                                <span className="bg-emerald-50 border border-emerald-300 font-bold text-emerald-800 px-2.5 py-1 rounded-lg text-xs">
-                                    Accept / Reject
-                                </span>
+                        {/* Custom Form Fields */}
+                        <div className="space-y-2 pt-2">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <label className="block text-xs font-bold text-[#0b1c30]">Custom Form Fields</label>
+                                    <p className="text-[11px] text-slate-500">Add custom text or document upload prompts for applicants.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={addCustomField}
+                                    className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
+                                >
+                                    <Plus className="w-3.5 h-3.5" /> Add Form Field
+                                </button>
                             </div>
 
-                            {/* Custom Stage Builder */}
-                            {pipelineTemplate === 'custom' && (
-                                <div className="pt-2 border-t border-slate-200/70 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-700">Custom Intermediate Stages</span>
-                                        {pipelineStages.length < 5 && (
+                            {customFields.length > 0 && (
+                                <div className="space-y-2 max-h-48 overflow-y-auto pr-1 pt-1">
+                                    {customFields.map((field, idx) => (
+                                        <div key={field.id || idx} className="flex items-center gap-2 bg-[#f8f9ff] p-2 rounded-xl border border-slate-200">
+                                            <input
+                                                type="text"
+                                                placeholder="Question Prompt (e.g. Upload Student ID)"
+                                                required
+                                                value={field.label}
+                                                onChange={(e) => updateCustomField(idx, 'label', e.target.value)}
+                                                className="flex-1 text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-500 bg-white"
+                                            />
+                                            <select
+                                                value={field.type}
+                                                onChange={(e) => updateCustomField(idx, 'type', e.target.value)}
+                                                className="text-xs border border-slate-300 rounded-lg px-2 py-1.5 outline-none focus:border-blue-500 bg-white font-medium"
+                                            >
+                                                <option value="text">Text Input</option>
+                                                <option value="file">File Upload</option>
+                                            </select>
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    const idx = pipelineStages.length + 1;
-                                                    setPipelineStages(prev => [
-                                                        ...prev,
-                                                        { key: `stage_${Date.now()}`, label: `Stage ${idx}` }
-                                                    ]);
-                                                }}
-                                                className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-blue-200"
+                                                onClick={() => removeCustomField(idx)}
+                                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
                                             >
-                                                <Plus className="w-3 h-3" /> Add Stage
+                                                <Trash className="w-4 h-4" />
                                             </button>
-                                        )}
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        {pipelineStages.map((stg, idx) => (
-                                            <div key={stg.key || idx} className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-slate-400 w-4">{idx + 1}.</span>
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    value={stg.label}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        setPipelineStages(prev => {
-                                                            const next = [...prev];
-                                                            const k = idx === 0 ? 'submitted' : val.toLowerCase().replace(/[^a-z0-9]/g, '_');
-                                                            next[idx] = { key: k, label: val };
-                                                            return next;
-                                                        });
-                                                    }}
-                                                    className="flex-1 text-xs border border-slate-300 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500 bg-white"
-                                                    placeholder="Stage Name (e.g. Assessment Test)"
-                                                />
-                                                {idx > 0 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setPipelineStages(prev => prev.filter((_, i) => i !== idx))}
-                                                        className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                                                        title="Remove Stage"
-                                                    >
-                                                        <Trash className="w-3.5 h-3.5" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Custom Application Form Fields Builder */}
-                    <div className="space-y-2 pt-3 border-t border-slate-100">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="block text-xs font-bold text-[#0b1c30]">Custom Application Form Fields</label>
-                                <p className="text-[11px] text-slate-500">Add custom text or file upload questions for applicants.</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={addCustomField}
-                                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
-                            >
-                                <Plus className="w-3.5 h-3.5" /> Add Form Field
-                            </button>
-                        </div>
-                        {customFields.length === 0 ? (
-                            <p className="text-xs text-slate-400 italic py-1">No custom fields added yet. Default questions (Motivation & Experience) will be used.</p>
-                        ) : (
-                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1 pt-1">
-                                {customFields.map((field, idx) => (
-                                    <div key={field.id || idx} className="flex items-center gap-2 bg-[#f8f9ff] p-2 rounded-xl border border-slate-200">
-                                        <input
-                                            type="text"
-                                            placeholder="Question / Label (e.g. Upload Student ID or Resume)"
-                                            required
-                                            value={field.label}
-                                            onChange={(e) => updateCustomField(idx, 'label', e.target.value)}
-                                            className="flex-1 text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-500 bg-white"
-                                        />
-                                        <select
-                                            value={field.type}
-                                            onChange={(e) => updateCustomField(idx, 'type', e.target.value)}
-                                            className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-500 bg-white font-medium"
-                                        >
-                                            <option value="text">Text Input</option>
-                                            <option value="file">File Upload</option>
-                                        </select>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeCustomField(idx)}
-                                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
-                                            title="Remove Field"
-                                        >
-                                            <Trash className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
+                    {/* Single Page Form Submit Footer */}
+                    <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                         <button
                             onClick={() => setIsModalOpen(false)}
                             type="button"
@@ -855,7 +1073,7 @@ const RecruitmentListContent = () => {
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="px-4 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
+                            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center gap-1.5"
                         >
                             {submitting ? (isEditMode ? 'Updating...' : 'Launching...') : (isEditMode ? 'Update Notice' : 'Post Recruitment Campaign')}
                         </button>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import clubService from '../../services/clubService';
@@ -131,6 +131,10 @@ const ClubDetail = () => {
             message: message || 'Club details updated successfully.',
         });
     };
+
+    const handleMembersClubUpdate = useCallback((updated) => {
+        setClub(updated);
+    }, []);
 
     if (loading) return (
         <MainLayout>
@@ -437,7 +441,7 @@ const ClubDetail = () => {
             </div>
 
             {/* Contextual Members Directory (Two-Section Layout with Advisor Card) */}
-            <MembersDirectory clubId={id} initialClub={club} onClubUpdated={(updated) => setClub(updated)} />
+            <MembersDirectory clubId={id} initialClub={club} onClubUpdated={handleMembersClubUpdate} />
 
             {/* Modals */}
             <EditClubModal
