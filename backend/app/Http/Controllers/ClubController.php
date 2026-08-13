@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateClubRequest;
 use App\Models\Club;
 use App\Models\ClubMember;
 use App\Models\User;
+use App\Models\Event;
 use App\Models\AuditLog;
 use App\Services\AuditService;
 use App\Services\CacheInvalidationService;
@@ -256,7 +257,7 @@ class ClubController extends Controller
 
         unset($data['logo'], $data['banner']);
 
-        $dirty = array_diff_key($data, ['logo' => true, 'banner' => true]);
+        $dirty = $data;
         $original = [];
         foreach (array_keys($dirty) as $field) {
             $original[$field] = $club->getOriginal($field);
@@ -302,6 +303,11 @@ class ClubController extends Controller
             'suspension_reason' => $request->suspension_reason,
         ]);
 
+        // Auto-cancel active events belonging to this suspended club
+        Event::where('club_id', $club->id)
+            ->whereIn('status', ['draft', 'published', 'upcoming', 'ongoing'])
+            ->update(['status' => 'cancelled']);
+
         AuditService::log('club.suspended', $club, [
             'previous_status'   => 'approved',
             'suspension_reason' => $request->suspension_reason,
@@ -317,6 +323,7 @@ class ClubController extends Controller
         );
 
         CacheInvalidationService::club($club->id);
+        CacheInvalidationService::event($club->id);
 
         return response()->json([
             'message' => 'Club suspended.',

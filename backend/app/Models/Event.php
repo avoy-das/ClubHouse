@@ -14,6 +14,7 @@ class Event extends Model
         'title',
         'description',
         'banner_path',
+        'banner_thumbnail_path',
         'status',
         'visibility',
         'location_type',
@@ -34,11 +35,17 @@ class Event extends Model
 
     protected $appends = [
         'banner_url',
+        'banner_thumbnail_url',
     ];
 
     public function getBannerUrlAttribute(): ?string
     {
         return $this->banner_path ? asset('storage/' . ltrim($this->banner_path, '/')) : null;
+    }
+
+    public function getBannerThumbnailUrlAttribute(): ?string
+    {
+        return $this->banner_thumbnail_path ? asset('storage/' . ltrim($this->banner_thumbnail_path, '/')) : null;
     }
 
     // -------------------------------------------------------

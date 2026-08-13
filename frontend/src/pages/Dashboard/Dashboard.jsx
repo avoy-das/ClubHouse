@@ -229,7 +229,12 @@ const Dashboard = () => {
                                 ) : (
                                     <div className="space-y-3">
                                         {events.map((ev) => {
-                                            const bannerUrl = getImageUrl(ev.banner_url || ev.banner_path);
+                                            const bannerUrl = getImageUrl(
+                                                ev.banner_thumbnail_url ||
+                                                ev.banner_thumbnail_path ||
+                                                ev.banner_url ||
+                                                ev.banner_path
+                                            );
                                             return (
                                                 <Link
                                                     key={ev.id}
@@ -239,7 +244,23 @@ const Dashboard = () => {
                                                 >
                                                     {bannerUrl ? (
                                                         <div className="w-20 h-16 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200 aspect-[5/4]">
-                                                            <img src={bannerUrl} alt={ev.title} loading="lazy" decoding="async" width="80" height="64" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                                            <img
+                                                                src={bannerUrl}
+                                                                alt={ev.title}
+                                                                loading="lazy"
+                                                                decoding="async"
+                                                                width="80"
+                                                                height="64"
+                                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.onerror = null;
+                                                                    e.currentTarget.style.display = 'none';
+                                                                    if (e.currentTarget.parentElement) {
+                                                                        e.currentTarget.parentElement.className = 'w-20 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 shrink-0 flex items-center justify-center text-white/50';
+                                                                        e.currentTarget.parentElement.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>';
+                                                                    }
+                                                                }}
+                                                            />
                                                         </div>
                                                     ) : (
                                                         <div className="w-20 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 shrink-0 flex items-center justify-center text-white/50">

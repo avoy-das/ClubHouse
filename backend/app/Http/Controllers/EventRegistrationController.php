@@ -85,6 +85,13 @@ class EventRegistrationController extends Controller
             ], 409);
         }
 
+        // Guard against registering for events of suspended clubs
+        if ($event->club && $event->club->status === 'suspended') {
+            return response()->json([
+                'message' => 'Registration is not allowed because the hosting club is suspended.',
+            ], 422);
+        }
+
         // 2. Guard against registering for non-published events (e.g. draft, even for club executives)
         if ($event->status === 'draft') {
             return response()->json([

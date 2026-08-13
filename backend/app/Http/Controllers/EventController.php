@@ -52,8 +52,11 @@ class EventController extends Controller
             $query->where('club_id', $clubId);
         }
 
-        // Cancelled events should not appear in the main events section
-        $query->where('status', '!=', 'cancelled');
+        // Cancelled events and events from suspended clubs should not appear in the main events section
+        $query->where('status', '!=', 'cancelled')
+              ->whereHas('club', function ($clubQuery) {
+                  $clubQuery->where('status', '!=', 'suspended');
+              });
 
         // Draft event visibility: drafted events aren't shown to members (only seen by club execs & admins)
         if (!$user->is_admin) {
@@ -139,6 +142,9 @@ class EventController extends Controller
         $events = Cache::remember($cacheKey, 120, function () use ($user) {
             $query = Event::with('club:id,name')
                 ->whereIn('status', ['published', 'upcoming', 'ongoing'])
+                ->whereHas('club', function ($clubQuery) {
+                    $clubQuery->where('status', '!=', 'suspended');
+                })
                 ->where(function ($q) {
                     $q->where('ends_at', '>=', now())
                       ->orWhere('starts_at', '>=', now());
@@ -181,6 +187,13 @@ class EventController extends Controller
             ], 403);
         }
 
+        $targetClub = Club::find($data['club_id']);
+        if (!$targetClub || $targetClub->status === 'suspended') {
+            return response()->json([
+                'message' => 'Cannot create events for a suspended club.',
+            ], 422);
+        }
+
         $targetStatus = $data['status'] ?? 'draft';
 
         if ($targetStatus === 'published') {
@@ -204,7 +217,10 @@ class EventController extends Controller
         }
 
         if ($request->hasFile('banner')) {
-            $data['banner_path'] = $request->file('banner')->store('events/banners', 'public');
+            $path = $request->file('banner')->store('events/banners', 'public');
+            $optimized = \App\Services\ImageOptimizerService::optimizeAndThumbnail($path);
+            $data['banner_path'] = $optimized['path'];
+            $data['banner_thumbnail_path'] = $optimized['thumbnail_path'];
         }
         unset($data['banner']);
 
@@ -375,7 +391,13 @@ class EventController extends Controller
             if ($event->banner_path) {
                 Storage::disk('public')->delete($event->banner_path);
             }
-            $data['banner_path'] = $request->file('banner')->store('events/banners', 'public');
+            if ($event->banner_thumbnail_path) {
+                Storage::disk('public')->delete($event->banner_thumbnail_path);
+            }
+            $path = $request->file('banner')->store('events/banners', 'public');
+            $optimized = \App\Services\ImageOptimizerService::optimizeAndThumbnail($path);
+            $data['banner_path'] = $optimized['path'];
+            $data['banner_thumbnail_path'] = $optimized['thumbnail_path'];
         }
         unset($data['banner']);
 
@@ -529,6 +551,9 @@ class EventController extends Controller
 
         if ($event->banner_path) {
             Storage::disk('public')->delete($event->banner_path);
+        }
+        if ($event->banner_thumbnail_path) {
+            Storage::disk('public')->delete($event->banner_thumbnail_path);
         }
 
         $event->delete();

@@ -20,6 +20,10 @@ class EventPolicy
 
     public function create(User $user, Club $club): bool
     {
+        if ($club->status === 'suspended') {
+            return false;
+        }
+
         return $user->hasClubPermission($club, 'can_manage_events') ||
             \Illuminate\Support\Facades\DB::table('club_members')
                 ->where('user_id', $user->id)
@@ -33,11 +37,19 @@ class EventPolicy
 
     public function update(User $user, Event $event): bool
     {
+        if ($event->club && $event->club->status === 'suspended') {
+            return false;
+        }
+
         return $user->hasClubPermission($event->club_id, 'can_manage_events');
     }
 
     public function delete(User $user, Event $event): bool
     {
+        if ($event->club && $event->club->status === 'suspended') {
+            return false;
+        }
+
         return $user->hasClubPermission($event->club_id, 'can_manage_events');
     }
 }
