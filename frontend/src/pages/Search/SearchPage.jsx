@@ -231,7 +231,7 @@ const SearchPage = () => {
                                             {events.map((event) => (
                                                 <Link
                                                     key={event.id}
-                                                    to={`/clubs/${event.club_id}`}
+                                                    to={`/events/${event.id}`}
                                                     className="p-5 border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-xs transition-all block group bg-[#f8f9ff]/50"
                                                 >
                                                     <div className="flex items-start justify-between gap-2">

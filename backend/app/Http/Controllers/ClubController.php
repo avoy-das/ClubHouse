@@ -265,6 +265,8 @@ class ClubController extends Controller
 
         $club->update($data);
 
+        CacheInvalidationService::club($club->id);
+
         AuditService::log('club.updated', $club, [
             'changed'        => array_intersect_key($club->getChanges(), $dirty),
             'previous'       => $original,
@@ -558,6 +560,8 @@ class ClubController extends Controller
             'role' => $newRole,
         ]);
 
+        CacheInvalidationService::club($club->id);
+
         if ($newRole === 'member') {
             \App\Models\ClubMemberPosition::where('club_member_id', $membership->id)
                 ->where(function ($q) {
@@ -645,6 +649,8 @@ class ClubController extends Controller
         }
 
         $club->update(['advisor' => $advisorData]);
+
+        CacheInvalidationService::club($club->id);
 
         AuditService::log('club.advisor_updated', $club, [
             'updated_by' => $authUser->id,
@@ -750,6 +756,8 @@ class ClubController extends Controller
             $club->id
         );
 
+        CacheInvalidationService::club($club->id);
+
         return response()->json([
             'message' => 'Presidency successfully transferred.',
         ]);
@@ -817,6 +825,8 @@ class ClubController extends Controller
         }
 
         $membership->delete();
+
+        CacheInvalidationService::club($club->id);
 
         AuditService::log('club.member_removed', $club, [
             'target_user_id' => $user->id,
@@ -929,7 +939,10 @@ class ClubController extends Controller
             Storage::disk('public')->delete($club->permission_doc_path);
         }
 
+        $clubId = $club->id;
         $club->delete();
+
+        CacheInvalidationService::club($clubId);
 
         return response()->json(['message' => 'Club deleted successfully.']);
     }

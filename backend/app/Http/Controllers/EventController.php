@@ -403,6 +403,8 @@ class EventController extends Controller
 
         $event->update($data);
 
+        CacheInvalidationService::event($event->club_id);
+
         AuditService::log('event.updated', $event, ['changed_fields' => array_keys($data)]);
 
         $updatedEvent = $event->fresh()->load(['club:id,name', 'creator:id,name']);
@@ -473,6 +475,8 @@ class EventController extends Controller
 
         $oldStatus = $event->status;
         $event->update(['status' => $newStatus]);
+
+        CacheInvalidationService::event($event->club_id);
 
         AuditService::log('event.status_changed', $event, [
             'previous_status' => $oldStatus,
@@ -556,7 +560,10 @@ class EventController extends Controller
             Storage::disk('public')->delete($event->banner_thumbnail_path);
         }
 
+        $clubId = $event->club_id;
         $event->delete();
+
+        CacheInvalidationService::event($clubId);
 
         return response()->json(['message' => 'Event deleted.']);
     }

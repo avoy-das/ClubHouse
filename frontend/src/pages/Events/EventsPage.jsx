@@ -9,6 +9,7 @@ import { getImageUrl } from '../../utils/imageUrl';
 import { formatDisplayDateTime } from '../../utils/dateUtils';
 import { Calendar } from 'lucide-react';
 import usePageTitle from '../../hooks/usePageTitle';
+import useDebounce from '../../hooks/useDebounce';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -33,6 +34,7 @@ const EventsPage = () => {
 
     // Filter states
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebounce(search, 350);
     const [clubId, setClubId] = useState('');
     const [datePreset, setDatePreset] = useState('upcoming');
     const [statusFilter, setStatusFilter] = useState('');
@@ -75,7 +77,7 @@ const EventsPage = () => {
 
         const params = {
             page,
-            search: search.trim() || undefined,
+            search: debouncedSearch.trim() || undefined,
             club_id: clubId || undefined,
             date_preset: datePreset || undefined,
             status: statusFilter || undefined,
@@ -101,7 +103,7 @@ const EventsPage = () => {
 
     useEffect(() => {
         fetchEvents();
-    }, [page, search, clubId, datePreset, statusFilter]);
+    }, [page, debouncedSearch, clubId, datePreset, statusFilter]);
 
     const handleEventCreated = (newEvent) => {
         setIsCreateOpen(false);

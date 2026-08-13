@@ -1,5 +1,5 @@
 import api from './api';
-import { getCached, invalidateCache } from './apiCache';
+import { getCached, invalidateCache, clearAllCache } from './apiCache';
 
 const authService = {
     register: async (data) => {
@@ -10,14 +10,19 @@ const authService = {
     login: async (data) => {
         const response = await api.post('/login', data);
         localStorage.setItem('token', response.data.token);
-        invalidateCache('auth:*');
+        clearAllCache();
         return response.data;
     },
 
     logout: async () => {
-        await api.post('/logout');
-        localStorage.removeItem('token');
-        invalidateCache('auth:*');
+        try {
+            await api.post('/logout');
+        } catch {
+            // Ignore token expiration errors during logout cleanup
+        } finally {
+            localStorage.removeItem('token');
+            clearAllCache();
+        }
     },
 
     me: () =>

@@ -7,6 +7,7 @@ use App\Models\Club;
 use App\Models\MembershipRequest;
 use App\Models\Notification;
 use App\Services\AuditService;
+use App\Services\CacheInvalidationService;
 use App\Services\ClubMembershipService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
@@ -90,6 +91,7 @@ class MembershipRequestController extends Controller
 
         if ($status === 'approved') {
             $membershipService->admitUser($membershipRequest->club, $membershipRequest->user);
+            CacheInvalidationService::club($membershipRequest->club_id);
 
             NotificationService::notifyClubExecutives(
                 $membershipRequest->club_id,
