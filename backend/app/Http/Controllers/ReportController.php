@@ -23,7 +23,7 @@ class ReportController extends Controller
                 'suspended_clubs'     => Club::where('status', 'suspended')->count(),
                 'total_memberships'   => ClubMember::where('status', 'active')->count(),
                 'total_events'        => Event::count(),
-                'total_registrations' => EventRegistration::count(),
+                'total_registrations' => EventRegistration::where('status', 'registered')->count(),
             ];
         });
 
@@ -33,8 +33,11 @@ class ReportController extends Controller
     public function clubReport(Club $club): JsonResponse
     {
         $eventIds = Event::where('club_id', $club->id)->pluck('id');
-        $totalRegistrations = EventRegistration::whereIn('event_id', $eventIds)->count();
+        $totalRegistrations = EventRegistration::whereIn('event_id', $eventIds)
+            ->where('status', 'registered')
+            ->count();
         $attendedCount = EventRegistration::whereIn('event_id', $eventIds)
+            ->where('status', 'registered')
             ->where('attended', true)
             ->count();
 

@@ -37,7 +37,9 @@ class EventController extends Controller
         $datePreset = strtolower($request->query('date_preset', $request->query('date', '')));
 
         $query = Event::with(['club:id,name', 'creator:id,name'])
-            ->withCount('registrations');
+            ->withCount(['registrations' => function ($query) {
+                $query->where('status', 'registered');
+            }]);
 
         // Text search by title
         if ($search) {
@@ -282,7 +284,9 @@ class EventController extends Controller
         }
 
         $event->load(['club:id,name', 'creator:id,name'])
-              ->loadCount('registrations');
+              ->loadCount(['registrations' => function ($query) {
+                  $query->where('status', 'registered');
+              }]);
 
         $userRegistration = \App\Models\EventRegistration::where('event_id', $event->id)
             ->where('user_id', $user->id)

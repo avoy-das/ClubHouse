@@ -85,6 +85,31 @@ const eventService = {
     getAttendanceReport: (eventId) =>
         api.get(`/events/${eventId}/attendance-report`),
 
+    // Cancel registration for a user by executive (Exec/Admin)
+    cancelAttendee: async (eventId, userId) => {
+        const res = await api.delete(`/events/${eventId}/registrations/${userId}/cancel`);
+        invalidateCache('events:*');
+        return res;
+    },
+
+    // Block a user from registering for an event (Exec/Admin)
+    blockUser: async (eventId, userId, reason = null) => {
+        const res = await api.post(`/events/${eventId}/blocks`, { user_id: userId, reason });
+        invalidateCache('events:*');
+        return res;
+    },
+
+    // Unblock a blocked user (Exec/Admin)
+    unblockUser: async (eventId, userId) => {
+        const res = await api.delete(`/events/${eventId}/blocks/${userId}`);
+        invalidateCache('events:*');
+        return res;
+    },
+
+    // Get list of blocked users for an event (Exec/Admin)
+    getEventBlocks: (eventId) =>
+        api.get(`/events/${eventId}/blocks`),
+
     // Get schedule of all ongoing and upcoming events for overlap/conflict checking (60 second TTL)
     getSchedule: () =>
         getCached('events:schedule', 60000, () => api.get('/events/schedule')),

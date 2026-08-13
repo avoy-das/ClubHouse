@@ -60,6 +60,11 @@ class Event extends Model
         return $this->hasMany(EventRegistration::class);
     }
 
+    public function blocks(): HasMany
+    {
+        return $this->hasMany(EventBlock::class);
+    }
+
     public function feedback(): HasMany
     {
         return $this->hasMany(EventFeedback::class);
@@ -75,7 +80,11 @@ class Event extends Model
      */
     public function spotsRemaining(): int
     {
-        return max(0, $this->capacity - $this->registrations()->count());
+        if (is_null($this->capacity)) {
+            return 999999;
+        }
+        $registeredCount = $this->registrations()->where('status', 'registered')->count();
+        return max(0, $this->capacity - $registeredCount);
     }
 
     /**
@@ -84,7 +93,13 @@ class Event extends Model
      */
     public function isRegistrationOpen(): bool
     {
-        return $this->status === 'published' && $this->spotsRemaining() > 0;
+        if ($this->status !== 'published') {
+            return false;
+        }
+        if (is_null($this->capacity)) {
+            return true;
+        }
+        return $this->spotsRemaining() > 0;
     }
 
     /**

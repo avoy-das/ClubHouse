@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import eventService from '../../services/eventService';
-import { Users, ClipboardList, Search, Check, X, FileText, Paperclip, HelpCircle, AlertTriangle } from 'lucide-react';
+import clubService from '../../services/clubService';
+import { Users, ClipboardList, Search, Check, X, FileText, Paperclip, HelpCircle, AlertTriangle, Ban, UserX, ShieldAlert, UserMinus, Clock } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
 import useDebounce from '../../hooks/useDebounce';
 
@@ -105,6 +106,12 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
     const [activeTab, setActiveTab] = useState('responses');
     const [renderError, setRenderError] = useState(null);
 
+    const [blockedUsers, setBlockedUsers] = useState([]);
+    const [blockedLoading, setBlockedLoading] = useState(false);
+    const [clubMembers, setClubMembers] = useState([]);
+    const [selectedMemberToBlock, setSelectedMemberToBlock] = useState('');
+    const [blockReason, setBlockReason] = useState('');
+
     const fetchRegistrations = useCallback(async (query = '') => {
         if (!event?.id) return;
         setLoading(true);
@@ -131,6 +138,29 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
         }
     }, [event?.id]);
 
+    const fetchBlockedUsers = useCallback(async () => {
+        if (!event?.id) return;
+        setBlockedLoading(true);
+        try {
+            const res = await eventService.getEventBlocks(event.id);
+            setBlockedUsers(res?.data?.blocks || []);
+        } catch (err) {
+            console.error('Failed to load blocked users', err);
+        } finally {
+            setBlockedLoading(false);
+        }
+    }, [event?.id]);
+
+    const fetchClubMembers = useCallback(async () => {
+        if (!event?.club_id) return;
+        try {
+            const res = await clubService.listMembers(event.club_id);
+            setClubMembers(res?.data || []);
+        } catch (err) {
+            console.error('Failed to load club members', err);
+        }
+    }, [event?.club_id]);
+
     useEffect(() => {
         if (isOpen && event?.id) {
             setSearch('');
@@ -138,8 +168,10 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
             setRenderError(null);
             isFirstRender.current = true;
             fetchRegistrations('');
+            fetchBlockedUsers();
+            fetchClubMembers();
         }
-    }, [isOpen, event?.id, fetchRegistrations]);
+    }, [isOpen, event?.id, fetchRegistrations, fetchBlockedUsers, fetchClubMembers]);
 
     useEffect(() => {
         if (isFirstRender.current) {
@@ -168,6 +200,71 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
             setError(message);
         } finally {
             setUpdatingUserId(null);
+        }
+    };
+
+    const handleExecCancel = async (userId) => {
+        if (!event?.id || !userId) return;
+        if (!window.confirm("Are you sure you want to cancel this user's registration? This will promote the next waitlisted user if active.")) return;
+        setUpdatingUserId(userId);
+        try {
+            await eventService.cancelAttendee(event.id, userId);
+            await fetchRegistrations(search);
+        } catch (err) {
+            const message = err?.response?.data?.message || 'Failed to cancel registration.';
+            setError(message);
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
+    const handleExecBlock = async (userId) => {
+        if (!event?.id || !userId) return;
+        const reason = window.prompt("Enter block reason (optional):");
+        if (reason === null) return;
+        setUpdatingUserId(userId);
+        try {
+            await eventService.blockUser(event.id, userId, reason);
+            await fetchRegistrations(search);
+            await fetchBlockedUsers();
+        } catch (err) {
+            const message = err?.response?.data?.message || 'Failed to block user.';
+            setError(message);
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
+    const handleManualBlock = async (e) => {
+        e.preventDefault();
+        if (!selectedMemberToBlock) return;
+        setBlockedLoading(true);
+        try {
+            await eventService.blockUser(event.id, selectedMemberToBlock, blockReason);
+            setSelectedMemberToBlock('');
+            setBlockReason('');
+            await fetchRegistrations(search);
+            await fetchBlockedUsers();
+        } catch (err) {
+            const message = err?.response?.data?.message || 'Failed to block user.';
+            setError(message);
+        } finally {
+            setBlockedLoading(false);
+        }
+    };
+
+    const handleUnblock = async (userId) => {
+        if (!event?.id || !userId) return;
+        if (!window.confirm("Are you sure you want to unblock this user?")) return;
+        setBlockedLoading(true);
+        try {
+            await eventService.unblockUser(event.id, userId);
+            await fetchBlockedUsers();
+        } catch (err) {
+            const message = err?.response?.data?.message || 'Failed to unblock user.';
+            setError(message);
+        } finally {
+            setBlockedLoading(false);
         }
     };
 
@@ -216,7 +313,9 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
             loading,
             search,
             updatingUserId,
-            handleToggleAttendance
+            handleToggleAttendance,
+            handleExecCancel,
+            handleExecBlock
         );
     } catch (e) {
         setRenderError(e?.message || 'Unknown rendering error');
@@ -228,6 +327,24 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
         schemaContent = renderSchemaTab(customFields);
     } catch (e) {
         setRenderError(e?.message || 'Unknown rendering error in schema tab');
+        return null;
+    }
+
+    let blockedContent;
+    try {
+        blockedContent = renderBlocksTab(
+            blockedUsers,
+            blockedLoading,
+            clubMembers,
+            selectedMemberToBlock,
+            setSelectedMemberToBlock,
+            blockReason,
+            setBlockReason,
+            handleManualBlock,
+            handleUnblock
+        );
+    } catch (e) {
+        setRenderError(e?.message || 'Unknown rendering error in blocks tab');
         return null;
     }
 
@@ -283,6 +400,16 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
                             <HelpCircle className="w-4 h-4" /> Form Questions ({customFields.length})
                         </button>
                     )}
+                    <button
+                        onClick={() => setActiveTab('blocks')}
+                        className={`pb-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 ${
+                            activeTab === 'blocks'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        <Ban className="w-4 h-4" /> Blocked Users ({blockedUsers.length})
+                    </button>
                 </div>
 
                 {/* Search Bar (Responses tab only) */}
@@ -313,6 +440,7 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
                 <div className="flex-1 overflow-y-auto py-3 space-y-3 pr-1">
                     {activeTab === 'responses' && responsesContent}
                     {activeTab === 'schema' && schemaContent}
+                    {activeTab === 'blocks' && blockedContent}
                 </div>
 
                 {/* Footer */}
@@ -333,7 +461,7 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
 /**
  * Renders the Attendee Roster & Responses tab content.
  */
-function renderResponsesTab(registrations, loading, search, updatingUserId, handleToggleAttendance) {
+function renderResponsesTab(registrations, loading, search, updatingUserId, handleToggleAttendance, handleExecCancel, handleExecBlock) {
     if (loading) {
         return (
             <div className="py-12 text-center text-slate-400 text-sm animate-pulse">
@@ -389,61 +517,90 @@ function renderResponsesTab(registrations, loading, search, updatingUserId, hand
                                 </div>
                             </div>
 
-                            {/* Attendance Controls */}
-                            <div className="flex items-center gap-2 shrink-0">
-                                {/* Status Badge */}
-                                {reg.attended === true && (
-                                    <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200 flex items-center gap-1">
-                                        <Check className="w-3.5 h-3.5 text-emerald-600" /> Attended
+                            {/* Attendance / Waitlist Status & Controls */}
+                            <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                {/* Registration status indicator */}
+                                {reg.status === 'waitlisted' ? (
+                                    <span className="text-xs font-semibold px-2.5 py-1 bg-amber-50 text-amber-800 rounded-full border border-amber-200 flex items-center gap-1">
+                                        <Clock className="w-3.5 h-3.5 text-amber-600" /> Waitlisted
                                     </span>
-                                )}
-                                {reg.attended === false && (
-                                    <span className="text-xs font-semibold px-2.5 py-1 bg-rose-50 text-rose-800 rounded-full border border-rose-200 flex items-center gap-1">
-                                        <X className="w-3.5 h-3.5 text-rose-600" /> Absent
-                                    </span>
-                                )}
-                                {(reg.attended === null || reg.attended === undefined) && (
-                                    <span className="text-xs font-medium px-2.5 py-1 bg-slate-200 text-slate-600 rounded-full">
-                                        Unmarked
-                                    </span>
+                                ) : (
+                                    <>
+                                        {/* Status Badge */}
+                                        {reg.attended === true && (
+                                            <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200 flex items-center gap-1">
+                                                <Check className="w-3.5 h-3.5 text-emerald-600" /> Attended
+                                            </span>
+                                        )}
+                                        {reg.attended === false && (
+                                            <span className="text-xs font-semibold px-2.5 py-1 bg-rose-50 text-rose-800 rounded-full border border-rose-200 flex items-center gap-1">
+                                                <X className="w-3.5 h-3.5 text-rose-600" /> Absent
+                                            </span>
+                                        )}
+                                        {(reg.attended === null || reg.attended === undefined) && (
+                                            <span className="text-xs font-medium px-2.5 py-1 bg-slate-200 text-slate-600 rounded-full">
+                                                Unmarked
+                                            </span>
+                                        )}
+
+                                        {/* Check-in Buttons */}
+                                        <div className="flex items-center gap-1 border border-slate-200 rounded-lg p-0.5 bg-white">
+                                            <button
+                                                onClick={() => handleToggleAttendance(reg.user_id, true)}
+                                                disabled={isUpdating || reg.attended === true}
+                                                title="Mark as Attended"
+                                                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                                                    reg.attended === true
+                                                        ? 'bg-emerald-600 text-white font-semibold'
+                                                        : 'text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'
+                                                } disabled:opacity-50`}
+                                            >
+                                                Present
+                                            </button>
+                                            <button
+                                                onClick={() => handleToggleAttendance(reg.user_id, false)}
+                                                disabled={isUpdating || reg.attended === false}
+                                                title="Mark as Absent"
+                                                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                                                    reg.attended === false
+                                                        ? 'bg-rose-600 text-white font-semibold'
+                                                        : 'text-slate-600 hover:bg-rose-50 hover:text-rose-700'
+                                                } disabled:opacity-50`}
+                                            >
+                                                Absent
+                                            </button>
+                                            {reg.attended !== null && reg.attended !== undefined && (
+                                                <button
+                                                    onClick={() => handleToggleAttendance(reg.user_id, null)}
+                                                    disabled={isUpdating}
+                                                    title="Reset status to unmarked"
+                                                    className="px-2 py-1 text-slate-400 hover:text-slate-700 text-xs transition-colors"
+                                                >
+                                                    Clear
+                                                </button>
+                                            )}
+                                        </div>
+                                    </>
                                 )}
 
-                                {/* Check-in Buttons */}
-                                <div className="flex items-center gap-1 border border-slate-200 rounded-lg p-0.5 bg-white">
+                                {/* Executive Actions: Cancel and Block */}
+                                <div className="flex items-center gap-1 border border-slate-200 rounded-lg p-0.5 bg-white ml-2">
                                     <button
-                                        onClick={() => handleToggleAttendance(reg.user_id, true)}
-                                        disabled={isUpdating || reg.attended === true}
-                                        title="Mark as Attended"
-                                        className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                                            reg.attended === true
-                                                ? 'bg-emerald-600 text-white font-semibold'
-                                                : 'text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'
-                                        } disabled:opacity-50`}
+                                        onClick={() => handleExecCancel(reg.user_id)}
+                                        disabled={isUpdating}
+                                        title="Cancel Registration (releases seat)"
+                                        className="px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded transition-colors flex items-center gap-1"
                                     >
-                                        Present
+                                        <UserMinus className="w-3.5 h-3.5" /> Cancel Reg
                                     </button>
                                     <button
-                                        onClick={() => handleToggleAttendance(reg.user_id, false)}
-                                        disabled={isUpdating || reg.attended === false}
-                                        title="Mark as Absent"
-                                        className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                                            reg.attended === false
-                                                ? 'bg-rose-600 text-white font-semibold'
-                                                : 'text-slate-600 hover:bg-rose-50 hover:text-rose-700'
-                                        } disabled:opacity-50`}
+                                        onClick={() => handleExecBlock(reg.user_id)}
+                                        disabled={isUpdating}
+                                        title="Block user from registering"
+                                        className="px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded transition-colors flex items-center gap-1"
                                     >
-                                        Absent
+                                        <Ban className="w-3.5 h-3.5 text-slate-500" /> Block
                                     </button>
-                                    {reg.attended !== null && reg.attended !== undefined && (
-                                        <button
-                                            onClick={() => handleToggleAttendance(reg.user_id, null)}
-                                            disabled={isUpdating}
-                                            title="Reset status to unmarked"
-                                            className="px-2 py-1 text-slate-400 hover:text-slate-700 text-xs transition-colors"
-                                        >
-                                            Clear
-                                        </button>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -578,6 +735,108 @@ function renderSchemaTab(customFields) {
                         </div>
                     );
                 })}
+            </div>
+        </div>
+    );
+}
+
+
+/**
+ * Renders the Block List tab content.
+ */
+function renderBlocksTab(blockedUsers, loading, clubMembers, selectedMember, setSelectedMember, reason, setReason, onBlock, onUnblock) {
+    if (loading) {
+        return (
+            <div className="py-12 text-center text-slate-400 text-sm animate-pulse">
+                Loading blocked users list...
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {/* Block Member Form */}
+            <form onSubmit={onBlock} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Block a Club Member</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Select Member</label>
+                        <select
+                            value={selectedMember}
+                            onChange={(e) => setSelectedMember(e.target.value)}
+                            required
+                            className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:outline-none focus:border-blue-600"
+                        >
+                            <option value="">-- Choose Member --</option>
+                            {clubMembers.map(m => {
+                                const u = m.user || {};
+                                return (
+                                    <option key={u.id} value={u.id}>
+                                        {u.name} ({u.student_id || u.email})
+                                    </option>
+                                );
+                            })}
+                        </select>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Block Reason</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={reason}
+                                onChange={(e) => setReason(e.target.value)}
+                                placeholder="Optional reason for blocking this student..."
+                                className="flex-1 border border-slate-200 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-600"
+                            />
+                            <button
+                                type="submit"
+                                className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors shrink-0 flex items-center gap-1"
+                            >
+                                <Ban className="w-3.5 h-3.5" /> Block
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            {/* Blocked Users List */}
+            <div className="space-y-2">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Blocked Students ({blockedUsers.length})</h4>
+                {blockedUsers.length === 0 ? (
+                    <div className="py-6 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
+                        No students are currently blocked from registering for this event.
+                    </div>
+                ) : (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
+                        {blockedUsers.map((block) => {
+                            const u = block.user || {};
+                            return (
+                                <div key={block.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-slate-800 text-xs">{u.name || 'Student'}</span>
+                                            {u.student_id && (
+                                                <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold">
+                                                    ID: {u.student_id}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 mt-0.5">
+                                            {u.email && <span>{u.email}</span>}
+                                            {block.reason && <span className="ml-2 text-slate-700 bg-rose-50 text-rose-800 px-2 py-0.5 rounded border border-rose-100">Reason: {block.reason}</span>}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => onUnblock(block.user_id)}
+                                        className="px-2.5 py-1 border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 rounded text-[11px] font-semibold transition-colors flex items-center gap-1 bg-white shadow-sm"
+                                    >
+                                        <UserMinus className="w-3.5 h-3.5" /> Unblock
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );
