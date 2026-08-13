@@ -6,6 +6,7 @@ use App\Http\Requests\StoreRecruitmentApplicationRequest;
 use App\Models\Notification;
 use App\Models\RecruitmentApplication;
 use App\Models\RecruitmentNotice;
+use App\Services\CacheInvalidationService;
 use App\Services\ClubMembershipService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
@@ -168,6 +169,7 @@ class RecruitmentApplicationController extends Controller
 
         if ($status === 'accepted') {
             $membershipService->admitUser($notice->club, $application->user);
+            CacheInvalidationService::club($notice->club_id);
         }
 
         $stageLabel = $notice->getStageLabelFor($status);

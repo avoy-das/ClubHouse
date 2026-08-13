@@ -7,6 +7,7 @@ use App\Models\Club;
 use App\Models\ClubEditRequest;
 use App\Models\ClubMember;
 use App\Services\AuditService;
+use App\Services\CacheInvalidationService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -118,6 +119,8 @@ class ClubEditRequestController extends Controller
         if ($clubEditRequest->banner_path)   $updateData['banner_path']   = $clubEditRequest->banner_path;
 
         $club->update($updateData);
+
+        CacheInvalidationService::club($club->id);
 
         $clubEditRequest->update([
             'status'      => 'approved',

@@ -37,8 +37,13 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = async () => {
-        await authService.logout();
-        setUser(null);
+        try {
+            await authService.logout();
+        } catch {
+            // Ignore unauthenticated or expired token errors during logout cleanup
+        } finally {
+            setUser(null);
+        }
     };
 
     const isAdmin = () => user?.is_admin === true;

@@ -9,8 +9,10 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import Modal from '../../components/ui/Modal';
 import { Bell, CheckCheck, ArrowRight, Check, Megaphone, Calendar, User, Building2, Paperclip, ExternalLink } from 'lucide-react';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const NotificationList = () => {
+    usePageTitle('Notifications');
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);

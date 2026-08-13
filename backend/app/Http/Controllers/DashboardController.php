@@ -72,6 +72,10 @@ class DashboardController extends Controller
                     'location'      => $ev->location_value,
                     'is_registered' => in_array($ev->id, $registeredEventIds),
                     'club'          => $ev->club ? ['id' => $ev->club->id, 'name' => $ev->club->name] : null,
+                    'banner_path'   => $ev->banner_path,
+                    'banner_url'    => $ev->banner_url,
+                    'banner_thumbnail_path' => $ev->banner_thumbnail_path,
+                    'banner_thumbnail_url'  => $ev->banner_thumbnail_url,
                 ];
             })->values();
 

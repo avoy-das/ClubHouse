@@ -7,8 +7,10 @@ import AttendanceReportModal from '../../components/Events/AttendanceReportModal
 import ViewResponsesModal from '../../components/Events/ViewResponsesModal';
 import EventFeedbackModal from '../../components/Events/EventFeedbackModal';
 import FeedbackListModal from '../../components/Events/FeedbackListModal';
-import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, Ban, Trash2, ArrowLeft, Building2, CheckCircle, FileText, Paperclip, Star, MessageSquare } from 'lucide-react';
+import Modal from '../../components/ui/Modal';
+import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, CheckCircle2, Ban, Trash2, ArrowLeft, Building2, CheckCircle, FileText, Paperclip, Star, MessageSquare, Bell, Users, Shield } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -38,6 +40,7 @@ const EventDetailPage = () => {
     const navigate = useNavigate();
 
     const [event, setEvent] = useState(null);
+    usePageTitle(event ? event.title : 'Event Details');
     const [isRegistered, setIsRegistered] = useState(false);
     const [userRegistration, setUserRegistration] = useState(null);
     const [canManage, setCanManage] = useState(false);
@@ -52,6 +55,9 @@ const EventDetailPage = () => {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isReportOpen, setIsReportOpen] = useState(false);
     const [isResponsesOpen, setIsResponsesOpen] = useState(false);
+    const [isReminderOpen, setIsReminderOpen] = useState(false);
+    const [reminderMsg, setReminderMsg] = useState('');
+    const [sendingReminder, setSendingReminder] = useState(false);
 
     // Registration custom fields modal state
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -62,6 +68,20 @@ const EventDetailPage = () => {
     const [feedbackSummary, setFeedbackSummary] = useState(null);
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
     const [isFeedbackListOpen, setIsFeedbackListOpen] = useState(false);
+
+    const handleSendReminder = async () => {
+        setSendingReminder(true);
+        try {
+            await eventService.sendReminder(id, reminderMsg);
+            setToast({ type: 'success', message: 'Event reminder successfully sent to all registered attendees!' });
+            setIsReminderOpen(false);
+            setReminderMsg('');
+        } catch (err) {
+            setToast({ type: 'error', message: err.response?.data?.message || 'Failed to send event reminder.' });
+        } finally {
+            setSendingReminder(false);
+        }
+    };
 
     const loadFeedbackSummary = () => {
         eventService.getFeedbackSummary(id)
@@ -339,31 +359,33 @@ const EventDetailPage = () => {
 
                         {/* Control Actions */}
                         <div className="flex flex-wrap items-center gap-2">
+                            {/* Attendance Control (Merged Roster & Attendance Analytics) */}
+                            <button
+                                onClick={() => setIsResponsesOpen(true)}
+                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
+                            >
+                                <Users className="w-4 h-4" /> Attendance Control ({event.registrations_count || 0})
+                            </button>
+
                             {/* Edit Event */}
                             {!isCompletedOrPast && (
                                 <button
                                     onClick={() => setIsEditOpen(true)}
-                                    className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
+                                    className="px-3.5 py-2 bg-slate-700/80 hover:bg-slate-600 text-white rounded-xl text-xs font-semibold transition-colors border border-slate-600 flex items-center gap-1.5"
                                 >
                                     <Edit className="w-4 h-4" /> Edit Event
                                 </button>
                             )}
 
-                            {/* View Responses (Unified Roster & Custom Answers Modal) */}
-                            <button
-                                onClick={() => setIsResponsesOpen(true)}
-                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
-                            >
-                                <ClipboardList className="w-4 h-4" /> View Responses ({event.registrations_count || 0})
-                            </button>
-
-                            {/* Attendance Report */}
-                            <button
-                                onClick={() => setIsReportOpen(true)}
-                                className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
-                            >
-                                <BarChart2 className="w-4 h-4" /> Attendance Report
-                            </button>
+                            {/* Send Reminder to Attendees */}
+                            {['published', 'ongoing'].includes(event.status) && (
+                                <button
+                                    onClick={() => setIsReminderOpen(true)}
+                                    className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
+                                >
+                                    <Bell className="w-4 h-4" /> Send Reminder
+                                </button>
+                            )}
 
                             {/* View Feedback Responses */}
                             <button
@@ -378,7 +400,7 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('published')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-[#eab308] text-slate-900 font-bold hover:bg-amber-400 rounded-xl text-xs transition-colors shadow-xs flex items-center gap-1"
+                                    className="px-3.5 py-2 bg-[#eab308] text-slate-900 font-bold hover:bg-amber-400 rounded-xl text-xs transition-colors shadow-xs flex items-center gap-1.5"
                                 >
                                     <Rocket className="w-4 h-4" /> Publish Event
                                 </button>
@@ -388,7 +410,7 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('ongoing')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1"
+                                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                                 >
                                     <Play className="w-4 h-4" /> Mark Ongoing
                                 </button>
@@ -398,9 +420,9 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('completed')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1"
+                                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                                 >
-                                    <CheckSquare className="w-4 h-4" /> Mark Completed
+                                    <CheckCircle2 className="w-4 h-4" /> Mark Completed
                                 </button>
                             )}
 
@@ -408,7 +430,7 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('cancelled')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-rose-600/80 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold transition-colors border border-rose-500/30 flex items-center gap-1"
+                                    className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                                 >
                                     <Ban className="w-4 h-4" /> Cancel Event
                                 </button>
@@ -905,6 +927,49 @@ const EventDetailPage = () => {
                 eventId={event.id}
                 eventTitle={event.title}
             />
+
+            {/* Send Reminder Modal */}
+            <Modal
+                isOpen={isReminderOpen}
+                onClose={() => setIsReminderOpen(false)}
+                title="Send Event Reminder"
+            >
+                <div className="space-y-4">
+                    <p className="text-xs text-slate-600">
+                        Broadcast an in-app reminder notification to all registered attendees for <strong className="text-slate-800">{event.title}</strong>.
+                    </p>
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Custom Reminder Message (Optional)
+                        </label>
+                        <textarea
+                            value={reminderMsg}
+                            onChange={(e) => setReminderMsg(e.target.value)}
+                            rows={3}
+                            placeholder="e.g., Don't forget to bring your student ID card! Room 302."
+                            className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsReminderOpen(false)}
+                            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleSendReminder}
+                            disabled={sendingReminder}
+                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+                        >
+                            <Bell className="w-3.5 h-3.5" />
+                            {sendingReminder ? 'Sending...' : 'Send Reminder'}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </MainLayout>
     );
 };

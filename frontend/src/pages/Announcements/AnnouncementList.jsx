@@ -24,8 +24,10 @@ import {
     Send,
     AlertCircle
 } from 'lucide-react';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const AnnouncementListContent = () => {
+    usePageTitle('Announcements');
     const { clubId } = useParams();
     const { user, isAdmin } = useAuth();
     const fileInputRef = useRef(null);

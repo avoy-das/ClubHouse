@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateClubRequest;
 use App\Models\Club;
 use App\Models\ClubMember;
 use App\Models\User;
+use App\Models\Event;
 use App\Models\AuditLog;
 use App\Services\AuditService;
 use App\Services\CacheInvalidationService;
@@ -256,13 +257,15 @@ class ClubController extends Controller
 
         unset($data['logo'], $data['banner']);
 
-        $dirty = array_diff_key($data, ['logo' => true, 'banner' => true]);
+        $dirty = $data;
         $original = [];
         foreach (array_keys($dirty) as $field) {
             $original[$field] = $club->getOriginal($field);
         }
 
         $club->update($data);
+
+        CacheInvalidationService::club($club->id);
 
         AuditService::log('club.updated', $club, [
             'changed'        => array_intersect_key($club->getChanges(), $dirty),
@@ -302,6 +305,11 @@ class ClubController extends Controller
             'suspension_reason' => $request->suspension_reason,
         ]);
 
+        // Auto-cancel active events belonging to this suspended club
+        Event::where('club_id', $club->id)
+            ->whereIn('status', ['draft', 'published', 'upcoming', 'ongoing'])
+            ->update(['status' => 'cancelled']);
+
         AuditService::log('club.suspended', $club, [
             'previous_status'   => 'approved',
             'suspension_reason' => $request->suspension_reason,
@@ -317,6 +325,7 @@ class ClubController extends Controller
         );
 
         CacheInvalidationService::club($club->id);
+        CacheInvalidationService::event($club->id);
 
         return response()->json([
             'message' => 'Club suspended.',
@@ -551,6 +560,8 @@ class ClubController extends Controller
             'role' => $newRole,
         ]);
 
+        CacheInvalidationService::club($club->id);
+
         if ($newRole === 'member') {
             \App\Models\ClubMemberPosition::where('club_member_id', $membership->id)
                 ->where(function ($q) {
@@ -638,6 +649,8 @@ class ClubController extends Controller
         }
 
         $club->update(['advisor' => $advisorData]);
+
+        CacheInvalidationService::club($club->id);
 
         AuditService::log('club.advisor_updated', $club, [
             'updated_by' => $authUser->id,
@@ -743,6 +756,8 @@ class ClubController extends Controller
             $club->id
         );
 
+        CacheInvalidationService::club($club->id);
+
         return response()->json([
             'message' => 'Presidency successfully transferred.',
         ]);
@@ -810,6 +825,8 @@ class ClubController extends Controller
         }
 
         $membership->delete();
+
+        CacheInvalidationService::club($club->id);
 
         AuditService::log('club.member_removed', $club, [
             'target_user_id' => $user->id,
@@ -922,7 +939,10 @@ class ClubController extends Controller
             Storage::disk('public')->delete($club->permission_doc_path);
         }
 
+        $clubId = $club->id;
         $club->delete();
+
+        CacheInvalidationService::club($clubId);
 
         return response()->json(['message' => 'Club deleted successfully.']);
     }

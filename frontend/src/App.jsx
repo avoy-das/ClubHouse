@@ -27,6 +27,7 @@ const AnnouncementList = lazy(() => import('./pages/Announcements/AnnouncementLi
 const RecruitmentList = lazy(() => import('./pages/Recruitment/RecruitmentList'));
 const RecruitmentDetail = lazy(() => import('./pages/Recruitment/RecruitmentDetail'));
 const RecruitmentApplications = lazy(() => import('./pages/Recruitment/RecruitmentApplications'));
+const NotFound = lazy(() => import('./pages/NotFound/NotFound'));
 
 const App = () => {
     return (
@@ -73,7 +74,7 @@ const App = () => {
                         </Route>
 
                         {/* Fallback */}
-                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="*" element={<NotFound />} />
                     </Routes>
                 </Suspense>
                 </ErrorBoundary>

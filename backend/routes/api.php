@@ -63,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/events',                 [EventController::class, 'store']);
     Route::put('/events/{event}',          [EventController::class, 'update']);
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus']);
+    Route::post('/events/{event}/send-reminder', [EventController::class, 'sendReminder']);
     Route::delete('/events/{event}',       [EventController::class, 'destroy']);
 
     // Event Registrations & Attendance

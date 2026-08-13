@@ -157,6 +157,9 @@ class NotificationService
         ?int $excludeUserId = null
     ): void {
         $attendeeUserIds = EventRegistration::where('event_id', $eventId)
+            ->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', 'registered');
+            })
             ->pluck('user_id')
             ->unique();
 
