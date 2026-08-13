@@ -5,6 +5,7 @@ import clubService from '../../services/clubService';
 import { useAuth } from '../../context/AuthContext';
 import { Building2, Users, Search, Plus, Shield, BarChart2 } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const categoryColors = {
     'Academic':                    'bg-blue-100 text-blue-700',
@@ -35,6 +36,7 @@ const categoryGradients = {
 };
 
 const ClubList = () => {
+    usePageTitle('Clubs');
     const { user, isAdmin } = useAuth();
     const [clubs, setClubs]       = useState([]);
     const [loading, setLoading]   = useState(true);

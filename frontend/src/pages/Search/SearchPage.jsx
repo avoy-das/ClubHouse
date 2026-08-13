@@ -4,10 +4,12 @@ import MainLayout from '../../layouts/MainLayout';
 import searchService from '../../services/searchService';
 import { useAuth } from '../../context/AuthContext';
 import { Search, Folder, Building2, Calendar, Megaphone, Users } from 'lucide-react';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const SearchPage = () => {
     const [searchParams] = useSearchParams();
     const query = searchParams.get('q') || '';
+    usePageTitle(query ? `Search: ${query}` : 'Search');
     const { isAdmin } = useAuth();
 
     const [results, setResults] = useState(null);

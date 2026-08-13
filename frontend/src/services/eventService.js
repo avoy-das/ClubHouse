@@ -133,6 +133,10 @@ const eventService = {
     // Delete existing event feedback (Attendee)
     deleteFeedback: (eventId) =>
         api.delete(`/events/${eventId}/feedback`),
+
+    // Send reminder notification to registered attendees (Exec/Admin)
+    sendReminder: (eventId, customMessage = '') =>
+        api.post(`/events/${eventId}/send-reminder`, { message: customMessage }),
 };
 
 export default eventService;

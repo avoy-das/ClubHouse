@@ -11,8 +11,10 @@ import { getImageUrl } from '../../utils/imageUrl';
 import Modal from '../../components/ui/Modal';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Calendar, Building2, Target, GraduationCap, Plus, Shield, Bell, Megaphone, ArrowRight, User } from 'lucide-react';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const Dashboard = () => {
+    usePageTitle('Dashboard');
     const { user, isAdmin } = useAuth();
     const navigate = useNavigate();
 

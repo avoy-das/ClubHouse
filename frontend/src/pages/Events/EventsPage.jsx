@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getImageUrl } from '../../utils/imageUrl';
 import { formatDisplayDateTime } from '../../utils/dateUtils';
 import { Calendar } from 'lucide-react';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -19,6 +20,7 @@ const statusBadgeStyles = {
 };
 
 const EventsPage = () => {
+    usePageTitle('Events');
     const { user } = useAuth();
     const [searchParams] = useSearchParams();
     const preselectedClubId = searchParams.get('create_club_id') || searchParams.get('club_id') || '';

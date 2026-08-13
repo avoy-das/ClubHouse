@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
-import { Users, ClipboardList, Search, Check, X, FileText, Paperclip, HelpCircle, AlertTriangle, Ban, UserX, ShieldAlert, UserMinus, Clock } from 'lucide-react';
+import { Users, ClipboardList, Search, Check, X, FileText, Paperclip, HelpCircle, AlertTriangle, Ban, UserX, ShieldAlert, UserMinus, Clock, BarChart2 } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
 import useDebounce from '../../hooks/useDebounce';
 
@@ -112,6 +112,24 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
     const [selectedMemberToBlock, setSelectedMemberToBlock] = useState('');
     const [blockReason, setBlockReason] = useState('');
 
+    const [report, setReport] = useState(null);
+    const [reportLoading, setReportLoading] = useState(false);
+    const [reportError, setReportError] = useState(null);
+
+    const fetchReport = useCallback(async () => {
+        if (!event?.id) return;
+        setReportLoading(true);
+        setReportError(null);
+        try {
+            const res = await eventService.getAttendanceReport(event.id);
+            setReport(res?.data);
+        } catch (err) {
+            setReportError(err?.response?.data?.message || 'Failed to generate attendance report.');
+        } finally {
+            setReportLoading(false);
+        }
+    }, [event?.id]);
+
     const fetchRegistrations = useCallback(async (query = '') => {
         if (!event?.id) return;
         setLoading(true);
@@ -170,8 +188,15 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
             fetchRegistrations('');
             fetchBlockedUsers();
             fetchClubMembers();
+            fetchReport();
         }
-    }, [isOpen, event?.id, fetchRegistrations, fetchBlockedUsers, fetchClubMembers]);
+    }, [isOpen, event?.id, fetchRegistrations, fetchBlockedUsers, fetchClubMembers, fetchReport]);
+
+    useEffect(() => {
+        if (isOpen && activeTab === 'report') {
+            fetchReport();
+        }
+    }, [isOpen, activeTab, fetchReport]);
 
     useEffect(() => {
         if (isFirstRender.current) {
@@ -348,6 +373,94 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
         return null;
     }
 
+    let reportContent;
+    try {
+        const m = report?.metrics || {
+            total_registered: registrations.length || 0,
+            attended_count: registrations.filter(r => r?.attendance_status === 'present').length || 0,
+            absent_count: registrations.filter(r => r?.attendance_status === 'absent').length || 0,
+            unmarked_count: registrations.filter(r => !r?.attendance_status || r?.attendance_status === 'unmarked').length || 0,
+            attendance_rate: registrations.length > 0 ? Math.round((registrations.filter(r => r?.attendance_status === 'present').length / registrations.length) * 100) : 0,
+            capacity: event.capacity,
+            spots_remaining: event.capacity ? event.capacity - (event.registrations_count || 0) : null,
+        };
+
+        if (reportLoading) {
+            reportContent = (
+                <div className="py-12 text-center text-slate-400 text-sm animate-pulse">
+                    Calculating attendance metrics...
+                </div>
+            );
+        } else if (reportError) {
+            reportContent = (
+                <div className="my-4 p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
+                    {reportError}
+                </div>
+            );
+        } else {
+            reportContent = (
+                <div className="p-2 space-y-6">
+                    {/* Attendance Rate Highlight Card */}
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-6 shadow-xs text-center">
+                        <span className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold">
+                            Attendance Check-in Rate
+                        </span>
+                        <div className="text-4xl font-extrabold my-2 text-slate-900">
+                            {m.attendance_rate}%
+                        </div>
+                        <p className="text-xs text-slate-600">
+                            {m.attended_count} of {m.total_registered} registered attendees checked in
+                        </p>
+                        {/* Progress bar */}
+                        <div className="w-full bg-slate-200 rounded-full h-2.5 mt-4 overflow-hidden border border-slate-300/60">
+                            <div
+                                className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${Math.min(100, m.attendance_rate)}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Breakdown Grid */}
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl">
+                            <span className="text-xs font-semibold text-emerald-700 block">Attended (Present)</span>
+                            <span className="text-2xl font-bold text-emerald-900 mt-1 block">{m.attended_count}</span>
+                        </div>
+                        <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl">
+                            <span className="text-xs font-semibold text-rose-700 block">Absent</span>
+                            <span className="text-2xl font-bold text-rose-900 mt-1 block">{m.absent_count}</span>
+                        </div>
+                        <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                            <span className="text-xs font-semibold text-slate-600 block">Unmarked</span>
+                            <span className="text-2xl font-bold text-slate-800 mt-1 block">{m.unmarked_count}</span>
+                        </div>
+                    </div>
+
+                    {/* Capacity & Registration Stats */}
+                    <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-xl space-y-2.5 text-xs">
+                        <div className="flex justify-between text-slate-600">
+                            <span>Total Registered Attendees:</span>
+                            <strong className="text-slate-900">{m.total_registered}</strong>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                            <span>Maximum Event Capacity:</span>
+                            <strong className="text-slate-900">{m.capacity ?? 'Unlimited'}</strong>
+                        </div>
+                        {m.capacity !== null && (
+                            <div className="flex justify-between text-slate-600">
+                                <span>Available Remaining Spots:</span>
+                                <strong className="text-slate-900">{m.spots_remaining}</strong>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+    } catch (e) {
+        setRenderError(e?.message || 'Unknown rendering error in report tab');
+        return null;
+    }
+
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0f172a]/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-4xl w-full p-6 relative flex flex-col max-h-[90vh]">
@@ -355,13 +468,13 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3 shrink-0">
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 font-bold text-[11px] rounded-full uppercase tracking-wider border border-blue-200/60">
-                                Executive View
+                            <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 font-bold text-[11px] rounded-full uppercase tracking-wider border border-indigo-200/60">
+                                Executive Suite
                             </span>
                         </div>
                         <h2 className="text-lg font-bold text-[#0b1c30] flex items-center gap-2 mt-1">
-                            <ClipboardList className="w-5 h-5 text-blue-600" />
-                            Attendee Responses & Check-in
+                            <Users className="w-5 h-5 text-indigo-600" />
+                            Attendance Control Center
                         </h2>
                         <p className="text-xs text-slate-500 mt-0.5">
                             {event.title || 'Event'} &bull; {registrations.length} registered member(s)
@@ -377,23 +490,33 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
                 </div>
 
                 {/* Tab Switcher */}
-                <div className="flex items-center gap-4 border-b border-slate-200 shrink-0 pt-3">
+                <div className="flex items-center gap-4 border-b border-slate-200 shrink-0 pt-3 overflow-x-auto">
                     <button
                         onClick={() => setActiveTab('responses')}
-                        className={`pb-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 ${
+                        className={`pb-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
                             activeTab === 'responses'
-                                ? 'border-blue-600 text-blue-600'
+                                ? 'border-indigo-600 text-indigo-600'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
                         <Users className="w-4 h-4" /> Attendee Roster ({registrations.length})
                     </button>
+                    <button
+                        onClick={() => setActiveTab('report')}
+                        className={`pb-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+                            activeTab === 'report'
+                                ? 'border-indigo-600 text-indigo-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        <BarChart2 className="w-4 h-4" /> Attendance Analytics
+                    </button>
                     {customFields.length > 0 && (
                         <button
                             onClick={() => setActiveTab('schema')}
-                            className={`pb-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 ${
+                            className={`pb-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
                                 activeTab === 'schema'
-                                    ? 'border-blue-600 text-blue-600'
+                                    ? 'border-indigo-600 text-indigo-600'
                                     : 'border-transparent text-slate-500 hover:text-slate-800'
                             }`}
                         >
@@ -402,9 +525,9 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
                     )}
                     <button
                         onClick={() => setActiveTab('blocks')}
-                        className={`pb-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 ${
+                        className={`pb-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
                             activeTab === 'blocks'
-                                ? 'border-blue-600 text-blue-600'
+                                ? 'border-indigo-600 text-indigo-600'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
@@ -439,6 +562,7 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
                 {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto py-3 space-y-3 pr-1">
                     {activeTab === 'responses' && responsesContent}
+                    {activeTab === 'report' && reportContent}
                     {activeTab === 'schema' && schemaContent}
                     {activeTab === 'blocks' && blockedContent}
                 </div>

@@ -751,4 +751,49 @@ class EventController extends Controller
             }
         }
     }
+
+    /**
+     * POST /api/events/{event}/send-reminder
+     *
+     * Exec-only manual trigger to send custom reminder notifications to registered attendees.
+     */
+    public function sendReminder(Request $request, Event $event): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->hasClubPermission($event->club_id, 'can_manage_events')) {
+            return response()->json([
+                'message' => 'Only club executives can send event reminders.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'message' => 'nullable|string|max:500',
+        ]);
+
+        $customMessage = trim($validated['message'] ?? '');
+        $title = "Event Reminder: {$event->title}";
+        $message = $customMessage !== ''
+            ? $customMessage
+            : "Reminder! '{$event->title}' is scheduled for {$event->starts_at->format('M d, Y \a\t h:i A')}. See you there!";
+
+        NotificationService::notifyEventAttendees(
+            $event->id,
+            'event_manual_reminder',
+            $title,
+            $message,
+            Event::class,
+            $event->id,
+            $user->id
+        );
+
+        AuditService::log('event.reminder_sent', $event, [
+            'sent_by' => $user->id,
+            'message' => $message,
+        ]);
+
+        return response()->json([
+            'message' => 'Event reminder successfully sent to all registered attendees.',
+        ]);
+    }
 }

@@ -6,8 +6,10 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import { Shield, FileText, ArrowLeft, ArrowRight, X, Info, Clock, User as UserIcon, Tag, Download, Search, Filter } from 'lucide-react';
 import { actionLabels, renderMetaSummary, getRoleBadge } from '../../utils/auditLogUtils';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const AdminAuditLogs = () => {
+    usePageTitle('Admin — Audit Logs');
     const [logs, setLogs] = useState([]);
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);

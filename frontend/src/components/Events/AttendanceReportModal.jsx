@@ -61,21 +61,21 @@ const AttendanceReportModal = ({ isOpen, onClose, event }) => {
                 ) : (
                     <div className="mt-5 space-y-6">
                         {/* Attendance Rate Highlight Card */}
-                        <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white rounded-2xl p-6 shadow-md text-center">
-                            <span className="text-xs uppercase tracking-widest text-indigo-300 font-semibold">
-                                Attendance Rate
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-6 shadow-xs text-center">
+                            <span className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold">
+                                Attendance Check-in Rate
                             </span>
-                            <div className="text-4xl font-extrabold my-2 text-indigo-100">
+                            <div className="text-4xl font-extrabold my-2 text-slate-900">
                                 {m.attendance_rate}%
                             </div>
-                            <p className="text-xs text-slate-300">
+                            <p className="text-xs text-slate-600">
                                 {m.attended_count} of {m.total_registered} registered attendees checked in
                             </p>
 
                             {/* Progress bar */}
-                            <div className="w-full bg-slate-800/80 rounded-full h-3 mt-4 overflow-hidden p-0.5 border border-indigo-700/50">
+                            <div className="w-full bg-slate-200 rounded-full h-2.5 mt-4 overflow-hidden border border-slate-300/60">
                                 <div
-                                    className="bg-emerald-400 h-full rounded-full transition-all duration-500"
+                                    className="bg-blue-600 h-full rounded-full transition-all duration-500"
                                     style={{ width: `${Math.min(100, m.attendance_rate)}%` }}
                                 />
                             </div>

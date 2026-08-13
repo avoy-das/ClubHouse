@@ -11,3 +11,4 @@ use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('events:update-statuses')->everyFiveMinutes();
 
+

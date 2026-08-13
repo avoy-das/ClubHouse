@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Building2, AtSign, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const Login = () => {
+    usePageTitle('Sign In');
     const { login } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');

@@ -9,8 +9,10 @@ import { formatSessionLabel, generateSessionOptions } from '../../utils/sessionU
 import { roleLabels } from '../../utils/roleUtils';
 import { formatDisplayDate } from '../../utils/dateUtils';
 import { MapPin } from 'lucide-react';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const ProfilePage = () => {
+    usePageTitle('Profile');
     const { user, setUser } = useAuth();
 
     const [activeTab, setActiveTab] = useState('overview'); // overview, password, memberships, past_events

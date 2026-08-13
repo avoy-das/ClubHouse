@@ -11,12 +11,14 @@ import MembersDirectory from '../../components/Clubs/MembersDirectory';
 import { ArrowLeft, Edit, FileText, Shield, ShieldAlert, Megaphone, Target, Calendar, Clock, MapPin, ExternalLink } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
 import { roleLabels } from '../../utils/roleUtils';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const ClubDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user, isAdmin } = useAuth();
     const [club, setClub]         = useState(null);
+    usePageTitle(club ? club.name : 'Club Detail');
     const [loading, setLoading]   = useState(true);
     const [error, setError]       = useState(null);
     const [suspending, setSuspending] = useState(false);

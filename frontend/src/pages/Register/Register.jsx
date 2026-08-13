@@ -3,8 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import authService from '../../services/authService';
 import { Users, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { generateSessionOptions } from '../../utils/sessionUtils';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const Register = () => {
+    usePageTitle('Register');
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);

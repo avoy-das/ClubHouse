@@ -5,6 +5,7 @@ import clubService from '../../services/clubService';
 import UserManagementSection from '../../components/admin/UserManagementSection';
 import { Shield, Building2, BarChart2, Users } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const statusStyles = {
     pending:  'bg-amber-100 text-amber-800',
@@ -14,6 +15,7 @@ const statusStyles = {
 };
 
 const AdminClubList = () => {
+    usePageTitle('Admin — Clubs');
     const [clubs, setClubs]         = useState([]);
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState(null);

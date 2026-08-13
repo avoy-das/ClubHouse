@@ -18,8 +18,10 @@ import {
 } from 'lucide-react';
 import { formatForDateInput, dateInputToStartOfDayISO, dateInputToEndOfDayISO } from '../../utils/dateUtils';
 import { formatSessionLabel, generateSessionOptions, getCurrentSessionValue } from '../../utils/sessionUtils';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const RecruitmentListContent = () => {
+    usePageTitle('Recruitment');
     const { clubId } = useParams();
     const { can } = useClubPermissions();
     const { isAdmin } = useAuth();
