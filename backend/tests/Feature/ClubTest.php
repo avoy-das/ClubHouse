@@ -132,14 +132,24 @@ class ClubTest extends TestCase
             'created_by'    => $admin->id,
         ]);
 
-        // Suspend
-        $suspendRes = $this->actingAs($admin)->postJson("/api/admin/clubs/{$club->id}/suspend");
+        // Suspend with reason
+        $suspendRes = $this->actingAs($admin)->postJson("/api/admin/clubs/{$club->id}/suspend", [
+            'suspension_reason' => 'Violation of club policies.',
+        ]);
         $suspendRes->assertStatus(200);
-        $this->assertDatabaseHas('clubs', ['id' => $club->id, 'status' => 'suspended']);
+        $this->assertDatabaseHas('clubs', [
+            'id'                => $club->id,
+            'status'            => 'suspended',
+            'suspension_reason' => 'Violation of club policies.',
+        ]);
 
         // Activate
         $activateRes = $this->actingAs($admin)->postJson("/api/admin/clubs/{$club->id}/activate");
         $activateRes->assertStatus(200);
-        $this->assertDatabaseHas('clubs', ['id' => $club->id, 'status' => 'approved']);
+        $this->assertDatabaseHas('clubs', [
+            'id'                => $club->id,
+            'status'            => 'approved',
+            'suspension_reason' => null,
+        ]);
     }
 }

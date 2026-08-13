@@ -8,7 +8,7 @@ import EditClubModal from '../../components/Clubs/EditClubModal';
 import ClubAuditLogModal from '../../components/Clubs/ClubAuditLogModal';
 import EventModal from '../../components/Events/EventModal';
 import MembersDirectory from '../../components/Clubs/MembersDirectory';
-import { ArrowLeft, Edit, FileText, Shield, Megaphone, Target, Calendar, Clock, MapPin, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, Shield, ShieldAlert, Megaphone, Target, Calendar, Clock, MapPin, ExternalLink } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
 import { roleLabels } from '../../utils/roleUtils';
 
@@ -201,6 +201,29 @@ const ClubDetail = () => {
                             <p className="text-xs text-amber-900 mt-0.5">
                                 Updated information submitted by <strong className="font-bold">{pendingEditRequest.requested_by?.name || 'Executive'}</strong> is currently pending administrator review and approval.
                             </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Suspended Club Banner */}
+            {club.status === 'suspended' && (
+                <div className="mb-6 bg-rose-50 border-2 border-rose-300 text-rose-900 rounded-2xl p-5 shadow-xs flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-rose-200/80 rounded-xl text-rose-800 font-bold shrink-0 mt-0.5">
+                            <ShieldAlert className="w-5 h-5 text-rose-800" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold text-rose-950 uppercase tracking-wider">Club Suspended by Administration</p>
+                            <p className="text-xs text-rose-900 mt-1">
+                                This club is currently suspended by administration. Normal club operations and event features are temporarily paused.
+                            </p>
+                            {club.suspension_reason && (
+                                <div className="mt-3 p-3 bg-white/80 border border-rose-200 rounded-xl">
+                                    <p className="text-xs font-bold text-rose-950">Official Reason for Suspension:</p>
+                                    <p className="text-xs text-rose-900 mt-0.5 whitespace-pre-wrap">{club.suspension_reason}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

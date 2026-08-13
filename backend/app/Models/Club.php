@@ -22,6 +22,7 @@ class Club extends Model
         'approved_by',
         'approved_at',
         'rejection_reason',
+        'suspension_reason',
         'advisor',
     ];
 

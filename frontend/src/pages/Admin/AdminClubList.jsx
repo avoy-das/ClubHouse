@@ -94,13 +94,18 @@ const AdminClubList = () => {
     };
 
     const handleSuspend = async (id) => {
-        if (!window.confirm('Suspend this club?')) return;
+        const reason = window.prompt('Please enter the official reason for suspending this club:');
+        if (reason === null) return;
+        if (!reason.trim()) {
+            alert('A suspension reason is required.');
+            return;
+        }
         setActionLoading(true);
         try {
-            await clubService.adminSuspend(id);
+            await clubService.adminSuspend(id, reason.trim());
             fetchClubs();
-        } catch {
-            alert('Failed to suspend club.');
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to suspend club.');
         } finally {
             setActionLoading(false);
         }

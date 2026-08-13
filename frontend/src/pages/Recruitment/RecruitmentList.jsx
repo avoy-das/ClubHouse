@@ -118,14 +118,9 @@ const RecruitmentListContent = () => {
             let clubsList = [];
             let execFlag = false;
 
-            if (admin) {
+            if (execClubIdsList.length > 0) {
                 execFlag = true;
-                clubsList = (allClubsRes.data || allClubsRes || []).filter(c => c.status === 'approved');
-            } else {
-                if (execClubIdsList.length > 0) {
-                    execFlag = true;
-                    clubsList = execMemberships.map(m => m.club).filter(Boolean);
-                }
+                clubsList = execMemberships.map(m => m.club).filter(Boolean);
             }
 
             setIsExecUser(execFlag);
@@ -157,7 +152,7 @@ const RecruitmentListContent = () => {
         loadData();
     }, [clubId]);
 
-    const isUserExecutive = can('can_manage_recruitment') || isAdmin() || isExecUser;
+    const isUserExecutive = can('can_manage_recruitment') || isExecUser;
 
     // DYNAMIC CHECK: Check if currently selected club has an active recruitment notice
     const activeCampaignForSelectedClub = useMemo(() => {
@@ -238,7 +233,7 @@ const RecruitmentListContent = () => {
     }, [notices, searchQuery, statusFilter, clubFilter]);
 
     const handleCreateOpen = () => {
-        if (!isExecUser && !isAdmin()) {
+        if (!isExecUser) {
             setShowIneligibleModal(true);
             return;
         }
@@ -553,7 +548,7 @@ const RecruitmentListContent = () => {
                                                 </div>
 
                                                 {/* Action menu for execs */}
-                                                {(can('can_manage_recruitment') || isAdmin() || myExecClubIds.includes(notice.club_id)) && (
+                                                {(can('can_manage_recruitment') || myExecClubIds.includes(notice.club_id)) && (
                                                     <div className="flex items-center space-x-1 shrink-0 bg-slate-50 p-1 rounded-lg border border-slate-200">
                                                         <button onClick={() => handleEditOpen(notice)} aria-label="Edit Campaign" className="p-1.5 text-slate-600 hover:text-blue-600 rounded transition-colors" title="Edit Campaign">
                                                             <Pencil className="w-3.5 h-3.5" />
@@ -756,8 +751,8 @@ const RecruitmentListContent = () => {
                         <div className="space-y-1">
                             <h4 className="font-bold text-amber-900 text-sm">Cannot Initiate Recruitment Campaign</h4>
                             <p className="text-xs text-amber-800 leading-relaxed">
-                                {!isExecUser && !isAdmin()
-                                    ? "You are not registered as an active executive for any club. Only club executives and administrators have permission to launch recruitment campaigns."
+                                {!isExecUser
+                                    ? "You are not registered as an active executive for any club. Only club executives have permission to launch recruitment campaigns."
                                     : "All of your executive clubs currently have an active recruitment campaign in progress."}
                             </p>
                         </div>

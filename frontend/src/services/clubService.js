@@ -83,8 +83,8 @@ const clubService = {
         return res;
     },
 
-    adminSuspend: async (id) => {
-        const res = await api.post(`/admin/clubs/${id}/suspend`);
+    adminSuspend: async (id, reason) => {
+        const res = await api.post(`/admin/clubs/${id}/suspend`, { suspension_reason: reason });
         invalidateCache('clubs:*');
         return res;
     },

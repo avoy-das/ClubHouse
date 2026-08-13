@@ -9,6 +9,6 @@ class MembershipRequestPolicy
 {
     public function review(User $user, MembershipRequest $request): bool
     {
-        return $user->is_admin || $user->hasClubPermission($request->club_id, 'can_manage_members');
+        return $user->hasClubPermission($request->club_id, 'can_manage_members');
     }
 }

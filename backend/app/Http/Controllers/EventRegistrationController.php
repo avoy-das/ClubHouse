@@ -341,14 +341,14 @@ class EventRegistrationController extends Controller
      */
     private function canManageAttendance($user, Event $event): bool
     {
-        if ($user->is_admin) {
-            return true;
-        }
-
-        return DB::table('club_members')
-            ->where('user_id', $user->id)
-            ->where('club_id', $event->club_id)
-            ->whereIn('role', Event::execRoles())
-            ->exists();
+        return $user->hasClubPermission($event->club_id, 'can_track_attendance') ||
+            DB::table('club_members')
+                ->where('user_id', $user->id)
+                ->where('club_id', $event->club_id)
+                ->where(function ($q) {
+                    $q->whereNull('status')->orWhere('status', 'active');
+                })
+                ->whereIn('role', Event::execRoles())
+                ->exists();
     }
 }

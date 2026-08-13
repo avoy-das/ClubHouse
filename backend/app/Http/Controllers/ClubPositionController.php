@@ -20,7 +20,7 @@ class ClubPositionController extends Controller
     public function store(StoreClubPositionRequest $request, Club $club): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($club, 'can_manage_members')) {
+        if (!$user->hasClubPermission($club, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -43,7 +43,7 @@ class ClubPositionController extends Controller
     public function update(UpdateClubPositionRequest $request, ClubPosition $position): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($position->club_id, 'can_manage_members')) {
+        if (!$user->hasClubPermission($position->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -75,7 +75,7 @@ class ClubPositionController extends Controller
     public function destroy(Request $request, ClubPosition $position): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($position->club_id, 'can_manage_members')) {
+        if (!$user->hasClubPermission($position->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
