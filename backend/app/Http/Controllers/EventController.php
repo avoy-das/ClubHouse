@@ -289,7 +289,7 @@ class EventController extends Controller
             ->first();
         $isRegistered = (bool)$userRegistration;
 
-        $canManage = $user->is_admin || $event->created_by === $user->id || $this->isExec($user->id, $event->club_id);
+        $canManage = $event->created_by === $user->id || $this->isExec($user->id, $event->club_id);
 
         return response()->json([
             'event'             => $event,
@@ -544,10 +544,6 @@ class EventController extends Controller
     {
         $user = \App\Models\User::find($userId);
         if (!$user) return false;
-
-        if ($user->is_admin) {
-            return true;
-        }
 
         return $this->isClubExec($userId, $clubId);
     }

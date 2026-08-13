@@ -22,14 +22,12 @@ class RecruitmentNoticeController extends Controller
 
         $user = $request->user();
         if ($club) {
-            $isExec = $user && ($user->is_admin || $user->hasClubPermission($club, 'can_manage_recruitment'));
+            $isExec = $user && $user->hasClubPermission($club, 'can_manage_recruitment');
             if (!$isExec) {
                 $query->where('status', 'open');
             }
         } else {
-            if (!$user || !$user->is_admin) {
-                $query->where('status', 'open');
-            }
+            $query->where('status', 'open');
         }
 
         $notices = $query->with('club:id,name,logo_path,category,department,status')->latest()->get();
@@ -182,18 +180,6 @@ class RecruitmentNoticeController extends Controller
         }
 
         $recruitmentNotice->update($data);
-
-        if ($request->user()->is_admin) {
-            NotificationService::notifyClubExecutives(
-                $recruitmentNotice->club_id,
-                'recruitment_updated',
-                'Recruitment Campaign Updated',
-                "An admin updated the recruitment campaign '{$recruitmentNotice->title}'.",
-                RecruitmentNotice::class,
-                $recruitmentNotice->id,
-                $request->user()->id
-            );
-        }
 
         \App\Services\AuditService::log('recruitment.notice_updated', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
 

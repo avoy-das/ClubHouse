@@ -20,16 +20,16 @@ class RecruitmentNoticePolicy
 
     public function create(User $user, Club $club): bool
     {
-        return $user->is_admin || $user->hasClubPermission($club, 'can_manage_recruitment');
+        return $user->hasClubPermission($club, 'can_manage_recruitment');
     }
 
     public function update(User $user, RecruitmentNotice $notice): bool
     {
-        return $user->is_admin || $user->hasClubPermission($notice->club_id, 'can_manage_recruitment');
+        return $user->hasClubPermission($notice->club_id, 'can_manage_recruitment');
     }
 
     public function delete(User $user, RecruitmentNotice $notice): bool
     {
-        return $user->is_admin || $user->hasClubPermission($notice->club_id, 'can_manage_recruitment');
+        return $user->hasClubPermission($notice->club_id, 'can_manage_recruitment');
     }
 }

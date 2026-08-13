@@ -121,13 +121,16 @@ class ClubController extends Controller
         return response()->json($request->user()->getExecutiveClubs());
     }
 
-    // Any authenticated user can view an approved club (or admins/members/creators for pending/suspended clubs)
+    // Any authenticated user can view an approved or suspended club (or admins/creators for pending clubs)
     public function show(Request $request, Club $club)
     {
         $user = $request->user();
-        $isMemberOrExec = $user && ClubMember::where('club_id', $club->id)->where('user_id', $user->id)->exists();
 
-        if ($club->status !== 'approved' && (!$user || (!$user->is_admin && $club->created_by !== $user->id && !$isMemberOrExec))) {
+        if ($club->status === 'rejected') {
+            return response()->json(['message' => 'Club not found.'], 404);
+        }
+
+        if ($club->status === 'pending' && (!$user || (!$user->is_admin && $club->created_by !== $user->id))) {
             return response()->json(['message' => 'Club not found.'], 404);
         }
 
@@ -284,19 +287,41 @@ class ClubController extends Controller
     }
 
     // Admin only — suspend a club
-    public function suspend(Club $club)
+    public function suspend(Request $request, Club $club)
     {
+        $request->validate([
+            'suspension_reason' => 'required|string|max:1000',
+        ]);
+
         if ($club->status !== 'approved') {
             return response()->json(['message' => 'Only approved clubs can be suspended.'], 422);
         }
 
-        $club->update(['status' => 'suspended']);
-
-        AuditService::log('club.suspended', $club, [
-            'previous_status' => 'approved',
+        $club->update([
+            'status'            => 'suspended',
+            'suspension_reason' => $request->suspension_reason,
         ]);
 
-        return response()->json(['message' => 'Club suspended.']);
+        AuditService::log('club.suspended', $club, [
+            'previous_status'   => 'approved',
+            'suspension_reason' => $request->suspension_reason,
+        ]);
+
+        NotificationService::notifyClubExecutives(
+            $club->id,
+            'club_suspended',
+            'Club Suspended',
+            "The club '{$club->name}' has been suspended by an administrator. Reason: {$request->suspension_reason}",
+            Club::class,
+            $club->id
+        );
+
+        CacheInvalidationService::club($club->id);
+
+        return response()->json([
+            'message' => 'Club suspended.',
+            'club'    => $club->fresh(),
+        ]);
     }
 
     // Admin only — activate a suspended club
@@ -306,11 +331,16 @@ class ClubController extends Controller
             return response()->json(['message' => 'Only suspended clubs can be activated.'], 422);
         }
 
-        $club->update(['status' => 'approved']);
+        $club->update([
+            'status'            => 'approved',
+            'suspension_reason' => null,
+        ]);
 
         AuditService::log('club.activated', $club, [
             'previous_status' => 'suspended',
         ]);
+
+        CacheInvalidationService::club($club->id);
 
         NotificationService::notifyClubMembers(
             $club->id,
@@ -638,9 +668,9 @@ class ClubController extends Controller
             ->first();
 
         $isCurrentPresident = $currentPresMembership && $currentPresMembership->user_id === $authUser->id;
-        if (!$authUser->is_admin && !$isCurrentPresident) {
+        if (!$isCurrentPresident) {
             return response()->json([
-                'message' => 'Only the current President or a System Admin can transfer presidency.',
+                'message' => 'Only the current President of the club can transfer presidency.',
             ], 403);
         }
 
@@ -852,14 +882,11 @@ class ClubController extends Controller
      */
     private function canManageClub($user, Club $club): bool
     {
-        if ($user->is_admin) {
-            return true;
-        }
-
-        return ClubMember::where('club_id', $club->id)
-            ->where('user_id', $user->id)
-            ->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer'])
-            ->exists();
+        return $user->hasClubPermission($club, 'can_manage_members') ||
+            ClubMember::where('club_id', $club->id)
+                ->where('user_id', $user->id)
+                ->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
+                ->exists();
     }
 
     /**

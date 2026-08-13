@@ -88,7 +88,7 @@ class ClubMemberPositionController extends Controller
     public function store(Request $request, ClubMember $member): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($member->club_id, 'can_manage_members')) {
+        if (!$user->hasClubPermission($member->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -167,7 +167,7 @@ class ClubMemberPositionController extends Controller
     public function storeByEmail(Request $request, Club $club): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($club->id, 'can_manage_members')) {
+        if (!$user->hasClubPermission($club->id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -231,7 +231,7 @@ class ClubMemberPositionController extends Controller
     public function destroy(Request $request, ClubMember $member, int $position): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($member->club_id, 'can_manage_members')) {
+        if (!$user->hasClubPermission($member->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 

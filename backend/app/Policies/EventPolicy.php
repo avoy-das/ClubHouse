@@ -33,11 +33,11 @@ class EventPolicy
 
     public function update(User $user, Event $event): bool
     {
-        return $user->is_admin || $user->hasClubPermission($event->club_id, 'can_manage_events');
+        return $user->hasClubPermission($event->club_id, 'can_manage_events');
     }
 
     public function delete(User $user, Event $event): bool
     {
-        return $user->is_admin || $user->hasClubPermission($event->club_id, 'can_manage_events');
+        return $user->hasClubPermission($event->club_id, 'can_manage_events');
     }
 }

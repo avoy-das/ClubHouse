@@ -109,7 +109,7 @@ class ClubMemberController extends Controller
     public function destroy(Request $request, Club $club, ClubMember $member): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($club, 'can_manage_members')) {
+        if (!$user->hasClubPermission($club, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 

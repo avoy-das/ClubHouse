@@ -59,7 +59,7 @@ class MembershipRequestController extends Controller
     public function index(Request $request, Club $club): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($club, 'can_manage_members')) {
+        if (!$user->hasClubPermission($club, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 

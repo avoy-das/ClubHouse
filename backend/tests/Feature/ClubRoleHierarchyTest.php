@@ -152,7 +152,7 @@ class ClubRoleHierarchyTest extends TestCase
             ->assertJsonPath('message', 'Only higher ranks can control members of lower ranks. You cannot remove a member with an equal or higher rank.');
     }
 
-    public function test_admin_can_override_hierarchy_rules(): void
+    public function test_admin_cannot_override_internal_club_role_hierarchy(): void
     {
         $adminUser = User::factory()->create(['is_admin' => true]);
         $memberUser = User::factory()->create();
@@ -170,12 +170,6 @@ class ClubRoleHierarchyTest extends TestCase
                 'role' => 'president',
             ]);
 
-        $response->assertStatus(200);
-
-        $this->assertDatabaseHas('club_members', [
-            'club_id' => $club->id,
-            'user_id' => $memberUser->id,
-            'role'    => 'president',
-        ]);
+        $response->assertStatus(403);
     }
 }
