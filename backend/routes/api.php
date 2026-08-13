@@ -71,6 +71,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/events/{event}/register',                            [EventRegistrationController::class, 'cancel']);
     Route::patch('/events/{event}/registrations/{user}/attendance',      [EventRegistrationController::class, 'updateAttendance']);
     Route::get('/events/{event}/attendance-report',                      [EventRegistrationController::class, 'attendanceReport']);
+    Route::delete('/events/{event}/registrations/{user}/cancel',         [EventRegistrationController::class, 'execCancel']);
+    Route::get('/events/{event}/blocks',                                 [EventRegistrationController::class, 'blocks']);
+    Route::post('/events/{event}/blocks',                                [EventRegistrationController::class, 'block']);
+    Route::delete('/events/{event}/blocks/{user}',                       [EventRegistrationController::class, 'unblock']);
 
     // Club Edit Requests
     Route::post('/clubs/{club}/edit-requests',              [ClubEditRequestController::class, 'store']);

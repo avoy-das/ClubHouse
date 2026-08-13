@@ -114,7 +114,7 @@ const RecruitmentDetailContent = () => {
                             </span>
                             {notice.session && (
                                 <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-800 border">
-                                    Session: {notice.session}
+                                    Campaign Year: {notice.session ? 2000 + Number(notice.session) : ''}
                                 </span>
                             )}
                             {notice.status && <Badge status={notice.status} />}

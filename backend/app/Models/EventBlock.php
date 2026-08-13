@@ -5,22 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class EventRegistration extends Model
+class EventBlock extends Model
 {
-    public const STATUS_REGISTERED = 'registered';
-    public const STATUS_WAITLISTED = 'waitlisted';
-
     protected $fillable = [
         'event_id',
         'user_id',
-        'attended',
-        'answers',
-        'status',
-    ];
-
-    protected $casts = [
-        'attended' => 'boolean',
-        'answers'  => 'array',
+        'blocked_by',
+        'reason',
     ];
 
     public function event(): BelongsTo
@@ -31,5 +22,10 @@ class EventRegistration extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function blockedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'blocked_by');
     }
 }

@@ -84,9 +84,10 @@ class EventScenarioTest extends TestCase
         $regResponse = $this->actingAs($this->newUser)
             ->postJson("/api/events/{$event->id}/register");
 
-        $regResponse->assertStatus(422)
+        $regResponse->assertStatus(201)
             ->assertJson([
-                'message' => 'This event is fully booked.',
+                'status' => 'waitlisted',
+                'message' => 'Successfully joined the waitlist.',
             ]);
     }
 

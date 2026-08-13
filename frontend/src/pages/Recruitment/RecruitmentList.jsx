@@ -17,7 +17,7 @@ import {
     Users, Check
 } from 'lucide-react';
 import { formatForDateInput, dateInputToStartOfDayISO, dateInputToEndOfDayISO } from '../../utils/dateUtils';
-import { formatSessionLabel, generateSessionOptions } from '../../utils/sessionUtils';
+import { formatSessionLabel, generateSessionOptions, getCurrentSessionValue } from '../../utils/sessionUtils';
 
 const RecruitmentListContent = () => {
     const { clubId } = useParams();
@@ -48,10 +48,19 @@ const RecruitmentListContent = () => {
     const [editNoticeId, setEditNoticeId] = useState(null);
 
     // Form fields
+    const defaultSession = String(getCurrentSessionValue());
+    const defaultTargetSessions = [
+        getCurrentSessionValue(),
+        (getCurrentSessionValue() - 1 + 100) % 100,
+        (getCurrentSessionValue() - 2 + 100) % 100,
+        (getCurrentSessionValue() - 3 + 100) % 100,
+        (getCurrentSessionValue() - 4 + 100) % 100
+    ];
+
     const [selectedClubId, setSelectedClubId] = useState('');
     const [title, setTitle] = useState('');
-    const [session, setSession] = useState('26');
-    const [targetSessions, setTargetSessions] = useState([23, 24]);
+    const [session, setSession] = useState(defaultSession);
+    const [targetSessions, setTargetSessions] = useState(defaultTargetSessions);
     const [opensAt, setOpensAt] = useState('');
     const [closesAt, setClosesAt] = useState('');
     const [description, setDescription] = useState('');
@@ -257,8 +266,8 @@ const RecruitmentListContent = () => {
         setIsEditMode(false);
         setEditNoticeId(null);
         setTitle(targetClub ? `${targetClub.name} Recruitment` : '');
-        setSession('26');
-        setTargetSessions([23, 24]);
+        setSession(defaultSession);
+        setTargetSessions(defaultTargetSessions);
         setDescription('');
         setRequirements('');
         setCustomFields([]);
@@ -282,7 +291,7 @@ const RecruitmentListContent = () => {
         setEditNoticeId(notice.id);
         setSelectedClubId(String(notice.club_id));
         setTitle(notice.title || '');
-        setSession(notice.session || '26');
+        setSession(notice.session || defaultSession);
         setTargetSessions(Array.isArray(notice.target_sessions) ? notice.target_sessions.map(Number) : []);
         setDescription(notice.description || '');
         setRequirements(notice.requirements || '');
@@ -525,7 +534,7 @@ const RecruitmentListContent = () => {
                                                     <div className="flex flex-wrap items-center gap-1.5">
                                                         {notice.session && (
                                                             <span className="bg-blue-50 text-blue-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-blue-200">
-                                                                Campaign Year: {formatSessionLabel(notice.session) || notice.session}
+                                                                Campaign Year: {notice.session ? 2000 + Number(notice.session) : ''}
                                                             </span>
                                                         )}
                                                         {isCurrentlyOpen && (
@@ -667,8 +676,8 @@ const RecruitmentListContent = () => {
                                                 <span>{app.created_at ? new Date(app.created_at).toLocaleString() : 'N/A'}</span>
                                             </div>
                                             <div>
-                                                <span className="font-semibold text-slate-700 block">Campaign Session:</span>
-                                                <span>Session {formatSessionLabel(notice.session) || notice.session}</span>
+                                                <span className="font-semibold text-slate-700 block">Campaign Year:</span>
+                                                <span>{notice.session ? 2000 + Number(notice.session) : ''}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -858,19 +867,19 @@ const RecruitmentListContent = () => {
                             </div>
 
                             <div>
-                                <label htmlFor="recruitment-session-select" className="block text-xs font-bold text-[#0b1c30] mb-1">Campaign Session / Intake Year</label>
+                                <label htmlFor="recruitment-session-select" className="block text-xs font-bold text-[#0b1c30] mb-1">Campaign Year</label>
                                 <select
                                     id="recruitment-session-select"
-                                    aria-label="Campaign Session or Intake Year"
+                                    aria-label="Campaign Year"
                                     data-testid="recruitment-modal-session-select"
                                     required
                                     className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2563eb] bg-white font-medium"
                                     value={session}
                                     onChange={(e) => setSession(e.target.value)}
                                 >
-                                    {generateSessionOptions().map((opt) => (
+                                    {generateSessionOptions(4, 0).map((opt) => (
                                         <option key={opt.value} value={opt.value}>
-                                            Session {opt.label}
+                                            {2000 + Number(opt.value)}
                                         </option>
                                     ))}
                                 </select>
@@ -890,7 +899,7 @@ const RecruitmentListContent = () => {
                                 Select student session batches allowed to submit applications for this campaign.
                             </p>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#f8f9ff] p-3 rounded-xl border border-slate-200">
-                                {generateSessionOptions(8, 0).map((opt) => {
+                                {generateSessionOptions(4, 0).map((opt) => {
                                     const isChecked = targetSessions.includes(opt.value);
                                     return (
                                         <label

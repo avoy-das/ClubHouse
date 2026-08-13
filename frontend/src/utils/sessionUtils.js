@@ -19,7 +19,7 @@ export const formatSessionLabel = (sessionValue) => {
  * Generate session dropdown options dynamically based on current year.
  * Returns array of objects: { value: 23, label: "22 - 23" }
  */
-export const generateSessionOptions = (rangePast = 10, rangeFuture = 3) => {
+export const generateSessionOptions = (rangePast = 10, rangeFuture = 0) => {
     const currentYearFull = new Date().getFullYear();
     const currentYear2Digit = currentYearFull % 100;
 
@@ -34,4 +34,11 @@ export const generateSessionOptions = (rangePast = 10, rangeFuture = 3) => {
     }
 
     return options;
+};
+
+/**
+ * Get current calendar year's 2-digit end year representing the current intake session.
+ */
+export const getCurrentSessionValue = () => {
+    return new Date().getFullYear() % 100;
 };
