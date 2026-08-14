@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/layout/SearchBar';
+import Footer from '../components/layout/Footer';
 import notificationService from '../services/notificationService';
 import {
     Bell,
@@ -210,8 +211,11 @@ const MainLayout = ({ children }) => {
                 </aside>
 
                 {/* Page Content */}
-                <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
-                    <div className="max-w-7xl mx-auto">{children}</div>
+                <main className="flex-1 min-w-0 flex flex-col justify-between">
+                    <div className="p-4 sm:p-6 lg:p-8 flex-1">
+                        <div className="max-w-7xl mx-auto">{children}</div>
+                    </div>
+                    <Footer />
                 </main>
             </div>
         </div>
