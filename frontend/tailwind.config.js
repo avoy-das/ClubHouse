@@ -4,8 +4,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        heading: ['Manrope', 'sans-serif'],
-        sans: ['Work Sans', 'Inter', 'system-ui', 'sans-serif'],
+        heading: ['Urbanist', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         stitch: {

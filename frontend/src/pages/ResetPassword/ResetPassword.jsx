@@ -66,10 +66,8 @@ const ResetPassword = () => {
         <div className="min-h-screen bg-[#fbf9f4] flex flex-col items-center justify-center p-4 font-sans text-[#1b1c19]">
             {/* Top Branding Header */}
             <div className="flex flex-col items-center text-center mb-6">
-                <div className="w-12 h-12 rounded-full bg-[#1c1b1b] text-white flex items-center justify-center shadow-xs">
-                    <Building2 className="w-6 h-6" />
-                </div>
-                <h1 className="text-3xl font-extrabold text-[#1b1c19] tracking-tight font-heading mt-3">
+                <img src="/logo.png" alt="ClubHouse Logo" className="w-12 h-12 object-contain rounded-full shadow-xs" />
+                <h1 className="text-3xl font-extrabold text-[#1b1c19] font-heading mt-3">
                     ClubHouse
                 </h1>
                 <p className="text-xs font-medium text-[#615e57] mt-1">

@@ -95,9 +95,7 @@ const MainLayout = ({ children }) => {
                         </button>
 
                         <Link to="/dashboard" data-testid="brand-logo-link" aria-label="ClubHouse Dashboard Home" className="flex items-center gap-2.5 group">
-                            <div className="w-9 h-9 bg-[#1c1b1b] rounded-full flex items-center justify-center text-white font-extrabold text-sm shadow-xs group-hover:bg-[#30312e] transition-colors">
-                                <Building2 className="w-5 h-5 text-white" />
-                            </div>
+                            <img src="/logo.png" alt="ClubHouse Logo" className="w-9 h-9 object-contain shrink-0 rounded-full shadow-xs group-hover:scale-105 transition-transform" />
                             <span className="text-[#1c1b1b] font-extrabold text-xl tracking-tight hidden sm:inline font-heading">
                                 ClubHouse
                             </span>

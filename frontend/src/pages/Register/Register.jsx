@@ -50,7 +50,7 @@ const Register = () => {
                     <div className="w-12 h-12 rounded-full bg-[#1c1b1b] text-white flex items-center justify-center shadow-xs mb-4">
                         <Users className="w-6 h-6" />
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1b1c19] tracking-tight font-heading">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1b1c19] font-heading">
                         Create ClubHouse Account
                     </h1>
 

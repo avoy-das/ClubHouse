@@ -9,9 +9,7 @@ const Footer = () => {
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6">
                     {/* Left: Brand Logo & Title */}
                     <Link to="/dashboard" className="flex items-center gap-2.5 group">
-                        <div className="w-8 h-8 bg-[#1c1b1b] rounded-full flex items-center justify-center text-white font-extrabold text-sm shadow-xs group-hover:bg-[#30312e] transition-colors">
-                            <Building2 className="w-4 h-4 text-white" />
-                        </div>
+                        <img src="/logo.png" alt="ClubHouse Logo" className="w-8 h-8 object-contain shrink-0 rounded-full shadow-xs group-hover:scale-105 transition-transform" />
                         <span className="text-[#1c1b1b] font-extrabold text-lg tracking-tight font-heading">
                             ClubHouse
                         </span>
