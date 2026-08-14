@@ -104,16 +104,13 @@ const Login = () => {
                             </button>
                         </div>
                         <div className="text-right mt-2">
-                            <a
-                                href="#"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    alert('Please contact your department administrator or system manager to reset your password.');
-                                }}
+                            <Link
+                                to="/forgot-password"
+                                data-testid="login-forgot-password-link"
                                 className="text-[11px] font-semibold text-[#615e57] hover:text-[#1b1c19] transition-colors"
                             >
                                 Forgot Password?
-                            </a>
+                            </Link>
                         </div>
                     </div>
 

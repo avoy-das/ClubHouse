@@ -23,8 +23,10 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\SearchController;
 
 // Public
-Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
-Route::post('/login',    [AuthController::class, 'login'])->middleware('throttle:login');
+Route::post('/register',        [AuthController::class, 'register'])->middleware('throttle:register');
+Route::post('/login',           [AuthController::class, 'login'])->middleware('throttle:login');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:password-reset');
+Route::post('/reset-password',  [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
 
 Route::middleware('throttle:60,1')->group(function () {
     Route::get('/clubs',        [ClubController::class, 'index']);

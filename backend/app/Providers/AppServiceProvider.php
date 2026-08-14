@@ -51,6 +51,15 @@ class AppServiceProvider extends ServiceProvider
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->user()?->id ?: $request->ip());
         });
 
+        \Illuminate\Support\Facades\RateLimiter::for('password-reset', function (\Illuminate\Http\Request $request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip());
+        });
+
+        \Illuminate\Auth\Notifications\ResetPassword::createUrlUsing(function (User $user, string $token) {
+            $frontendUrl = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
+            return $frontendUrl . '/reset-password?token=' . $token . '&email=' . urlencode($user->email);
+        });
+
         // Define explicit morph map for stable audit target_type strings across class refactors
         Relation::morphMap([
             'Club'                   => Club::class,

@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 
 class AuthController extends Controller
 {
@@ -154,5 +155,68 @@ class AuthController extends Controller
             ->get();
 
         return response()->json($memberships);
+    }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $status = Password::sendResetLink($request->only('email'));
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return response()->json([
+                'message' => __($status),
+            ]);
+        }
+
+        return response()->json([
+            'message' => __($status),
+        ], 422);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'token'    => ['required', 'string'],
+            'email'    => ['required', 'email'],
+            'password' => ['required', 'string', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers()],
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                ])->save();
+
+                $user->tokens()->delete();
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            $user = User::where('email', $request->email)->first();
+            if ($user) {
+                AuditService::log('auth.password.reset', $user, [], $user->id);
+
+                NotificationService::notifyUser(
+                    $user->id,
+                    'security_alert',
+                    'Password Reset Successful',
+                    'Your password has been successfully reset.',
+                    User::class,
+                    $user->id
+                );
+            }
+
+            return response()->json([
+                'message' => __($status),
+            ]);
+        }
+
+        return response()->json([
+            'message' => __($status),
+        ], 422);
     }
 }

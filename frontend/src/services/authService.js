@@ -42,6 +42,16 @@ const authService = {
         return response.data;
     },
 
+    forgotPassword: async (email) => {
+        const response = await api.post('/forgot-password', { email });
+        return response.data;
+    },
+
+    resetPassword: async (data) => {
+        const response = await api.post('/reset-password', data);
+        return response.data;
+    },
+
     getMyMemberships: () =>
         getCached('auth:memberships', 30000, async () => {
             const response = await api.get('/me/memberships');
