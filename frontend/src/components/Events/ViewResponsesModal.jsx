@@ -230,10 +230,11 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
 
     const handleExecCancel = async (userId) => {
         if (!event?.id || !userId) return;
-        if (!window.confirm("Are you sure you want to cancel this user's registration? This will promote the next waitlisted user if active.")) return;
+        const reason = window.prompt("Enter cancellation reason (optional):");
+        if (reason === null) return;
         setUpdatingUserId(userId);
         try {
-            await eventService.cancelAttendee(event.id, userId);
+            await eventService.cancelAttendee(event.id, userId, reason);
             await fetchRegistrations(search);
         } catch (err) {
             const message = err?.response?.data?.message || 'Failed to cancel registration.';

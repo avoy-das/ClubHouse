@@ -86,8 +86,11 @@ const eventService = {
         api.get(`/events/${eventId}/attendance-report`),
 
     // Cancel registration for a user by executive (Exec/Admin)
-    cancelAttendee: async (eventId, userId) => {
-        const res = await api.delete(`/events/${eventId}/registrations/${userId}/cancel`);
+    cancelAttendee: async (eventId, userId, reason = null) => {
+        const res = await api.delete(`/events/${eventId}/registrations/${userId}/cancel`, {
+            data: { reason },
+            params: { reason },
+        });
         invalidateCache('events:*');
         return res;
     },
