@@ -10,6 +10,8 @@ import ErrorBoundary from './components/ui/ErrorBoundary';
 // Lazy loaded page components
 const Login = lazy(() => import('./pages/Login/Login'));
 const Register = lazy(() => import('./pages/Register/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword/ResetPassword'));
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
 const ClubList = lazy(() => import('./pages/Clubs/ClubList'));
 const ClubDetail = lazy(() => import('./pages/Clubs/ClubDetail'));
@@ -40,9 +42,14 @@ const App = () => {
                     </div>
                 }>
                     <Routes>
+                        {/* Root Redirect */}
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
                         {/* Public */}
-                        <Route path="/login"    element={<Login />} />
-                        <Route path="/register" element={<Register />} />
+                        <Route path="/login"           element={<Login />} />
+                        <Route path="/register"        element={<Register />} />
+                        <Route path="/forgot-password" element={<ForgotPassword />} />
+                        <Route path="/reset-password"  element={<ResetPassword />} />
 
                         {/* Protected */}
                         <Route element={<ProtectedRoute />}>
