@@ -71,9 +71,10 @@ const EventFeedbackModal = ({ isOpen, onClose, eventId, eventTitle, existingFeed
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg border border-slate-100 animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col overflow-hidden my-auto relative">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
                     <div className="flex items-center gap-2">
                         <MessageSquare className="w-5 h-5 text-indigo-600" />
                         <h3 className="text-lg font-semibold text-slate-800">
@@ -88,66 +89,68 @@ const EventFeedbackModal = ({ isOpen, onClose, eventId, eventTitle, existingFeed
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                    <div>
-                        <p className="text-sm font-medium text-slate-600 mb-1">Event</p>
-                        <p className="text-base font-semibold text-slate-900">{eventTitle}</p>
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                    <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                        <div>
+                            <p className="text-sm font-medium text-slate-600 mb-1">Event</p>
+                            <p className="text-base font-semibold text-slate-900">{eventTitle}</p>
+                        </div>
+
+                        {error && (
+                            <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-sm">
+                                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                                <span>{error}</span>
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Overall Rating
+                            </label>
+                            <div className="flex items-center gap-2">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                        key={star}
+                                        type="button"
+                                        onClick={() => setRating(star)}
+                                        onMouseEnter={() => setHoverRating(star)}
+                                        onMouseLeave={() => setHoverRating(0)}
+                                        className="p-1 focus:outline-none transition transform hover:scale-110"
+                                    >
+                                        <Star
+                                            className={`w-8 h-8 ${
+                                                (hoverRating || rating) >= star
+                                                    ? 'fill-amber-400 text-amber-400'
+                                                    : 'text-slate-300'
+                                            }`}
+                                        />
+                                    </button>
+                                ))}
+                                <span className="ml-2 text-sm font-semibold text-slate-700">
+                                    {hoverRating || rating} / 5
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Your Comments (Optional)
+                            </label>
+                            <textarea
+                                rows={4}
+                                value={comment}
+                                onChange={(e) => setComment(e.target.value)}
+                                placeholder="What went well? What could be improved?"
+                                maxLength={2000}
+                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition resize-none"
+                            />
+                            <div className="flex justify-between items-center mt-1 text-xs text-slate-400">
+                                <span>{comment.length} / 2000 characters</span>
+                            </div>
+                        </div>
                     </div>
 
-                    {error && (
-                        <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-sm">
-                            <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                            <span>{error}</span>
-                        </div>
-                    )}
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Overall Rating
-                        </label>
-                        <div className="flex items-center gap-2">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                    key={star}
-                                    type="button"
-                                    onClick={() => setRating(star)}
-                                    onMouseEnter={() => setHoverRating(star)}
-                                    onMouseLeave={() => setHoverRating(0)}
-                                    className="p-1 focus:outline-none transition transform hover:scale-110"
-                                >
-                                    <Star
-                                        className={`w-8 h-8 ${
-                                            (hoverRating || rating) >= star
-                                                ? 'fill-amber-400 text-amber-400'
-                                                : 'text-slate-300'
-                                        }`}
-                                    />
-                                </button>
-                            ))}
-                            <span className="ml-2 text-sm font-semibold text-slate-700">
-                                {hoverRating || rating} / 5
-                            </span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Your Comments (Optional)
-                        </label>
-                        <textarea
-                            rows={4}
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                            placeholder="What went well? What could be improved?"
-                            maxLength={2000}
-                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition resize-none"
-                        />
-                        <div className="flex justify-between items-center mt-1 text-xs text-slate-400">
-                            <span>{comment.length} / 2000 characters</span>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between p-6 pt-4 border-t border-slate-100 shrink-0 bg-white">
                         {isEdit ? (
                             <button
                                 type="button"

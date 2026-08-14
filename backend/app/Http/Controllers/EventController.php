@@ -58,12 +58,10 @@ class EventController extends Controller
                   $clubQuery->where('status', '!=', 'suspended');
               });
 
-        // Draft event visibility: drafted events aren't shown to members (only seen by club execs & admins)
-        if (!$user->is_admin) {
-            $isExecOfClub = $clubId ? $this->isExec($user->id, (int)$clubId) : false;
-            if (!$isExecOfClub) {
-                $query->where('status', '!=', 'draft');
-            }
+        // Draft event visibility: drafted events aren't shown in the events page/feed (only visible when scoped to a club where user is an active executive)
+        $isExecOfClub = $clubId ? $this->isExec($user->id, (int)$clubId) : false;
+        if (!$isExecOfClub) {
+            $query->where('status', '!=', 'draft');
         }
 
         // Scope by status

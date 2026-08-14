@@ -219,41 +219,43 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0f172a]/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full p-6 relative animate-in fade-in zoom-in duration-150">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden my-auto relative animate-in fade-in zoom-in duration-150">
+                {/* Fixed Header */}
+                <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100 shrink-0 bg-white">
                     <h2 className="text-lg font-bold text-[#0b1c30] flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-blue-600" />
                         {isEdit ? 'Edit Event Details' : 'Create New Event'}
                     </h2>
                     <button
                         onClick={onClose}
-                        className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1"
+                        className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 rounded-lg hover:bg-slate-100 transition-colors"
                     >
                         &times;
                     </button>
                 </div>
 
-                {noExecutiveClubs && (
-                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center gap-1.5 font-medium">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>You are not an executive of any club. Only club executives can create events.</span>
-                    </div>
-                )}
+                {/* Scrollable Form Body */}
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                    <div className="p-6 overflow-y-auto flex-1 space-y-4 text-sm">
+                        {noExecutiveClubs && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center gap-1.5 font-medium">
+                                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span>You are not an executive of any club. Only club executives can create events.</span>
+                            </div>
+                        )}
 
-                {error && (
-                    <div className="mt-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg">
-                        {error}
-                    </div>
-                )}
+                        {error && (
+                            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg">
+                                {error}
+                            </div>
+                        )}
 
-                {warning && (
-                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center gap-1.5">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>{warning}</span>
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-sm">
+                        {warning && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center gap-1.5">
+                                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span>{warning}</span>
+                            </div>
+                        )}
                     {/* Club Selector (Only if creating) */}
                     {!isEdit && (
                         <div>
@@ -627,9 +629,10 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                             </div>
                         )}
                     </div>
+                    </div>
 
-                    {/* Footer Buttons */}
-                    <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                    {/* Fixed Footer Buttons */}
+                    <div className="p-6 pt-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0 bg-white">
                         <button
                             type="button"
                             onClick={onClose}

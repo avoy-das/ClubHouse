@@ -230,13 +230,17 @@ class ClubController extends Controller
         ]);
     }
 
-    // Admin only — update club details
+    // Club Executive action — update club details (Admins cannot change club details)
     public function update(UpdateClubRequest $request, Club $club)
     {
         $user = $request->user();
 
-        if (!$user->is_admin) {
-            return response()->json(['message' => 'Only administrators can edit club details.'], 403);
+        if ($user->is_admin) {
+            return response()->json(['message' => 'Administrators cannot change club details.'], 403);
+        }
+
+        if (!$this->canManageClub($user, $club)) {
+            return response()->json(['message' => 'Only club executives can edit club details.'], 403);
         }
 
         $data = $request->validated();
@@ -895,7 +899,7 @@ class ClubController extends Controller
     }
 
     /**
-     * Helper to check if user is admin or executive of club.
+     * Helper to check if user is an executive of club.
      */
     private function canManageClub($user, Club $club): bool
     {

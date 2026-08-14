@@ -8,6 +8,7 @@ import EditClubModal from '../../components/Clubs/EditClubModal';
 import ClubAuditLogModal from '../../components/Clubs/ClubAuditLogModal';
 import EventModal from '../../components/Events/EventModal';
 import MembersDirectory from '../../components/Clubs/MembersDirectory';
+import SuspendClubModal from '../../components/admin/SuspendClubModal';
 import { ArrowLeft, Edit, FileText, Shield, ShieldAlert, Megaphone, Target, Calendar, Clock, MapPin, ExternalLink } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
 import { roleLabels } from '../../utils/roleUtils';
@@ -35,6 +36,7 @@ const ClubDetail = () => {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isLogsOpen, setIsLogsOpen] = useState(false);
     const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
+    const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
 
     const myMembership = club?.members?.find(m => m.user_id === user?.id);
     const isExec = isAdmin() || (myMembership && ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(myMembership.role));
@@ -80,14 +82,18 @@ const ClubDetail = () => {
         return () => { isMounted = false; };
     }, [id]);
 
-    const handleSuspend = async () => {
-        if (!window.confirm('Are you sure you want to suspend this club?')) return;
+    const handleSuspendConfirm = async (reason) => {
         setSuspending(true);
         try {
-            await clubService.adminSuspend(id);
-            setClub(prev => ({ ...prev, status: 'suspended' }));
-        } catch {
-            alert('Failed to suspend club.');
+            await clubService.adminSuspend(id, reason);
+            setClub(prev => ({ ...prev, status: 'suspended', suspension_reason: reason }));
+            setToast({
+                type: 'success',
+                message: 'Club has been suspended successfully.',
+            });
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to suspend club.');
+            throw err;
         } finally {
             setSuspending(false);
         }
@@ -231,13 +237,13 @@ const ClubDetail = () => {
                 </div>
             )}
 
-            {/* Executive & Admin Management Control Suite Toolbar */}
-            {club.status === 'approved' && (isExec || isAdmin()) && (
+            {/* Club Executive Management Control Suite Toolbar */}
+            {club.status === 'approved' && isClubExec && (
                 <div className="mb-6 bg-[#0f172a] text-white rounded-2xl p-5 shadow-xs border border-slate-800">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                             <span className="text-xs font-semibold uppercase tracking-wider text-[#eab308]">
-                                {isAdmin() ? 'Administrator Control Suite' : 'Club Executive Control Suite'}
+                                Club Executive Control Suite
                             </span>
                             <h3 className="text-lg font-bold text-white mt-0.5">
                                 Club & Roster Management
@@ -245,20 +251,18 @@ const ClubDetail = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
-                            {isClubExec && (
-                                <button
-                                    onClick={() => setIsCreateEventOpen(true)}
-                                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
-                                >
-                                    <Calendar className="w-4 h-4" /> Create Event
-                                </button>
-                            )}
+                            <button
+                                onClick={() => setIsCreateEventOpen(true)}
+                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
+                            >
+                                <Calendar className="w-4 h-4" /> Create Event
+                            </button>
 
                             <button
                                 onClick={() => setIsEditOpen(true)}
                                 className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
                             >
-                                <Edit className="w-4 h-4" /> {isAdmin() ? 'Edit Club Details (Direct)' : 'Edit Club Details'}
+                                <Edit className="w-4 h-4" /> Edit Club Details
                             </button>
 
                             <button
@@ -322,11 +326,11 @@ const ClubDetail = () => {
                             )}
                             {isAdmin() && club.status === 'approved' && (
                                 <button
-                                    onClick={handleSuspend}
+                                    onClick={() => setIsSuspendModalOpen(true)}
                                     disabled={suspending}
                                     className="px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
                                 >
-                                    {suspending ? 'Suspending...' : 'Suspend Club'}
+                                    Suspend Club
                                 </button>
                             )}
                             {isAdmin() && club.status === 'suspended' && (
@@ -350,15 +354,13 @@ const ClubDetail = () => {
                         <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Contact Email</p>
                         <p className="text-[#0b1c30] font-medium">{club.contact_email}</p>
                     </div>
-                    {club.contact_phone && (
-                        <div>
-                            <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Contact Phone</p>
-                            <p className="text-[#0b1c30] font-medium">{club.contact_phone}</p>
-                        </div>
-                    )}
                     <div>
-                        <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Founded by</p>
-                        <p className="text-[#0b1c30] font-medium">{club.creator?.name}</p>
+                        <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Contact Phone</p>
+                        <p className="text-[#0b1c30] font-medium">{club.contact_phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Created On</p>
+                        <p className="text-[#0b1c30] font-medium">{new Date(club.created_at).toLocaleDateString()}</p>
                     </div>
                     {club.reason && (
                         <div className="sm:col-span-3 border-t border-slate-200/60 pt-3">
@@ -410,14 +412,6 @@ const ClubDetail = () => {
                         </h2>
                         <p className="text-xs text-slate-500 mt-0.5">All events organized by {club.name}</p>
                     </div>
-                    {isClubExec && (
-                        <button
-                            onClick={() => setIsCreateEventOpen(true)}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-xs flex items-center gap-1"
-                        >
-                            + Create Event
-                        </button>
-                    )}
                 </div>
 
                 {loadingEvents ? (
@@ -494,6 +488,13 @@ const ClubDetail = () => {
                         message: msg || 'Event created successfully.',
                     });
                 }}
+            />
+
+            <SuspendClubModal
+                isOpen={isSuspendModalOpen}
+                onClose={() => setIsSuspendModalOpen(false)}
+                clubName={club?.name}
+                onConfirm={handleSuspendConfirm}
             />
 
         </MainLayout>

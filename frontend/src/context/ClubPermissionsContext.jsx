@@ -70,10 +70,9 @@ export const ClubPermissionsProvider = ({ clubId, children }) => {
     }, [clubId, loadClubData]);
 
     const isExecutive = useCallback(() => {
-        if (isAdmin()) return true;
         if (!membership) return false;
         return ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(membership.role);
-    }, [isAdmin, membership]);
+    }, [membership]);
 
     const can = useCallback((permission) => {
         return isExecutive();

@@ -37,9 +37,9 @@ const FeedbackListModal = ({ isOpen, onClose, eventId, eventTitle }) => {
     }));
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200 my-auto relative">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
                     <div className="flex items-center gap-2">
                         <MessageSquare className="w-5 h-5 text-indigo-600" />
                         <div>
@@ -55,7 +55,7 @@ const FeedbackListModal = ({ isOpen, onClose, eventId, eventTitle }) => {
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto space-y-6">
+                <div className="p-6 overflow-y-auto flex-1 space-y-6">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                             <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3" />
@@ -160,7 +160,7 @@ const FeedbackListModal = ({ isOpen, onClose, eventId, eventTitle }) => {
                     )}
                 </div>
 
-                <div className="p-4 border-t border-slate-100 bg-slate-50/50 text-right">
+                <div className="p-4 border-t border-slate-100 bg-slate-50/50 text-right shrink-0">
                     <button
                         onClick={onClose}
                         className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition"

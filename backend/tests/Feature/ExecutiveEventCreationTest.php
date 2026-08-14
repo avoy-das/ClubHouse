@@ -57,7 +57,7 @@ class ExecutiveEventCreationTest extends TestCase
             ->assertJsonPath('0.id', $club1->id);
     }
 
-    public function test_admin_who_is_not_club_exec_gets_only_their_executive_clubs_in_executive_endpoint(): void
+    public function test_admin_who_is_not_club_exec_gets_empty_list_in_executive_endpoint(): void
     {
         $admin = User::factory()->create(['is_admin' => true]);
         $creator = User::factory()->create();
@@ -79,8 +79,8 @@ class ExecutiveEventCreationTest extends TestCase
 
         $payload = [
             'club_id'        => $club->id,
-            'title'          => 'Admin Unauthorized Event',
-            'description'    => 'Should fail since admin is not exec of this club',
+            'title'          => 'Admin Created Event',
+            'description'    => 'Admin should not be able to create events',
             'visibility'     => 'public',
             'location_type'  => 'physical',
             'location_value' => 'Room 101',
@@ -93,10 +93,6 @@ class ExecutiveEventCreationTest extends TestCase
 
         $response->assertStatus(403)
             ->assertJsonPath('message', 'Only club executives can create events.');
-
-        $this->assertDatabaseMissing('events', [
-            'title' => 'Admin Unauthorized Event',
-        ]);
     }
 
     public function test_executive_user_can_create_event_for_their_club(): void

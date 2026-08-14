@@ -15,10 +15,11 @@ class NewFeatureRequirementsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_editing_club_details_requires_admin_permission()
+    public function test_editing_club_details_blocks_admin_and_allows_club_executives()
     {
         $admin = User::factory()->create(['is_admin' => true]);
-        $memberUser = User::factory()->create(['is_admin' => false]);
+        $execUser = User::factory()->create(['is_admin' => false]);
+        $regularUser = User::factory()->create(['is_admin' => false]);
 
         $club = Club::create([
             'name'          => 'Test Coding Club',
@@ -32,29 +33,42 @@ class NewFeatureRequirementsTest extends TestCase
 
         ClubMember::create([
             'club_id'   => $club->id,
-            'user_id'   => $memberUser->id,
+            'user_id'   => $execUser->id,
             'role'      => 'president',
             'joined_at' => now(),
         ]);
 
-        // Non-admin president attempt -> 403
-        $response = $this->actingAs($memberUser, 'sanctum')
-            ->putJson("/api/clubs/{$club->id}", [
-                'name' => 'Attempted Edit by Non Admin',
-            ]);
-        $response->assertStatus(403);
-
-        // Admin attempt -> 200 & notifies members
+        // Admin attempt to update club details directly -> 403
         $adminResponse = $this->actingAs($admin, 'sanctum')
             ->putJson("/api/clubs/{$club->id}", [
                 'name' => 'Updated by Admin',
             ]);
-        $adminResponse->assertStatus(200);
+        $adminResponse->assertStatus(403)
+            ->assertJsonFragment(['message' => 'Administrators cannot change club details.']);
 
-        $this->assertDatabaseHas('notifications', [
-            'user_id' => $memberUser->id,
-            'type'    => 'club_updated',
-        ]);
+        // Admin attempt to submit edit request -> 403
+        $adminRequestResponse = $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/clubs/{$club->id}/edit-requests", [
+                'name' => 'Admin Edit Request',
+            ]);
+        $adminRequestResponse->assertStatus(403)
+            ->assertJsonFragment(['message' => 'Administrators cannot change club details.']);
+
+        // Non-executive member attempt -> 403
+        $memberResponse = $this->actingAs($regularUser, 'sanctum')
+            ->putJson("/api/clubs/{$club->id}", [
+                'name' => 'Attempted Edit by Member',
+            ]);
+        $memberResponse->assertStatus(403);
+
+        // Club Executive attempt to edit club details -> 200 & notifies members
+        $execResponse = $this->actingAs($execUser, 'sanctum')
+            ->putJson("/api/clubs/{$club->id}", [
+                'name' => 'Updated by Executive',
+            ]);
+        $execResponse->assertStatus(200);
+
+        $this->assertEquals('Updated by Executive', $club->fresh()->name);
     }
 
     public function test_drafted_events_hidden_from_regular_members()
