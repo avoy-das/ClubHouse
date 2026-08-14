@@ -408,4 +408,94 @@ class EventRegistrationTest extends TestCase
             'user_id' => $user->id,
         ]);
     }
+
+    public function test_executive_cancellation_with_reason_sends_notification_and_allows_reregistration()
+    {
+        $execUser = $this->createUser();
+        \App\Models\ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $execUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $user = $this->createUser();
+        EventRegistration::create([
+            'event_id' => $this->event->id,
+            'user_id'  => $user->id,
+            'status'   => 'registered',
+        ]);
+
+        // Exec cancels registration with reason
+        $reason = 'Incomplete registration form answers';
+        $this->actingAs($execUser)
+            ->deleteJson("/api/events/{$this->event->id}/registrations/{$user->id}/cancel", [
+                'reason' => $reason,
+            ])
+            ->assertStatus(200);
+
+        // Assert notification created with reason
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $user->id,
+            'type'    => 'event_registration_cancelled_by_exec',
+            'title'   => 'Registration Cancelled',
+        ]);
+
+        $notification = \App\Models\Notification::where('user_id', $user->id)
+            ->where('type', 'event_registration_cancelled_by_exec')
+            ->first();
+        $this->assertStringContainsString($reason, $notification->message);
+
+        // Assert user can register again
+        $this->actingAs($user)
+            ->postJson("/api/events/{$this->event->id}/register")
+            ->assertStatus(201)
+            ->assertJson([
+                'is_registered' => true,
+            ]);
+    }
+
+    public function test_executive_block_with_reason_sends_notification_and_permanently_blocks_reregistration()
+    {
+        $execUser = $this->createUser();
+        \App\Models\ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $execUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $user = $this->createUser();
+        EventRegistration::create([
+            'event_id' => $this->event->id,
+            'user_id'  => $user->id,
+            'status'   => 'registered',
+        ]);
+
+        // Exec blocks user with reason
+        $reason = 'Violated code of conduct';
+        $this->actingAs($execUser)
+            ->postJson("/api/events/{$this->event->id}/blocks", [
+                'user_id' => $user->id,
+                'reason'  => $reason,
+            ])
+            ->assertStatus(200);
+
+        // Assert notification created with reason
+        $notification = \App\Models\Notification::where('user_id', $user->id)
+            ->where('type', 'event_user_blocked')
+            ->first();
+        $this->assertNotNull($notification);
+        $this->assertStringContainsString($reason, $notification->message);
+
+        // Assert user is permanently blocked from registering again
+        $this->actingAs($user)
+            ->postJson("/api/events/{$this->event->id}/register")
+            ->assertStatus(403)
+            ->assertJson([
+                'message' => 'You are blocked from registering for this event.',
+            ]);
+    }
 }

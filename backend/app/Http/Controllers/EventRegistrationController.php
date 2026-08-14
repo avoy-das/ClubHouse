@@ -282,6 +282,10 @@ class EventRegistrationController extends Controller
             ], 403);
         }
 
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:255',
+        ]);
+
         $registration = EventRegistration::where('event_id', $event->id)
             ->where('user_id', $user->id)
             ->first();
@@ -302,11 +306,17 @@ class EventRegistrationController extends Controller
             }
         });
 
+        $reason = $validated['reason'] ?? $request->input('reason');
+        $message = "Your registration for event '{$event->title}' has been cancelled by a club executive.";
+        if (!empty($reason)) {
+            $message .= " Reason: {$reason}";
+        }
+
         NotificationService::notifyUser(
             $user->id,
             'event_registration_cancelled_by_exec',
             'Registration Cancelled',
-            "Your registration for event '{$event->title}' has been cancelled by a club executive.",
+            $message,
             Event::class,
             $event->id
         );
@@ -373,11 +383,17 @@ class EventRegistrationController extends Controller
             }
         });
 
+        $reason = $validated['reason'] ?? null;
+        $message = "You have been blocked from registering for event '{$event->title}'.";
+        if (!empty($reason)) {
+            $message .= " Reason: {$reason}";
+        }
+
         NotificationService::notifyUser(
             $userId,
             'event_user_blocked',
             'Blocked from Event',
-            "You have been blocked from registering for event '{$event->title}'.",
+            $message,
             Event::class,
             $event->id
         );
