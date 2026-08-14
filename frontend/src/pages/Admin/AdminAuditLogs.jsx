@@ -314,8 +314,9 @@ const AdminAuditLogs = () => {
             {/* Audit Log Detail Modal */}
             {selectedLog && (
                 <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full p-6 relative animate-in fade-in zoom-in-95 duration-150">
-                        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden my-auto relative animate-in fade-in zoom-in-95 duration-150">
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100 shrink-0 bg-white">
                             <div>
                                 <span className="text-xs font-semibold uppercase tracking-wider text-blue-600">Audit Log Record #{selectedLog.id}</span>
                                 <h2 className="text-lg font-bold text-slate-900 mt-0.5">
@@ -330,7 +331,8 @@ const AdminAuditLogs = () => {
                             </button>
                         </div>
 
-                        <div className="py-4 space-y-4 text-xs">
+                        {/* Scrollable Body */}
+                        <div className="p-6 overflow-y-auto flex-1 space-y-4 text-xs">
                             {/* Summary Sentence Card */}
                             {renderMetaSummary(selectedLog) && (
                                 <div className="p-3.5 bg-blue-50/70 border border-blue-100 rounded-xl text-blue-900 flex items-start gap-2.5">
@@ -416,7 +418,8 @@ const AdminAuditLogs = () => {
                             )}
                         </div>
 
-                        <div className="pt-3 border-t border-slate-100 flex justify-end">
+                        {/* Footer */}
+                        <div className="p-6 pt-4 border-t border-slate-100 flex justify-end shrink-0 bg-white">
                             <button
                                 onClick={() => setSelectedLog(null)}
                                 className="px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors"

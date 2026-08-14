@@ -248,7 +248,7 @@ class AnnouncementTargetingAndAttachmentTest extends TestCase
             'contact_email' => 'chess@clubhouse.ac.bd',
         ]);
 
-        // Attempting to post as club executive when admin is not a member/executive of Chess Club -> 403
+        // Attempting to post as club executive when admin is not an executive of Chess Club -> 403
         $response = $this->actingAs($adminNotExec, 'sanctum')
             ->postJson('/api/announcements', [
                 'title'        => 'Unauthorized Club Post',

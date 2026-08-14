@@ -116,11 +116,11 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
     const isSystemAdmin = isAdmin();
     const isPresident = myRole === 'president';
     const isSecretary = myRole === 'secretary';
-    const isExecutive = isSystemAdmin || ['president', 'vice_president', 'vice president', 'vp', 'secretary', 'treasurer', 'executive'].includes(myRole);
+    const isExecutive = ['president', 'vice_president', 'vice president', 'vp', 'secretary', 'treasurer', 'executive'].includes(myRole);
 
-    const myRank = isSystemAdmin ? 100 : getRoleRank(myRole);
+    const myRank = getRoleRank(myRole);
 
-    const canEditAdvisor = isSystemAdmin || isPresident || isSecretary;
+    const canEditAdvisor = isPresident || isSecretary;
 
     // President Slot check
     const currentPresident = useMemo(() => safeMembers.find((m) => m && m.role?.toLowerCase() === 'president'), [safeMembers]);
@@ -437,7 +437,7 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
                                             const role = (m.role || '').toLowerCase();
                                             const isTargetPresident = role === 'president';
                                             const targetRank = getRoleRank(role);
-                                            const canManageCommitteeTarget = (isSystemAdmin || myRank > targetRank) && !isSelf;
+                                            const canManageCommitteeTarget = myRank > targetRank && !isSelf;
 
                                             const committeeRoleOptions = [
                                                 { value: 'vice_president', label: 'Vice President', rank: 9 },
@@ -445,7 +445,7 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
                                                 { value: 'treasurer', label: 'Treasurer', rank: 8 },
                                                 { value: 'executive', label: 'Executive', rank: 7 },
                                                 { value: 'member', label: 'Demote to General Member', rank: 1 },
-                                            ].filter((opt) => isSystemAdmin || opt.rank < myRank);
+                                            ].filter((opt) => opt.rank < myRank);
 
                                             return (
                                                 <tr key={m.id} className="hover:bg-[#f8f9ff]/70 transition-colors">
@@ -478,7 +478,7 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
                                                                 <Eye className="w-3.5 h-3.5" /> Details
                                                             </button>
                                                             {/* Transfer Presidency button: ONLY beside the current president, ONLY ONE row */}
-                                                            {isTargetPresident && (isPresident || isSystemAdmin) && (
+                                                            {isTargetPresident && isPresident && (
                                                                 <button
                                                                     onClick={() => setIsTransferModalOpen(true)}
                                                                     className="px-2.5 py-1 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition-colors flex items-center gap-1 shrink-0"
@@ -569,7 +569,7 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
                                         {generalMembers.map((m) => {
                                             const isSelf = user && m.user_id === user.id;
                                             const targetRank = getRoleRank(m.role);
-                                            const canManageGeneralTarget = (isSystemAdmin || myRank > targetRank) && !isSelf;
+                                            const canManageGeneralTarget = myRank > targetRank && !isSelf;
 
                                             return (
                                                 <tr key={m.id} className="hover:bg-[#f8f9ff]/70 transition-colors">
@@ -705,7 +705,7 @@ const MembersDirectory = ({ clubId, initialClub, onClubUpdated }) => {
                         {/* Rank & Role Promotion / Demotion Controls */}
                         {(() => {
                             const selectedTargetRank = getRoleRank(selectedMember.role);
-                            const canManageSelected = (isSystemAdmin || myRank > selectedTargetRank) && selectedMember.user_id !== user?.id && selectedMember.role !== 'president';
+                            const canManageSelected = myRank > selectedTargetRank && selectedMember.user_id !== user?.id && selectedMember.role !== 'president';
 
                             if (!canManageSelected) return null;
 

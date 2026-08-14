@@ -24,8 +24,8 @@ export const getNotificationTargetUrl = (notification) => {
     const relatedType = notification.related_type || '';
     const relatedId = notification.related_id;
 
-    // 1. Platform Admin Club Creation Request
-    if (type === 'club_creation_request') {
+    // 1. Platform Admin Club Creation & Edit Requests
+    if (type === 'club_creation_request' || type === 'club_edit_request' || type.includes('edit_request')) {
         return '/admin/clubs';
     }
 

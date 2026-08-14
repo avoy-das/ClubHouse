@@ -21,9 +21,12 @@ class ClubEditRequestController extends Controller
     {
         $user = $request->user();
 
-        // Check if user is executive of this club or admin
-        if (!$user->is_admin && !$this->isExec($user->id, $club->id)) {
-            return response()->json(['message' => 'Only club executives or administrators can submit edit requests.'], 403);
+        if ($user->is_admin) {
+            return response()->json(['message' => 'Administrators cannot change club details.'], 403);
+        }
+
+        if (!$this->isExec($user->id, $club->id)) {
+            return response()->json(['message' => 'Only club executives can submit edit requests.'], 403);
         }
 
         $data = $request->validated();

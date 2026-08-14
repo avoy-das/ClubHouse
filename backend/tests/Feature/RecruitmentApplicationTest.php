@@ -112,23 +112,22 @@ class RecruitmentApplicationTest extends TestCase
             ->assertJsonPath('message', 'You are already an active member of this club. Recruitment is reserved for new applicants.');
     }
 
-    public function test_admin_who_is_not_club_executive_cannot_view_or_review_applications(): void
+    public function test_admin_who_is_not_club_exec_cannot_view_or_review_applications_and_gets_403(): void
     {
-        $nonExecAdmin = $this->createUser(['is_admin' => true]);
+        $admin = $this->createUser(['is_admin' => true]);
 
         $application = RecruitmentApplication::create([
             'recruitment_notice_id' => $this->notice->id,
             'user_id'               => $this->applicant->id,
-            'status'                => 'pending',
+            'status'                => 'submitted',
         ]);
 
-        // Admin who is not a club executive cannot view applications
-        $responseIndex = $this->actingAs($nonExecAdmin)
+        // Admin who is not a club executive gets 403
+        $responseIndex = $this->actingAs($admin)
             ->getJson("/api/recruitment-notices/{$this->notice->id}/applications");
         $responseIndex->assertStatus(403);
 
-        // Admin who is not a club executive cannot review application
-        $responseReview = $this->actingAs($nonExecAdmin)
+        $responseReview = $this->actingAs($admin)
             ->patchJson("/api/recruitment-applications/{$application->id}", [
                 'status' => 'accepted',
             ]);

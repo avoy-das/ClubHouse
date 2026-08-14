@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import clubService from '../../services/clubService';
 import UserManagementSection from '../../components/admin/UserManagementSection';
+import SuspendClubModal from '../../components/admin/SuspendClubModal';
 import { Shield, Building2, BarChart2, Users } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
 import usePageTitle from '../../hooks/usePageTitle';
@@ -20,6 +21,7 @@ const AdminClubList = () => {
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState(null);
     const [rejectModal, setRejectModal] = useState({ open: false, clubId: null, type: 'club' }); // type: 'club' | 'edit_request'
+    const [suspendModal, setSuspendModal] = useState({ open: false, clubId: null, clubName: '' });
     const [rejectReason, setRejectReason] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
@@ -95,19 +97,14 @@ const AdminClubList = () => {
         }
     };
 
-    const handleSuspend = async (id) => {
-        const reason = window.prompt('Please enter the official reason for suspending this club:');
-        if (reason === null) return;
-        if (!reason.trim()) {
-            alert('A suspension reason is required.');
-            return;
-        }
+    const handleSuspendConfirm = async (reason) => {
         setActionLoading(true);
         try {
-            await clubService.adminSuspend(id, reason.trim());
+            await clubService.adminSuspend(suspendModal.clubId, reason);
             fetchClubs();
         } catch (err) {
             alert(err.response?.data?.message || 'Failed to suspend club.');
+            throw err;
         } finally {
             setActionLoading(false);
         }
@@ -302,7 +299,7 @@ const AdminClubList = () => {
                                                         )}
                                                         {club.status === 'approved' && (
                                                             <button
-                                                                onClick={() => handleSuspend(club.id)}
+                                                                onClick={() => setSuspendModal({ open: true, clubId: club.id, clubName: club.name })}
                                                                 disabled={actionLoading}
                                                                 className="px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
                                                             >
@@ -342,9 +339,9 @@ const AdminClubList = () => {
 
             {/* Reject Modal */}
             {rejectModal.open && (
-                <div className="fixed inset-0 bg-[#0f172a]/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-200">
-                        <h3 className="text-base font-bold text-[#0b1c30] mb-4">
+                <div className="fixed inset-0 bg-[#0f172a]/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-200 my-auto max-h-[90vh] flex flex-col overflow-hidden relative">
+                        <h3 className="text-base font-bold text-[#0b1c30] mb-4 shrink-0">
                             Reject {rejectModal.type === 'edit_request' ? 'Club Edit Request' : 'Club Request'}
                         </h3>
                         <textarea
@@ -352,9 +349,9 @@ const AdminClubList = () => {
                             onChange={e => setRejectReason(e.target.value)}
                             rows={3}
                             placeholder="Provide a reason for rejection..."
-                            className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] resize-none mb-4 bg-[#f8f9ff]"
+                            className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] resize-none mb-4 bg-[#f8f9ff] flex-1"
                         />
-                        <div className="flex justify-end gap-3">
+                        <div className="flex justify-end gap-3 shrink-0">
                             <button
                                 onClick={() => {
                                     setRejectModal({ open: false, clubId: null, type: 'club' });
@@ -375,6 +372,14 @@ const AdminClubList = () => {
                     </div>
                 </div>
             )}
+
+            {/* Suspend Club Modal */}
+            <SuspendClubModal
+                isOpen={suspendModal.open}
+                onClose={() => setSuspendModal({ open: false, clubId: null, clubName: '' })}
+                clubName={suspendModal.clubName}
+                onConfirm={handleSuspendConfirm}
+            />
         </MainLayout>
     );
 };
