@@ -104,8 +104,8 @@ const Dashboard = () => {
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-semibold text-[#ffb59f] backdrop-blur-sm">
                                 <GraduationCap className="w-4 h-4" /> Student Portal
                             </div>
-                            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
-                                Welcome , {user?.name}!
+                            <h1 className="text-2xl sm:text-3xl font-bold font-heading">
+                                Welcome, {user?.name}!
                             </h1>
                             <p className="text-sm text-gray-300">
                                 Here's your central portal overview for campus clubs, events, and notifications.
