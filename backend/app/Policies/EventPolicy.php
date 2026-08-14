@@ -52,4 +52,21 @@ class EventPolicy
 
         return $user->hasClubPermission($event->club_id, 'can_manage_events');
     }
+
+    public function manageRegistrations(User $user, Event $event): bool
+    {
+        if ($event->club && $event->club->status === 'suspended') {
+            return false;
+        }
+
+        return $user->hasClubPermission($event->club_id, 'can_manage_events') ||
+            \Illuminate\Support\Facades\DB::table('club_members')
+                ->where('user_id', $user->id)
+                ->where('club_id', $event->club_id)
+                ->where(function ($q) {
+                    $q->whereNull('status')->orWhere('status', 'active');
+                })
+                ->whereIn('role', Event::execRoles())
+                ->exists();
+    }
 }

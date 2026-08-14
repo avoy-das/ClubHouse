@@ -85,6 +85,20 @@ const eventService = {
     getAttendanceReport: (eventId) =>
         api.get(`/events/${eventId}/attendance-report`),
 
+    // Approve a pending registration (Exec/Admin)
+    approveRegistration: async (eventId, userId) => {
+        const res = await api.post(`/events/${eventId}/registrations/${userId}/approve`);
+        invalidateCache('events:*');
+        return res;
+    },
+
+    // Reject a pending registration (Exec/Admin)
+    rejectRegistration: async (eventId, userId, reason = null) => {
+        const res = await api.post(`/events/${eventId}/registrations/${userId}/reject`, { reason });
+        invalidateCache('events:*');
+        return res;
+    },
+
     // Cancel registration for a user by executive (Exec/Admin)
     cancelAttendee: async (eventId, userId, reason = null) => {
         const res = await api.delete(`/events/${eventId}/registrations/${userId}/cancel`, {

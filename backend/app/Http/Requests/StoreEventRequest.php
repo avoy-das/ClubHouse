@@ -34,6 +34,7 @@ class StoreEventRequest extends FormRequest
             'starts_at'      => ['required', 'date', 'after:now - 10 minutes'],
             'ends_at'        => ['required', 'date', 'after:starts_at'],
             'capacity'       => ['required', 'integer', 'min:1'],
+            'requires_approval' => ['nullable', 'boolean'],
             'custom_fields'             => ['nullable', 'array', 'max:20'],
             'custom_fields.*.label'     => ['required_with:custom_fields', 'string', 'max:255'],
             'custom_fields.*.type'      => ['required_with:custom_fields', 'string', 'in:text,textarea,select,checkbox,number'],

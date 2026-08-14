@@ -9,6 +9,9 @@ class EventRegistration extends Model
 {
     public const STATUS_REGISTERED = 'registered';
     public const STATUS_WAITLISTED = 'waitlisted';
+    public const STATUS_PENDING    = 'pending';
+    public const STATUS_APPROVED   = 'approved';
+    public const STATUS_REJECTED   = 'rejected';
 
     protected $fillable = [
         'event_id',
