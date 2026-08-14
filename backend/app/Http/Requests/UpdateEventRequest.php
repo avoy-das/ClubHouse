@@ -33,6 +33,7 @@ class UpdateEventRequest extends FormRequest
             'starts_at'      => ['sometimes', 'date', 'after:now'],
             'ends_at'        => ['sometimes', 'date', 'after:starts_at'],
             'capacity'       => ['sometimes', 'integer', 'min:1'],
+            'requires_approval' => ['sometimes', 'nullable', 'boolean'],
             'custom_fields'             => ['sometimes', 'nullable', 'array', 'max:20'],
             'custom_fields.*.label'     => ['required_with:custom_fields', 'string', 'max:255'],
             'custom_fields.*.type'      => ['required_with:custom_fields', 'string', 'in:text,textarea,select,checkbox,number'],

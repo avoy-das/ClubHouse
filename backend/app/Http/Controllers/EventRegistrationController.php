@@ -33,6 +33,10 @@ class EventRegistrationController extends Controller
         $query = EventRegistration::with('user:id,name,email,student_id,department')
             ->where('event_id', $event->id);
 
+        if ($request->filled('status')) {
+            $query->where('status', $request->query('status'));
+        }
+
         if ($request->filled('search')) {
             $search = $request->query('search');
             $escaped = '%' . addcslashes($search, '%_\\') . '%';
@@ -77,12 +81,17 @@ class EventRegistrationController extends Controller
             ->first();
 
         if ($alreadyRegistered) {
-            $msg = $alreadyRegistered->status === 'waitlisted' 
-                ? 'You are already on the waitlist for this event.' 
-                : 'You are already registered for this event.';
-            return response()->json([
-                'message' => $msg,
-            ], 409);
+            if ($alreadyRegistered->status === 'rejected') {
+                // Delete old rejected record to allow re-application
+                $alreadyRegistered->delete();
+            } else {
+                $msg = match ($alreadyRegistered->status) {
+                    'waitlisted' => 'You are already on the waitlist for this event.',
+                    'pending'    => 'Your registration request is currently pending executive approval.',
+                    default      => 'You are already registered for this event.',
+                };
+                return response()->json(['message' => $msg], 409);
+            }
         }
 
         // Guard against registering for events of suspended clubs
@@ -157,7 +166,7 @@ class EventRegistrationController extends Controller
             }
         }
 
-        $status = 'registered';
+        $status = $event->requires_approval ? 'pending' : 'registered';
 
         // 4. Perform capacity check and registration inside a DB transaction with pessimistic locking
         try {
@@ -169,9 +178,9 @@ class EventRegistrationController extends Controller
                     throw new \RuntimeException('Event no longer exists.', 404);
                 }
 
-                // Capacity check if set (capacity null means unlimited)
-                if (!is_null($lockedEvent->capacity)) {
-                    $currentCount = $lockedEvent->registrations()->where('status', 'registered')->count();
+                // Capacity check if set (capacity null means unlimited) for unmoderated mode
+                if (!$lockedEvent->requires_approval && !is_null($lockedEvent->capacity)) {
+                    $currentCount = $lockedEvent->registrations()->whereIn('status', ['registered', 'approved'])->count();
                     if ($currentCount >= $lockedEvent->capacity) {
                         $status = 'waitlisted';
                     }
@@ -192,7 +201,26 @@ class EventRegistrationController extends Controller
             ], $code);
         }
 
-        if ($status === 'registered') {
+        if ($status === 'pending') {
+            NotificationService::notifyUser(
+                $user->id,
+                'event_registration_pending',
+                'Registration Submitted',
+                "Your registration for event '{$event->title}' has been submitted and is awaiting executive review.",
+                Event::class,
+                $event->id
+            );
+
+            NotificationService::notifyClubExecutives(
+                $event->club_id,
+                'event_registration_pending_exec',
+                'New Registration Pending Review',
+                "A new registration for event '{$event->title}' requires executive review.",
+                Event::class,
+                $event->id,
+                $user->id
+            );
+        } elseif ($status === 'registered') {
             NotificationService::notifyUser(
                 $user->id,
                 'event_registration_confirmed',
@@ -213,13 +241,123 @@ class EventRegistrationController extends Controller
             );
         }
 
+        $messageText = match ($status) {
+            'pending'    => 'Registration request submitted! Awaiting executive review.',
+            'registered' => 'Successfully registered for event.',
+            default      => 'Successfully joined the waitlist.',
+        };
+
         return response()->json([
-            'message'             => $status === 'registered' ? 'Successfully registered for event.' : 'Successfully joined the waitlist.',
+            'message'             => $messageText,
             'is_registered'       => true,
             'status'              => $status,
-            'registrations_count' => $event->registrations()->where('status', 'registered')->count(),
+            'registrations_count' => $event->registrations()->whereIn('status', ['registered', 'approved'])->count(),
             'spots_remaining'     => $event->spotsRemaining(),
         ], 201);
+    }
+
+    /**
+     * POST /api/events/{event}/registrations/{user}/approve
+     *
+     * Exec-only action to approve a pending attendee registration.
+     */
+    public function approve(Request $request, Event $event, User $user): JsonResponse
+    {
+        $authUser = Auth::user();
+
+        if (!$this->canManageAttendance($authUser, $event)) {
+            return response()->json([
+                'message' => 'Only club executives can approve registrations.',
+            ], 403);
+        }
+
+        $registration = EventRegistration::where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$registration) {
+            return response()->json([
+                'message' => 'Registration request not found.',
+            ], 404);
+        }
+
+        if ($registration->status === 'approved' || $registration->status === 'registered') {
+            return response()->json([
+                'message' => 'Registration is already approved.',
+            ], 409);
+        }
+
+        $registration->update(['status' => 'approved']);
+
+        NotificationService::notifyUser(
+            $user->id,
+            'event_registration_approved',
+            'Registration Approved',
+            "Your registration for event '{$event->title}' has been approved by a club executive!",
+            Event::class,
+            $event->id
+        );
+
+        return response()->json([
+            'message'             => 'Registration successfully approved.',
+            'registration'        => $registration->fresh()->load('user:id,name,email,student_id,department'),
+            'registrations_count' => $event->registrations()->whereIn('status', ['registered', 'approved'])->count(),
+            'spots_remaining'     => $event->spotsRemaining(),
+        ]);
+    }
+
+    /**
+     * POST /api/events/{event}/registrations/{user}/reject
+     *
+     * Exec-only action to reject a pending attendee registration.
+     */
+    public function reject(Request $request, Event $event, User $user): JsonResponse
+    {
+        $authUser = Auth::user();
+
+        if (!$this->canManageAttendance($authUser, $event)) {
+            return response()->json([
+                'message' => 'Only club executives can reject registrations.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:255',
+        ]);
+
+        $registration = EventRegistration::where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$registration) {
+            return response()->json([
+                'message' => 'Registration request not found.',
+            ], 404);
+        }
+
+        $registration->update(['status' => 'rejected']);
+
+        $reason = $validated['reason'] ?? $request->input('reason');
+        $message = "Your registration for event '{$event->title}' was rejected by a club executive.";
+        if (!empty($reason)) {
+            $message .= " Reason: {$reason}";
+        }
+
+        NotificationService::notifyUser(
+            $user->id,
+            'event_registration_rejected',
+            'Registration Rejected',
+            $message,
+            Event::class,
+            $event->id
+        );
+
+        return response()->json([
+            'message'             => 'Registration request rejected.',
+            'registration'        => $registration->fresh()->load('user:id,name,email,student_id,department'),
+            'registrations_count' => $event->registrations()->whereIn('status', ['registered', 'approved'])->count(),
+            'spots_remaining'     => $event->spotsRemaining(),
+        ]);
     }
 
     /**

@@ -294,6 +294,36 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
         }
     };
 
+    const handleApprove = async (userId) => {
+        if (!event?.id || !userId) return;
+        setUpdatingUserId(userId);
+        try {
+            await eventService.approveRegistration(event.id, userId);
+            await fetchRegistrations(search);
+        } catch (err) {
+            const message = err?.response?.data?.message || 'Failed to approve registration.';
+            setError(message);
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
+    const handleReject = async (userId) => {
+        if (!event?.id || !userId) return;
+        const reason = window.prompt("Enter rejection reason (optional):");
+        if (reason === null) return;
+        setUpdatingUserId(userId);
+        try {
+            await eventService.rejectRegistration(event.id, userId, reason);
+            await fetchRegistrations(search);
+        } catch (err) {
+            const message = err?.response?.data?.message || 'Failed to reject registration.';
+            setError(message);
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
     // Early return: don't render anything if not open or no event
     if (!isOpen || !event) return null;
 
@@ -345,6 +375,20 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
         );
     } catch (e) {
         setRenderError(e?.message || 'Unknown rendering error');
+        return null;
+    }
+
+    let pendingContent;
+    try {
+        pendingContent = renderPendingTab(
+            registrations.filter(r => r?.status === 'pending'),
+            loading,
+            updatingUserId,
+            handleApprove,
+            handleReject
+        );
+    } catch (e) {
+        setRenderError(e?.message || 'Unknown rendering error in pending tab');
         return null;
     }
 
@@ -462,6 +506,8 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
         return null;
     }
 
+    const pendingCount = registrations.filter(r => r?.status === 'pending').length;
+
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0f172a]/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-4xl w-full p-6 relative flex flex-col max-h-[90vh]">
@@ -472,13 +518,19 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
                             <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 font-bold text-[11px] rounded-full uppercase tracking-wider border border-indigo-200/60">
                                 Executive Suite
                             </span>
+                            {event.requires_approval && (
+                                <span className="px-2.5 py-0.5 bg-amber-50 text-amber-800 font-bold text-[11px] rounded-full uppercase tracking-wider border border-amber-200/60">
+                                    Moderated Mode
+                                </span>
+                            )}
                         </div>
                         <h2 className="text-lg font-bold text-[#0b1c30] flex items-center gap-2 mt-1">
                             <Users className="w-5 h-5 text-indigo-600" />
                             Attendance Control Center
                         </h2>
                         <p className="text-xs text-slate-500 mt-0.5">
-                            {event.title || 'Event'} &bull; {registrations.length} registered member(s)
+                            {event.title || 'Event'} &bull; {registrations.filter(r => r?.status !== 'pending' && r?.status !== 'rejected').length} confirmed member(s)
+                            {pendingCount > 0 && ` &bull; ${pendingCount} pending review`}
                         </p>
                     </div>
                     <button
@@ -500,8 +552,20 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <Users className="w-4 h-4" /> Attendee Roster ({registrations.length})
+                        <Users className="w-4 h-4" /> Attendee Roster ({registrations.filter(r => r?.status !== 'pending' && r?.status !== 'rejected').length})
                     </button>
+                    {(pendingCount > 0 || event.requires_approval) && (
+                        <button
+                            onClick={() => setActiveTab('pending')}
+                            className={`pb-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+                                activeTab === 'pending'
+                                    ? 'border-amber-600 text-amber-600'
+                                    : 'border-transparent text-amber-700 hover:text-amber-900'
+                            }`}
+                        >
+                            <Clock className="w-4 h-4 text-amber-600" /> Pending Approvals ({pendingCount})
+                        </button>
+                    )}
                     <button
                         onClick={() => setActiveTab('report')}
                         className={`pb-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
@@ -563,6 +627,7 @@ const ViewResponsesModal = ({ isOpen, onClose, event }) => {
                 {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto py-3 space-y-3 pr-1">
                     {activeTab === 'responses' && responsesContent}
+                    {activeTab === 'pending' && pendingContent}
                     {activeTab === 'report' && reportContent}
                     {activeTab === 'schema' && schemaContent}
                     {activeTab === 'blocks' && blockedContent}
@@ -980,6 +1045,139 @@ function formatDateSafe(dateStr) {
     } catch {
         return 'N/A';
     }
+}
+
+
+/**
+ * Renders the Pending Approvals tab content.
+ */
+function renderPendingTab(pendingRegs, loading, updatingUserId, handleApprove, handleReject) {
+    if (loading) {
+        return (
+            <div className="py-12 text-center text-slate-400 text-sm animate-pulse">
+                Loading pending requests...
+            </div>
+        );
+    }
+
+    if (!Array.isArray(pendingRegs) || pendingRegs.length === 0) {
+        return (
+            <div className="py-12 text-center text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl">
+                No pending registration requests awaiting executive review.
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-3">
+            {pendingRegs.map((reg) => {
+                if (!reg || typeof reg !== 'object') return null;
+
+                const u = (reg.user && typeof reg.user === 'object') ? reg.user : {};
+                const { textAnswers, fileAnswers } = parseAnswers(reg.answers);
+                const hasAnswers = Object.keys(textAnswers).length > 0 || Object.keys(fileAnswers).length > 0;
+                const isUpdating = updatingUserId === reg.user_id;
+
+                return (
+                    <div
+                        key={reg.id || reg.user_id}
+                        className="p-4 bg-amber-50/40 border border-amber-200/80 rounded-xl space-y-3"
+                    >
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-amber-200/60 pb-3">
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-[#0b1c30] text-sm">
+                                        <SafeText value={u.name || 'Applicant'} />
+                                    </span>
+                                    {u.student_id && (
+                                        <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-900 rounded font-semibold">
+                                            ID: <SafeText value={u.student_id} />
+                                        </span>
+                                    )}
+                                    <span className="text-xs font-semibold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full border border-amber-200 flex items-center gap-1">
+                                        <Clock className="w-3.5 h-3.5 text-amber-600" /> Pending Review
+                                    </span>
+                                </div>
+                                <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-3">
+                                    {u.email && <span><SafeText value={u.email} /></span>}
+                                    {u.department && <span>&bull; <SafeText value={u.department} /></span>}
+                                    {reg.created_at && (
+                                        <span className="text-slate-400">
+                                            &bull; Applied: {formatDateSafe(reg.created_at)}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Executive Approve / Reject Buttons */}
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    onClick={() => handleApprove(reg.user_id)}
+                                    disabled={isUpdating}
+                                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 shadow-xs disabled:opacity-50"
+                                >
+                                    <Check className="w-4 h-4" /> Approve
+                                </button>
+                                <button
+                                    onClick={() => handleReject(reg.user_id)}
+                                    disabled={isUpdating}
+                                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 shadow-xs disabled:opacity-50"
+                                >
+                                    <X className="w-4 h-4" /> Reject
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Custom Submitted Answers */}
+                        {hasAnswers && (
+                            <div className="pt-1">
+                                <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                                    Submitted Application Answers:
+                                </span>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                    {Object.entries(textAnswers).map(([label, value]) => (
+                                        <div key={label} className="bg-white p-2.5 rounded-lg border border-amber-200/80 text-xs space-y-0.5">
+                                            <span className="block font-bold text-slate-700">
+                                                <SafeText value={label} />
+                                            </span>
+                                            <p className="text-slate-800 whitespace-pre-wrap">
+                                                <SafeText value={value} />
+                                            </p>
+                                        </div>
+                                    ))}
+
+                                    {Object.entries(fileAnswers).map(([label, fileObj]) => {
+                                        const fileUrl = fileObj?.url || fileObj?.path;
+                                        const fileName = fileObj?.name || 'View Uploaded File';
+                                        return (
+                                            <div key={label} className="bg-white p-2.5 rounded-lg border border-amber-200/80 text-xs space-y-1">
+                                                <span className="block font-bold text-slate-700">
+                                                    <SafeText value={label} />
+                                                </span>
+                                                {fileUrl ? (
+                                                    <a
+                                                        href={getImageUrl(fileUrl)}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold rounded border border-blue-200 transition-colors text-[11px]"
+                                                    >
+                                                        <Paperclip className="w-3.5 h-3.5" />
+                                                        <SafeText value={fileName} />
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-slate-400 italic">File not available</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
 }
 
 

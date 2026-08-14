@@ -100,6 +100,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     location_type: eventToEdit.location_type || 'physical',
                     location_value: eventToEdit.location_value || '',
                     capacity: eventToEdit.capacity || 50,
+                    requires_approval: Boolean(eventToEdit.requires_approval),
                     starts_at: formatForDatetimeLocal(eventToEdit.starts_at),
                     ends_at: formatForDatetimeLocal(eventToEdit.ends_at),
                     feedback_policy: eventToEdit.feedback_policy || 'attended_only',
@@ -121,6 +122,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     location_type: 'physical',
                     location_value: '',
                     capacity: 50,
+                    requires_approval: false,
                     starts_at: formatForDatetimeLocal(defaultStart),
                     ends_at: formatForDatetimeLocal(defaultEnd),
                     feedback_policy: 'attended_only',
@@ -132,14 +134,14 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
     if (!isOpen) return null;
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
     const handleBannerChange = async (e) => {
         if (e.target.files && e.target.files[0]) {
-            const raw = e.target.files[0];
-            const compressed = await compressImage(raw, { maxWidth: 1200, maxHeight: 600, quality: 0.82 });
+            const file = e.target.files[0];
+            const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 600, quality: 0.82 });
             setBannerFile(compressed);
             setBannerPreview(URL.createObjectURL(compressed));
         }
@@ -159,15 +161,18 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
         }
 
         let payload;
-        if (bannerFile) {
+        const hasFile = Boolean(bannerFile);
+
+        if (hasFile) {
             payload = new FormData();
-            payload.append('club_id', formData.club_id);
+            if (formData.club_id) payload.append('club_id', String(formData.club_id));
             payload.append('title', formData.title);
-            if (formData.description) payload.append('description', formData.description);
+            payload.append('description', formData.description || '');
             payload.append('visibility', formData.visibility);
             payload.append('location_type', formData.location_type);
-            if (formData.location_value) payload.append('location_value', formData.location_value);
+            payload.append('location_value', formData.location_value || '');
             payload.append('capacity', String(formData.capacity));
+            payload.append('requires_approval', formData.requires_approval ? '1' : '0');
             payload.append('starts_at', datetimeLocalToISO(formData.starts_at));
             payload.append('ends_at', datetimeLocalToISO(formData.ends_at));
             payload.append('feedback_policy', formData.feedback_policy || 'attended_only');
@@ -177,6 +182,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
             payload = {
                 ...formData,
                 capacity: Number(formData.capacity),
+                requires_approval: Boolean(formData.requires_approval),
                 starts_at: datetimeLocalToISO(formData.starts_at),
                 ends_at: datetimeLocalToISO(formData.ends_at),
                 custom_fields: customFields,
@@ -377,6 +383,26 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                         <p className="text-[11px] text-slate-500 mt-1">
                             Determines who can submit feedback after the event ends.
                         </p>
+                    </div>
+
+                    {/* Moderated Registration Mode Toggle */}
+                    <div className="p-3 bg-[#f8f9ff] border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                        <div>
+                            <label htmlFor="requires_approval" className="text-xs font-bold text-[#0b1c30] block cursor-pointer">
+                                Moderated Registration Mode
+                            </label>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                Require executive approval for each registration before confirmation.
+                            </p>
+                        </div>
+                        <input
+                            type="checkbox"
+                            id="requires_approval"
+                            name="requires_approval"
+                            checked={Boolean(formData.requires_approval)}
+                            onChange={handleChange}
+                            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer shrink-0"
+                        />
                     </div>
 
                     {/* Location Value & Capacity */}

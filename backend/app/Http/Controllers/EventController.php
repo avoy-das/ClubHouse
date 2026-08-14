@@ -301,7 +301,7 @@ class EventController extends Controller
 
         $event->load(['club:id,name', 'creator:id,name'])
               ->loadCount(['registrations' => function ($query) {
-                  $query->where('status', 'registered');
+                  $query->whereIn('status', ['registered', 'approved']);
               }]);
 
         $userRegistration = \App\Models\EventRegistration::where('event_id', $event->id)

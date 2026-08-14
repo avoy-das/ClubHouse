@@ -22,15 +22,17 @@ class Event extends Model
         'starts_at',
         'ends_at',
         'capacity',
+        'requires_approval',
         'custom_fields',
         'feedback_policy',
     ];
 
     protected $casts = [
-        'starts_at'     => 'datetime',
-        'ends_at'       => 'datetime',
-        'capacity'      => 'integer',
-        'custom_fields' => 'array',
+        'starts_at'         => 'datetime',
+        'ends_at'           => 'datetime',
+        'capacity'          => 'integer',
+        'requires_approval' => 'boolean',
+        'custom_fields'     => 'array',
     ];
 
     protected $appends = [
@@ -90,7 +92,7 @@ class Event extends Model
         if (is_null($this->capacity)) {
             return 999999;
         }
-        $registeredCount = $this->registrations()->where('status', 'registered')->count();
+        $registeredCount = $this->registrations()->whereIn('status', ['registered', 'approved'])->count();
         return max(0, $this->capacity - $registeredCount);
     }
 

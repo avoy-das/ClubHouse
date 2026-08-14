@@ -8,7 +8,7 @@ import ViewResponsesModal from '../../components/Events/ViewResponsesModal';
 import EventFeedbackModal from '../../components/Events/EventFeedbackModal';
 import FeedbackListModal from '../../components/Events/FeedbackListModal';
 import Modal from '../../components/ui/Modal';
-import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, CheckCircle2, Ban, Trash2, ArrowLeft, Building2, CheckCircle, FileText, Paperclip, Star, MessageSquare, Bell, Users, Shield } from 'lucide-react';
+import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, CheckCircle2, Ban, Trash2, ArrowLeft, Building2, CheckCircle, FileText, Paperclip, Star, MessageSquare, Bell, Users, Shield, Clock } from 'lucide-react';
 import { getImageUrl } from '../../utils/imageUrl';
 import usePageTitle from '../../hooks/usePageTitle';
 
@@ -478,6 +478,11 @@ const EventDetailPage = () => {
                                 Executive Access
                             </span>
                         )}
+                        {event.requires_approval && (
+                            <span className="text-xs font-semibold px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" /> Moderated Mode
+                            </span>
+                        )}
                         <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${statusBadgeStyles[event.status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
                             {formattedStatus}
                         </span>
@@ -741,10 +746,20 @@ const EventDetailPage = () => {
                 {/* Action / Participation Button Section */}
                 <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="text-sm text-slate-500">
-                        {isRegistered ? (
+                        {userRegistration?.status === 'pending' ? (
+                            <span className="flex items-center gap-1.5 text-amber-800 font-semibold">
+                                <Clock className="w-5 h-5 text-amber-600" />
+                                Registration request submitted &bull; Awaiting executive approval
+                            </span>
+                        ) : isRegistered && (userRegistration?.status === 'approved' || userRegistration?.status === 'registered' || !userRegistration?.status) ? (
                             <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
                                 <CheckCircle className="w-5 h-5 text-emerald-600" />
                                 You are registered for this event
+                            </span>
+                        ) : userRegistration?.status === 'rejected' ? (
+                            <span className="flex items-center gap-1.5 text-rose-700 font-semibold">
+                                <Ban className="w-5 h-5 text-rose-600" />
+                                Previous registration request was rejected by an executive
                             </span>
                         ) : (
                             <span>
@@ -752,7 +767,9 @@ const EventDetailPage = () => {
                                     ? 'Registration has closed.'
                                     : isFull
                                         ? 'Capacity limit reached.'
-                                        : 'Registration is open for all authenticated members.'}
+                                        : event.requires_approval
+                                            ? 'Registration is open (Requires Executive Approval).'
+                                            : 'Registration is open for all authenticated members.'}
                             </span>
                         )}
                     </div>
@@ -766,6 +783,19 @@ const EventDetailPage = () => {
                             >
                                 This event has ended
                             </button>
+                        ) : userRegistration?.status === 'pending' ? (
+                            <div className="flex flex-col sm:flex-row items-center gap-2">
+                                <span className="text-xs px-3 py-1.5 bg-amber-50 text-amber-800 rounded-lg border border-amber-200 font-medium flex items-center gap-1">
+                                    <Clock className="w-3.5 h-3.5 text-amber-600" /> Awaiting Approval
+                                </span>
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={submitting}
+                                    className="w-full sm:w-auto px-4 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 font-semibold rounded-xl text-xs border border-rose-200 transition-colors disabled:opacity-50"
+                                >
+                                    {submitting ? 'Cancelling...' : 'Cancel Application'}
+                                </button>
+                            </div>
                         ) : isRegistered ? (
                             <button
                                 onClick={handleCancel}
@@ -787,7 +817,7 @@ const EventDetailPage = () => {
                                 disabled={submitting}
                                 className="w-full sm:w-auto px-6 py-3 bg-[#2563eb] hover:bg-[#0051d5] text-white font-semibold rounded-xl text-sm shadow-xs transition-colors disabled:opacity-50"
                             >
-                                {submitting ? 'Processing...' : 'Register for Event'}
+                                {submitting ? 'Processing...' : userRegistration?.status === 'rejected' ? 'Re-apply for Event' : 'Register for Event'}
                             </button>
                         )}
                     </div>
