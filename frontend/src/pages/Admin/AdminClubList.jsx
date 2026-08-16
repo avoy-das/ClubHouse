@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import clubService from '../../services/clubService';
 import UserManagementSection from '../../components/admin/UserManagementSection';
+import SuspendClubModal from '../../components/admin/SuspendClubModal';
 import { Shield, Building2, BarChart2, Users } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const statusStyles = {
     pending:  'bg-amber-100 text-amber-800',
@@ -13,10 +16,12 @@ const statusStyles = {
 };
 
 const AdminClubList = () => {
+    usePageTitle('Admin — Clubs');
     const [clubs, setClubs]         = useState([]);
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState(null);
     const [rejectModal, setRejectModal] = useState({ open: false, clubId: null, type: 'club' }); // type: 'club' | 'edit_request'
+    const [suspendModal, setSuspendModal] = useState({ open: false, clubId: null, clubName: '' });
     const [rejectReason, setRejectReason] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
@@ -92,14 +97,27 @@ const AdminClubList = () => {
         }
     };
 
-    const handleSuspend = async (id) => {
-        if (!window.confirm('Suspend this club?')) return;
+    const handleSuspendConfirm = async (reason) => {
         setActionLoading(true);
         try {
-            await clubService.adminSuspend(id);
+            await clubService.adminSuspend(suspendModal.clubId, reason);
+            fetchClubs();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to suspend club.');
+            throw err;
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleActivate = async (id) => {
+        if (!window.confirm('Make this club active again?')) return;
+        setActionLoading(true);
+        try {
+            await clubService.adminActivate(id);
             fetchClubs();
         } catch {
-            alert('Failed to suspend club.');
+            alert('Failed to activate club.');
         } finally {
             setActionLoading(false);
         }
@@ -233,15 +251,17 @@ const AdminClubList = () => {
                                         {clubs.map(club => (
                                             <tr key={club.id} className="hover:bg-[#f8f9ff]/60 transition-colors">
                                                 <td className="px-5 py-4">
-                                                    <p className="font-semibold text-[#0b1c30]">{club.name}</p>
+                                                    <Link to={`/clubs/${club.id}`} className="font-semibold text-[#0b1c30] hover:text-blue-600 transition-colors">
+                                                        {club.name}
+                                                    </Link>
                                                     {club.department && <p className="text-xs text-slate-400 mt-0.5">{club.department}</p>}
                                                 </td>
                                                 <td className="px-5 py-4 text-slate-600">{club.category}</td>
                                                 <td className="px-5 py-4 text-slate-600">{club.creator?.name}</td>
                                                 <td className="px-5 py-4 text-xs">
-                                                    {club.permission_doc_path ? (
+                                                    {getImageUrl(club.permission_doc_url || club.permission_doc_path) ? (
                                                         <a
-                                                            href={`/storage/${club.permission_doc_path}`}
+                                                            href={getImageUrl(club.permission_doc_url || club.permission_doc_path)}
                                                             target="_blank"
                                                             rel="noreferrer"
                                                             className="text-blue-600 hover:underline font-semibold"
@@ -279,14 +299,23 @@ const AdminClubList = () => {
                                                         )}
                                                         {club.status === 'approved' && (
                                                             <button
-                                                                onClick={() => handleSuspend(club.id)}
+                                                                onClick={() => setSuspendModal({ open: true, clubId: club.id, clubName: club.name })}
                                                                 disabled={actionLoading}
                                                                 className="px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
                                                             >
                                                                 Suspend
                                                             </button>
                                                         )}
-                                                        {(club.status === 'rejected' || club.status === 'suspended') && (
+                                                        {club.status === 'suspended' && (
+                                                            <button
+                                                                onClick={() => handleActivate(club.id)}
+                                                                disabled={actionLoading}
+                                                                className="px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                                                            >
+                                                                Activate
+                                                            </button>
+                                                        )}
+                                                        {club.status === 'rejected' && (
                                                             <span className="text-xs text-slate-400">No actions</span>
                                                         )}
                                                     </div>
@@ -310,9 +339,9 @@ const AdminClubList = () => {
 
             {/* Reject Modal */}
             {rejectModal.open && (
-                <div className="fixed inset-0 bg-[#0f172a]/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-200">
-                        <h3 className="text-base font-bold text-[#0b1c30] mb-4">
+                <div className="fixed inset-0 bg-[#0f172a]/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-200 my-auto max-h-[90vh] flex flex-col overflow-hidden relative">
+                        <h3 className="text-base font-bold text-[#0b1c30] mb-4 shrink-0">
                             Reject {rejectModal.type === 'edit_request' ? 'Club Edit Request' : 'Club Request'}
                         </h3>
                         <textarea
@@ -320,9 +349,9 @@ const AdminClubList = () => {
                             onChange={e => setRejectReason(e.target.value)}
                             rows={3}
                             placeholder="Provide a reason for rejection..."
-                            className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] resize-none mb-4 bg-[#f8f9ff]"
+                            className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] resize-none mb-4 bg-[#f8f9ff] flex-1"
                         />
-                        <div className="flex justify-end gap-3">
+                        <div className="flex justify-end gap-3 shrink-0">
                             <button
                                 onClick={() => {
                                     setRejectModal({ open: false, clubId: null, type: 'club' });
@@ -343,6 +372,14 @@ const AdminClubList = () => {
                     </div>
                 </div>
             )}
+
+            {/* Suspend Club Modal */}
+            <SuspendClubModal
+                isOpen={suspendModal.open}
+                onClose={() => setSuspendModal({ open: false, clubId: null, clubName: '' })}
+                clubName={suspendModal.clubName}
+                onConfirm={handleSuspendConfirm}
+            />
         </MainLayout>
     );
 };

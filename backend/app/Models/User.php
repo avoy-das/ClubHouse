@@ -18,8 +18,8 @@ class User extends Authenticatable
         'email',
         'password',
         'department',
+        'session',
         'phone',
-        'is_admin',
     ];
 
     protected $hidden = [
@@ -33,6 +33,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
             'is_admin'          => 'boolean',
+            'session'           => 'integer',
         ];
     }
 
@@ -66,7 +67,9 @@ class User extends Authenticatable
         $clubId = $club instanceof Club ? $club->id : $club;
         return $this->clubMemberships()
             ->where('club_id', $clubId)
-            ->where('status', 'active')
+            ->where(function ($st) {
+                $st->where('status', 'active')->orWhereNull('status');
+            })
             ->exists();
     }
 
@@ -76,7 +79,9 @@ class User extends Authenticatable
 
         return $this->clubMemberships()
             ->where('club_id', $clubId)
-            ->where('status', 'active')
+            ->where(function ($st) {
+                $st->where('status', 'active')->orWhereNull('status');
+            })
             ->where(function ($query) use ($permission) {
                 $query->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
                       ->orWhereHas('positions', function ($q) use ($permission) {
@@ -90,13 +95,11 @@ class User extends Authenticatable
 
     public function getExecutiveClubs()
     {
-        if ($this->is_admin) {
-            return Club::where('status', 'approved')->get(['id', 'name']);
-        }
-
         return Club::whereHas('members', function ($q) {
             $q->where('user_id', $this->id)
-              ->where('status', 'active')
+              ->where(function ($st) {
+                  $st->where('status', 'active')->orWhereNull('status');
+              })
               ->where(function ($q2) {
                   $q2->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
                      ->orWhereHas('positions', function ($p) {
@@ -118,7 +121,9 @@ class User extends Authenticatable
 
         $member = ClubMember::where('club_id', $clubId)
             ->where('user_id', $this->id)
-            ->where('status', 'active')
+            ->where(function ($st) {
+                $st->where('status', 'active')->orWhereNull('status');
+            })
             ->first();
 
         if (!$member) {

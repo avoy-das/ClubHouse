@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
-import { AlertTriangle, Calendar } from 'lucide-react';
+import { AlertTriangle, Calendar, Image as ImageIcon, Plus, Trash2, CalendarSearch } from 'lucide-react';
 import { formatForDatetimeLocal, datetimeLocalToISO, formatDisplayDateTime } from '../../utils/dateUtils';
+import { getImageUrl } from '../../utils/imageUrl';
+import compressImage from '../../utils/imageCompressor';
 
 const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClubId = '', isLockedClub = false }) => {
     const isEdit = Boolean(eventToEdit);
@@ -10,6 +12,7 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
     const [clubs, setClubs] = useState([]);
     const [fetchingClubs, setFetchingClubs] = useState(false);
     const [noExecutiveClubs, setNoExecutiveClubs] = useState(false);
+    const [customFields, setCustomFields] = useState([]);
     const [formData, setFormData] = useState({
         club_id: defaultClubId || '',
         title: '',
@@ -20,21 +23,46 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
         capacity: 50,
         starts_at: '',
         ends_at: '',
+        feedback_policy: 'attended_only',
     });
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [warning, setWarning] = useState(null);
+
+    const [bannerFile, setBannerFile] = useState(null);
+    const [bannerPreview, setBannerPreview] = useState(null);
 
     // Schedule state for conflict checking
     const [showSchedule, setShowSchedule] = useState(false);
     const [scheduleEvents, setScheduleEvents] = useState([]);
     const [loadingSchedule, setLoadingSchedule] = useState(false);
 
+    const addCustomField = () => {
+        setCustomFields(prev => [
+            ...prev,
+            { id: `field_${Date.now()}`, label: '', type: 'text', required: false, options: [] }
+        ]);
+    };
+
+    const updateCustomField = (index, key, value) => {
+        setCustomFields(prev => {
+            const updated = [...prev];
+            updated[index] = { ...updated[index], [key]: value };
+            return updated;
+        });
+    };
+
+    const removeCustomField = (index) => {
+        setCustomFields(prev => prev.filter((_, i) => i !== index));
+    };
+
     useEffect(() => {
         if (isOpen) {
             setError(null);
             setWarning(null);
             setNoExecutiveClubs(false);
+            setBannerFile(null);
 
             if (!isEdit) {
                 setFetchingClubs(true);
@@ -54,12 +82,16 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     })
                     .catch(() => {
                         setClubs([]);
-                        setNoExecutiveClubs(true);
+                        if (!defaultClubId) {
+                            setNoExecutiveClubs(true);
+                        }
                     })
                     .finally(() => setFetchingClubs(false));
             }
 
             if (eventToEdit) {
+                setBannerPreview(getImageUrl(eventToEdit.banner_url || eventToEdit.banner_path));
+                setCustomFields(Array.isArray(eventToEdit.custom_fields) ? eventToEdit.custom_fields : []);
                 setFormData({
                     club_id: eventToEdit.club_id || '',
                     title: eventToEdit.title || '',
@@ -68,10 +100,14 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     location_type: eventToEdit.location_type || 'physical',
                     location_value: eventToEdit.location_value || '',
                     capacity: eventToEdit.capacity || 50,
+                    requires_approval: Boolean(eventToEdit.requires_approval),
                     starts_at: formatForDatetimeLocal(eventToEdit.starts_at),
                     ends_at: formatForDatetimeLocal(eventToEdit.ends_at),
+                    feedback_policy: eventToEdit.feedback_policy || 'attended_only',
                 });
             } else {
+                setBannerPreview(null);
+                setCustomFields([]);
                 // Default start time: 1 day from now at 10:00 AM
                 const defaultStart = new Date(Date.now() + 86400000);
                 defaultStart.setHours(10, 0, 0, 0);
@@ -86,8 +122,10 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                     location_type: 'physical',
                     location_value: '',
                     capacity: 50,
+                    requires_approval: false,
                     starts_at: formatForDatetimeLocal(defaultStart),
                     ends_at: formatForDatetimeLocal(defaultEnd),
+                    feedback_policy: 'attended_only',
                 }));
             }
         }
@@ -96,8 +134,17 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
     if (!isOpen) return null;
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    };
+
+    const handleBannerChange = async (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 600, quality: 0.82 });
+            setBannerFile(compressed);
+            setBannerPreview(URL.createObjectURL(compressed));
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -113,12 +160,34 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
             return;
         }
 
-        const payload = {
-            ...formData,
-            capacity: Number(formData.capacity),
-            starts_at: datetimeLocalToISO(formData.starts_at),
-            ends_at: datetimeLocalToISO(formData.ends_at),
-        };
+        let payload;
+        const hasFile = Boolean(bannerFile);
+
+        if (hasFile) {
+            payload = new FormData();
+            if (formData.club_id) payload.append('club_id', String(formData.club_id));
+            payload.append('title', formData.title);
+            payload.append('description', formData.description || '');
+            payload.append('visibility', formData.visibility);
+            payload.append('location_type', formData.location_type);
+            payload.append('location_value', formData.location_value || '');
+            payload.append('capacity', String(formData.capacity));
+            payload.append('requires_approval', formData.requires_approval ? '1' : '0');
+            payload.append('starts_at', datetimeLocalToISO(formData.starts_at));
+            payload.append('ends_at', datetimeLocalToISO(formData.ends_at));
+            payload.append('feedback_policy', formData.feedback_policy || 'attended_only');
+            payload.append('banner', bannerFile);
+            payload.append('custom_fields', JSON.stringify(customFields));
+        } else {
+            payload = {
+                ...formData,
+                capacity: Number(formData.capacity),
+                requires_approval: Boolean(formData.requires_approval),
+                starts_at: datetimeLocalToISO(formData.starts_at),
+                ends_at: datetimeLocalToISO(formData.ends_at),
+                custom_fields: customFields,
+            };
+        }
 
         try {
             let res;
@@ -137,7 +206,11 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
             }
             onClose();
         } catch (err) {
-            const msg = err.response?.data?.message || (isEdit ? 'Failed to update event.' : 'Failed to create event.');
+            let msg = err.response?.data?.message || (isEdit ? 'Failed to update event.' : 'Failed to create event.');
+            if (err.response?.data?.errors) {
+                const firstErr = Object.values(err.response.data.errors).flat()[0];
+                if (firstErr) msg = firstErr;
+            }
             setError(msg);
         } finally {
             setLoading(false);
@@ -146,41 +219,43 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0f172a]/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full p-6 relative animate-in fade-in zoom-in duration-150">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden my-auto relative animate-in fade-in zoom-in duration-150">
+                {/* Fixed Header */}
+                <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100 shrink-0 bg-white">
                     <h2 className="text-lg font-bold text-[#0b1c30] flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-blue-600" />
                         {isEdit ? 'Edit Event Details' : 'Create New Event'}
                     </h2>
                     <button
                         onClick={onClose}
-                        className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1"
+                        className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 rounded-lg hover:bg-slate-100 transition-colors"
                     >
                         &times;
                     </button>
                 </div>
 
-                {noExecutiveClubs && (
-                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center gap-1.5 font-medium">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>You are not an executive of any club. Only club executives can create events.</span>
-                    </div>
-                )}
+                {/* Scrollable Form Body */}
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                    <div className="p-6 overflow-y-auto flex-1 space-y-4 text-sm">
+                        {noExecutiveClubs && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center gap-1.5 font-medium">
+                                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span>You are not an executive of any club. Only club executives can create events.</span>
+                            </div>
+                        )}
 
-                {error && (
-                    <div className="mt-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg">
-                        {error}
-                    </div>
-                )}
+                        {error && (
+                            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg">
+                                {error}
+                            </div>
+                        )}
 
-                {warning && (
-                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center gap-1.5">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>{warning}</span>
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-sm">
+                        {warning && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center gap-1.5">
+                                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span>{warning}</span>
+                            </div>
+                        )}
                     {/* Club Selector (Only if creating) */}
                     {!isEdit && (
                         <div>
@@ -249,6 +324,22 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                         />
                     </div>
 
+                    {/* Event Banner / Poster Upload */}
+                    <div>
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Event Banner / Poster Image (Optional)</label>
+                        {bannerPreview && (
+                            <div className="mb-2 h-24 w-full rounded-xl border border-slate-200 overflow-hidden bg-slate-50 relative">
+                                <img src={bannerPreview} alt="Event Banner preview" className="w-full h-full object-cover" />
+                            </div>
+                        )}
+                        <input
+                            type="file"
+                            accept="image/png, image/jpeg, image/jpg, image/webp"
+                            onChange={handleBannerChange}
+                            className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+                        />
+                    </div>
+
                     {/* Grid: Visibility & Location Type */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
@@ -276,6 +367,44 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                 <option value="online">Online Stream / Video Link</option>
                             </select>
                         </div>
+                    </div>
+
+                    {/* Feedback Policy Setting */}
+                    <div>
+                        <label className="block text-xs font-semibold text-[#0b1c30] mb-1">Feedback Policy *</label>
+                        <select
+                            name="feedback_policy"
+                            value={formData.feedback_policy || 'attended_only'}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-[#2563eb] bg-[#f8f9ff]"
+                        >
+                            <option value="attended_only">Attended Only (Check-in Required)</option>
+                            <option value="registered_only">All Registered Attendees (No Check-in Needed)</option>
+                            <option value="open_to_all">Open to All Students (Public Feedback)</option>
+                        </select>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                            Determines who can submit feedback after the event ends.
+                        </p>
+                    </div>
+
+                    {/* Moderated Registration Mode Toggle */}
+                    <div className="p-3 bg-[#f8f9ff] border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                        <div>
+                            <label htmlFor="requires_approval" className="text-xs font-bold text-[#0b1c30] block cursor-pointer">
+                                Moderated Registration Mode
+                            </label>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                Require executive approval for each registration before confirmation.
+                            </p>
+                        </div>
+                        <input
+                            type="checkbox"
+                            id="requires_approval"
+                            name="requires_approval"
+                            checked={Boolean(formData.requires_approval)}
+                            onChange={handleChange}
+                            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer shrink-0"
+                        />
                     </div>
 
                     {/* Location Value & Capacity */}
@@ -344,15 +473,15 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                     setLoadingSchedule(true);
                                     eventService.getSchedule()
                                         .then(res => setScheduleEvents(res.data || []))
-                                        .catch(() => {})
+                                        .catch(() => { })
                                         .finally(() => setLoadingSchedule(false));
                                 }
                             }}
                             className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-between transition-colors"
                         >
                             <span className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-blue-600" />
-                                {showSchedule ? 'Hide Scheduled Events' : '📋 View Scheduled Events (Conflict Check)'}
+                                <CalendarSearch className="w-4 h-4 text-blue-600" />
+                                {showSchedule ? 'Hide Scheduled Events' : 'View Scheduled Events (Conflict Check)'}
                             </span>
                             <span className="text-xs text-slate-400 font-bold">{showSchedule ? '▲' : '▼'}</span>
                         </button>
@@ -382,11 +511,10 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                                             return (
                                                 <div
                                                     key={evt.id}
-                                                    className={`p-2.5 rounded-lg border text-xs transition-colors ${
-                                                        isOverlapping
+                                                    className={`p-2.5 rounded-lg border text-xs transition-colors ${isOverlapping
                                                             ? 'bg-amber-50 border-amber-300 text-amber-900'
                                                             : 'bg-white border-slate-200 text-slate-700'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <div className="flex items-start justify-between gap-2">
                                                         <span className="font-bold text-[#0b1c30]">{evt.title}</span>
@@ -412,8 +540,99 @@ const EventModal = ({ isOpen, onClose, onSuccess, eventToEdit = null, defaultClu
                         )}
                     </div>
 
-                    {/* Footer Buttons */}
-                    <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                    {/* Custom Event Registration Form Fields Builder */}
+                    <div className="pt-3 border-t border-slate-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <label className="block text-xs font-bold text-[#0b1c30]">Custom Registration Form Fields</label>
+                                <p className="text-[11px] text-slate-500">Add custom text, selection, or checkbox questions for event attendees.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={addCustomField}
+                                className="px-2.5 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                Add Field
+                            </button>
+                        </div>
+
+                        {customFields.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic py-2 px-3 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                No custom fields added yet. Default single-click registration will be used.
+                            </p>
+                        ) : (
+                            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                                {customFields.map((field, idx) => (
+                                    <div key={field.id || idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs relative">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="font-bold text-slate-700">Question #{idx + 1}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCustomField(idx)}
+                                                className="text-rose-500 hover:text-rose-700 text-xs font-semibold p-1"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                                            <div className="sm:col-span-7">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Question Label (e.g. T-Shirt Size)"
+                                                    value={field.label || ''}
+                                                    onChange={(e) => updateCustomField(idx, 'label', e.target.value)}
+                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 bg-white"
+                                                />
+                                            </div>
+
+                                            <div className="sm:col-span-5">
+                                                <select
+                                                    value={field.type || 'text'}
+                                                    onChange={(e) => updateCustomField(idx, 'type', e.target.value)}
+                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 bg-white"
+                                                >
+                                                    <option value="text">Short Text</option>
+                                                    <option value="textarea">Long Text / Paragraph</option>
+                                                    <option value="select">Dropdown Options</option>
+                                                    <option value="checkbox">Confirmation Checkbox</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {field.type === 'select' && (
+                                            <div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Comma-separated options (e.g. Small, Medium, Large, XL)"
+                                                    value={Array.isArray(field.options) ? field.options.join(', ') : (field.options || '')}
+                                                    onChange={(e) => updateCustomField(idx, 'options', e.target.value.split(',').map(s => s.trim()))}
+                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 bg-white"
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <label className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={Boolean(field.required)}
+                                                    onChange={(e) => updateCustomField(idx, 'required', e.target.checked)}
+                                                    className="rounded text-blue-600 focus:ring-blue-500"
+                                                />
+                                                <span>Required response</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    </div>
+
+                    {/* Fixed Footer Buttons */}
+                    <div className="p-6 pt-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0 bg-white">
                         <button
                             type="button"
                             onClick={onClose}

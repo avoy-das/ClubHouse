@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Club;
 use App\Models\ClubGallery;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,12 +23,14 @@ class ClubGalleryController extends Controller
         }
 
         $request->validate([
-            'image_path' => 'required|string|max:255',
-            'caption'    => 'nullable|string|max:255',
+            'image'   => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'caption' => 'nullable|string|max:255',
         ]);
 
+        $imagePath = $request->file('image')->store('clubs/galleries', 'public');
+
         $item = $club->galleries()->create([
-            'image_path'  => $request->input('image_path'),
+            'image_path'  => $imagePath,
             'caption'     => $request->input('caption'),
             'uploaded_by' => $user->id,
         ]);
@@ -41,6 +44,10 @@ class ClubGalleryController extends Controller
         if (!$user->is_admin && !$user->hasClubPermission($gallery->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
+
+        AuditService::log('club.gallery_deleted', $gallery, [
+            'caption' => $gallery->caption,
+        ], $user->id, $gallery->club_id);
 
         $gallery->delete();
 

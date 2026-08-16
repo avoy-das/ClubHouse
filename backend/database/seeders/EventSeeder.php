@@ -29,12 +29,12 @@ class EventSeeder extends Seeder
         );
 
         $club = Club::firstOrCreate(
-            ['name' => 'Computer Club'],
+            ['name' => 'NSTU CSTE Club'],
             [
                 'description'   => 'Empowering students through tech & innovation.',
                 'category'      => 'Technology',
                 'department'    => 'CSTE',
-                'contact_email' => 'computerclub@nstu.edu.bd',
+                'contact_email' => 'nstu-cste-club@nstu.edu.bd',
                 'reason'        => 'Promoting computer science education',
                 'status'        => 'approved',
                 'created_by'    => $admin->id,
@@ -45,7 +45,7 @@ class EventSeeder extends Seeder
         $users = [];
         for ($i = 1; $i <= 5; $i++) {
             $users[] = User::firstOrCreate(
-                ['email' => "student{$i}@nstu.edu.bd"],
+                ['email' => "student{$i}@student.nstu.edu.bd"],
                 [
                     'name'       => "Student {$i}",
                     'student_id' => "ASH19000" . ($i + 1) . "M",

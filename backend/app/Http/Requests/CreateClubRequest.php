@@ -16,12 +16,13 @@ class CreateClubRequest extends FormRequest
         return [
             'name'          => 'required|string|max:255|unique:clubs,name',
             'category'      => 'required|in:Academic,Technology,Cultural,Sports,Arts & Media,Business & Entrepreneurship,Community Service,Environment,Health & Wellness,Recreation & Hobby,Other',
-            'description'   => 'required|string',
+            'description'   => 'required|string|max:10000',
             'department'    => 'nullable|string|max:255',
             'contact_email' => 'required|email',
             'contact_phone' => 'nullable|string|max:20',
-            'logo'          => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'reason'        => 'required|string',
+            'logo'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'banner'        => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'reason'        => 'required|string|max:2000',
         ];
     }
 }

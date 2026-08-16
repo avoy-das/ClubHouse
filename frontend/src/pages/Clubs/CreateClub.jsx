@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import clubService from '../../services/clubService';
-import { ArrowLeft, Building2 } from 'lucide-react';
+import compressImage from '../../utils/imageCompressor';
+import { ArrowLeft, Building2, Image as ImageIcon } from 'lucide-react';
 
 const categories = [
     'Academic', 'Technology', 'Cultural', 'Sports',
@@ -15,6 +16,8 @@ const CreateClub = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [errors, setErrors]   = useState({});
+    const [logoPreview, setLogoPreview]     = useState(null);
+    const [bannerPreview, setBannerPreview] = useState(null);
     const [form, setForm]       = useState({
         name:          '',
         category:      '',
@@ -24,15 +27,29 @@ const CreateClub = () => {
         contact_phone: '',
         reason:        '',
         logo:          null,
+        banner:        null,
         permission_document: null,
     });
 
-    const handleChange = e => {
+    const handleChange = async e => {
         const { name, value, files } = e.target;
-        setForm(prev => ({
-            ...prev,
-            [name]: files ? files[0] : value,
-        }));
+        if (files && files[0]) {
+            const rawFile = files[0];
+
+            if (name === 'logo') {
+                const compressed = await compressImage(rawFile, { maxWidth: 400, maxHeight: 400, quality: 0.85 });
+                setForm(prev => ({ ...prev, logo: compressed }));
+                setLogoPreview(URL.createObjectURL(compressed));
+            } else if (name === 'banner') {
+                const compressed = await compressImage(rawFile, { maxWidth: 1200, maxHeight: 600, quality: 0.82 });
+                setForm(prev => ({ ...prev, banner: compressed }));
+                setBannerPreview(URL.createObjectURL(compressed));
+            } else {
+                setForm(prev => ({ ...prev, [name]: rawFile }));
+            }
+        } else {
+            setForm(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleSubmit = async () => {
@@ -185,21 +202,59 @@ const CreateClub = () => {
                         )}
                     </div>
 
-                    {/* Logo */}
-                    <div>
-                        <label className="block text-sm font-medium text-[#0b1c30] mb-1">
-                            Club Logo <span className="text-slate-400 font-normal">(optional)</span>
-                        </label>
-                        <input
-                            type="file"
-                            name="logo"
-                            accept="image/png, image/jpeg"
-                            onChange={handleChange}
-                            className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-[#f8f9ff] file:text-[#0b1c30] hover:file:bg-slate-200"
-                        />
-                        {errors.logo && (
-                            <p className="text-red-500 text-xs mt-1">{errors.logo[0]}</p>
-                        )}
+                    {/* Logo & Banner Section */}
+                    <div className="pt-2 border-t border-slate-100 space-y-4">
+                        {/* Logo Upload */}
+                        <div>
+                            <label className="block text-sm font-medium text-[#0b1c30] mb-1">
+                                Club Logo <span className="text-slate-400 font-normal">(optional)</span>
+                            </label>
+                            <div className="flex items-center gap-4 mt-1">
+                                {logoPreview ? (
+                                    <div className="w-12 h-12 rounded-full border border-slate-200 overflow-hidden shrink-0 bg-slate-50">
+                                        <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
+                                    </div>
+                                ) : (
+                                    <div className="w-12 h-12 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 shrink-0 bg-slate-50">
+                                        <Building2 className="w-5 h-5" />
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    name="logo"
+                                    accept="image/png, image/jpeg, image/webp"
+                                    onChange={handleChange}
+                                    className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-[#f8f9ff] file:text-[#0b1c30] hover:file:bg-slate-200"
+                                />
+                            </div>
+                            {errors.logo && (
+                                <p className="text-red-500 text-xs mt-1">{errors.logo[0]}</p>
+                            )}
+                        </div>
+
+                        {/* Banner Upload */}
+                        <div>
+                            <label className="block text-sm font-medium text-[#0b1c30] mb-1">
+                                Club Banner Image <span className="text-slate-400 font-normal">(optional - 3:1 aspect ratio recommended)</span>
+                            </label>
+                            {bannerPreview && (
+                                <div className="mb-2 h-24 w-full rounded-xl border border-slate-200 overflow-hidden bg-slate-50 relative">
+                                    <img src={bannerPreview} alt="Banner preview" className="w-full h-full object-cover" />
+                                </div>
+                            )}
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="file"
+                                    name="banner"
+                                    accept="image/png, image/jpeg, image/webp"
+                                    onChange={handleChange}
+                                    className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-[#f8f9ff] file:text-[#0b1c30] hover:file:bg-slate-200"
+                                />
+                            </div>
+                            {errors.banner && (
+                                <p className="text-red-500 text-xs mt-1">{errors.banner[0]}</p>
+                            )}
+                        </div>
                     </div>
 
                     <button

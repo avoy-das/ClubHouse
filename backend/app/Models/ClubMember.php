@@ -12,6 +12,7 @@ class ClubMember extends Model
         'club_id',
         'user_id',
         'role',
+        'status',
         'joined_at',
     ];
 

@@ -1,10 +1,10 @@
-const Modal = ({ isOpen, onClose, title, children }) => {
+const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => {
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-100 transform transition-all">
-                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className={`bg-white rounded-xl shadow-xl ${maxWidth} w-full max-h-[90vh] flex flex-col overflow-hidden border border-gray-100 transform transition-all my-auto`}>
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
                     <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
                     <button
                         onClick={onClose}
@@ -15,7 +15,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
                         </svg>
                     </button>
                 </div>
-                <div className="p-6">{children}</div>
+                <div className="p-6 overflow-y-auto flex-1">{children}</div>
             </div>
         </div>
     );

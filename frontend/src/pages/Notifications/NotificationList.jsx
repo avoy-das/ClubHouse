@@ -4,12 +4,15 @@ import MainLayout from '../../layouts/MainLayout';
 import notificationService from '../../services/notificationService';
 import announcementService from '../../services/announcementService';
 import { getNotificationTargetUrl, isAnnouncementNotification } from '../../utils/notificationUtils';
+import { getImageUrl } from '../../utils/imageUrl';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import Modal from '../../components/ui/Modal';
-import { Bell, CheckCheck, ArrowRight, Check, Megaphone, Calendar, User, Building2 } from 'lucide-react';
+import { Bell, CheckCheck, ArrowRight, Check, Megaphone, Calendar, User, Building2, Paperclip, ExternalLink } from 'lucide-react';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const NotificationList = () => {
+    usePageTitle('Notifications');
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -212,10 +215,29 @@ const NotificationList = () => {
                             </div>
                         </div>
 
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                            {selectedAnnouncement.sender_role_label && (
+                                <div className="text-xs font-semibold text-slate-700 bg-amber-50 px-2.5 py-1 rounded border border-amber-200/60 inline-block">
+                                    From: <strong className="text-amber-950">{selectedAnnouncement.sender_role_label}</strong>
+                                </div>
+                            )}
                             <p className="text-sm text-slate-800 whitespace-pre-line leading-relaxed">
                                 {selectedAnnouncement.body}
                             </p>
+                            {selectedAnnouncement.attachment_path && (
+                                <div className="pt-2 border-t border-slate-200">
+                                    <a
+                                        href={getImageUrl(selectedAnnouncement.attachment_url || selectedAnnouncement.attachment_path)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold border border-blue-200 transition-colors shadow-2xs"
+                                    >
+                                        <Paperclip className="w-3.5 h-3.5 text-blue-600 inline shrink-0" />
+                                        <span>Attachment: {selectedAnnouncement.attachment_name || 'View Attachment'}</span>
+                                        <ExternalLink className="w-3.5 h-3.5 inline shrink-0" />
+                                    </a>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex justify-end pt-2">

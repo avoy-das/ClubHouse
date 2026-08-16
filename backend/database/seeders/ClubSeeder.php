@@ -12,7 +12,7 @@ class ClubSeeder extends Seeder
     public function run(): void
     {
         $admin = User::firstOrCreate(
-            ['email' => 'admin@university.edu'],
+            ['email' => 'admin@nstu.edu.bd'],
             [
                 'name'       => 'System Admin',
                 'student_id' => 'ADMIN-001',
@@ -24,7 +24,7 @@ class ClubSeeder extends Seeder
         );
 
         $student = User::firstOrCreate(
-            ['email' => 'student@university.edu'],
+            ['email' => 'student@student.nstu.edu.bd'],
             [
                 'name'       => 'John Student',
                 'student_id' => 'STU-1001',
@@ -40,21 +40,21 @@ class ClubSeeder extends Seeder
                 'name'          => 'Computer Science Society',
                 'category'      => 'Technology',
                 'description'   => 'The official student organization for computer science, software engineering, and AI enthusiasts.',
-                'contact_email' => 'cs.society@university.edu',
+                'contact_email' => 'cs.society@nstu.edu.bd',
                 'reason'        => 'Promoting CS & IT skills',
             ],
             [
                 'name'          => 'Robotics & Automation Club',
                 'category'      => 'Technology',
                 'description'   => 'Building next-generation autonomous systems, drones, and competitive robots.',
-                'contact_email' => 'robotics@university.edu',
+                'contact_email' => 'robotics@nstu.edu.bd',
                 'reason'        => 'Advancing robotics research',
             ],
             [
                 'name'          => 'University Debating Club',
                 'category'      => 'Academic',
                 'description'   => 'Fostering critical thinking, public speaking, and parliamentary debate excellence.',
-                'contact_email' => 'debate@university.edu',
+                'contact_email' => 'debate@nstu.edu.bd',
                 'reason'        => 'Enhancing debating skills',
             ],
         ];

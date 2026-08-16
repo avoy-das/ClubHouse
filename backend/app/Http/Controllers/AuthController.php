@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 
 class AuthController extends Controller
 {
@@ -42,16 +43,6 @@ class AuthController extends Controller
         $email = $credentials['email'] ?? null;
 
         if (!Auth::attempt($credentials)) {
-            $user = $email ? User::where('email', strtolower($email))->first() : null;
-
-            AuditService::log('auth.login.failed', $user, [
-                'email'      => $email,
-                'ip'         => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'status'     => 'failed',
-                'reason'     => 'Invalid credentials',
-            ], $user?->id);
-
             return response()->json([
                 'message' => 'Invalid credentials.',
             ], 401);
@@ -59,13 +50,6 @@ class AuthController extends Controller
 
         $user  = Auth::user();
         $token = $user->createToken('auth_token')->plainTextToken;
-
-        AuditService::log('auth.login.success', $user, [
-            'email'      => $user->email,
-            'ip'         => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'status'     => 'success',
-        ], $user->id);
 
         return response()->json([
             'user'  => $user,
@@ -94,6 +78,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'phone'      => ['nullable', 'string', 'max:20'],
             'department' => ['sometimes', 'string', 'max:255'],
+            'session'    => ['nullable', 'integer', 'min:0', 'max:99'],
         ]);
 
         $user->update($validated);
@@ -114,7 +99,7 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
-            'new_password'     => ['required', 'string', 'min:8', 'confirmed'],
+            'new_password'     => ['required', 'string', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers()],
         ]);
 
         if (!Hash::check($validated['current_password'], $user->password)) {
@@ -126,6 +111,9 @@ class AuthController extends Controller
         $user->update([
             'password' => \Illuminate\Support\Facades\Hash::make($validated['new_password']),
         ]);
+
+        $user->tokens()->delete();
+        $newToken = $user->createToken('auth_token')->plainTextToken;
 
         AuditService::log('auth.password.changed', $user, [], $user->id);
 
@@ -140,6 +128,21 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Password updated successfully.',
+            'token'   => $newToken,
+        ]);
+    }
+
+    public function logoutAll(): JsonResponse
+    {
+        $user = auth()->user();
+        $user->tokens()->delete();
+
+        AuditService::log('auth.logout_all', $user, [
+            'ip' => request()->ip(),
+        ], $user->id);
+
+        return response()->json([
+            'message' => 'Logged out of all devices successfully.',
         ]);
     }
 
@@ -152,5 +155,68 @@ class AuthController extends Controller
             ->get();
 
         return response()->json($memberships);
+    }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $status = Password::sendResetLink($request->only('email'));
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return response()->json([
+                'message' => __($status),
+            ]);
+        }
+
+        return response()->json([
+            'message' => __($status),
+        ], 422);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'token'    => ['required', 'string'],
+            'email'    => ['required', 'email'],
+            'password' => ['required', 'string', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers()],
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                ])->save();
+
+                $user->tokens()->delete();
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            $user = User::where('email', $request->email)->first();
+            if ($user) {
+                AuditService::log('auth.password.reset', $user, [], $user->id);
+
+                NotificationService::notifyUser(
+                    $user->id,
+                    'security_alert',
+                    'Password Reset Successful',
+                    'Your password has been successfully reset.',
+                    User::class,
+                    $user->id
+                );
+            }
+
+            return response()->json([
+                'message' => __($status),
+            ]);
+        }
+
+        return response()->json([
+            'message' => __($status),
+        ], 422);
     }
 }

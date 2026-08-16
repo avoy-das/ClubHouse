@@ -33,12 +33,17 @@ class EventRegistrationController extends Controller
         $query = EventRegistration::with('user:id,name,email,student_id,department')
             ->where('event_id', $event->id);
 
+        if ($request->filled('status')) {
+            $query->where('status', $request->query('status'));
+        }
+
         if ($request->filled('search')) {
             $search = $request->query('search');
-            $query->whereHas('user', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('student_id', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+            $escaped = '%' . addcslashes($search, '%_\\') . '%';
+            $query->whereHas('user', function ($q) use ($escaped) {
+                $q->where('name', 'like', $escaped)
+                  ->orWhere('student_id', 'like', $escaped)
+                  ->orWhere('email', 'like', $escaped);
             });
         }
 
@@ -59,27 +64,113 @@ class EventRegistrationController extends Controller
     {
         $user = Auth::user();
 
-        // 1. Guard against duplicate registration (409 Conflict)
-        $alreadyRegistered = EventRegistration::where('event_id', $event->id)
+        // 0. Guard against blocked user (403 Forbidden)
+        $isBlocked = \App\Models\EventBlock::where('event_id', $event->id)
             ->where('user_id', $user->id)
             ->exists();
 
-        if ($alreadyRegistered) {
+        if ($isBlocked) {
             return response()->json([
-                'message' => 'You are already registered for this event.',
-            ], 409);
+                'message' => 'You are blocked from registering for this event.',
+            ], 403);
         }
 
-        // 2. Guard against registering for closed/completed/cancelled/past events
+        // 1. Guard against duplicate registration (409 Conflict)
+        $alreadyRegistered = EventRegistration::where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($alreadyRegistered) {
+            if ($alreadyRegistered->status === 'rejected') {
+                // Delete old rejected record to allow re-application
+                $alreadyRegistered->delete();
+            } else {
+                $msg = match ($alreadyRegistered->status) {
+                    'waitlisted' => 'You are already on the waitlist for this event.',
+                    'pending'    => 'Your registration request is currently pending executive approval.',
+                    default      => 'You are already registered for this event.',
+                };
+                return response()->json(['message' => $msg], 409);
+            }
+        }
+
+        // Guard against registering for events of suspended clubs
+        if ($event->club && $event->club->status === 'suspended') {
+            return response()->json([
+                'message' => 'Registration is not allowed because the hosting club is suspended.',
+            ], 422);
+        }
+
+        // 2. Guard against registering for non-published events (e.g. draft, even for club executives)
+        if ($event->status === 'draft') {
+            return response()->json([
+                'message' => 'Registration is not allowed before the event is published.',
+            ], 422);
+        }
+
+        // Guard against registering for closed/completed/cancelled/past events
         if (in_array($event->status, ['completed', 'cancelled']) || $event->ends_at->isPast()) {
             return response()->json([
                 'message' => 'Registration is closed because this event has ended or is cancelled.',
             ], 422);
         }
 
-        // 3. Perform capacity check and registration inside a DB transaction with pessimistic locking
+        // 3. Extract and process custom field answers / files
+        $answersData = $request->input('answers', []);
+        if (is_string($answersData)) {
+            $answersData = json_decode($answersData, true) ?? [];
+        }
+        if (!is_array($answersData)) {
+            $answersData = [];
+        }
+
+        $allowedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'];
+
+        // Validate uploaded files
+        $request->validate([
+            'answers_files.*' => 'file|max:5120|mimes:pdf,doc,docx,jpg,jpeg,png,webp',
+        ]);
+
+        if ($request->hasFile('answers_files')) {
+            $uploadedFiles = $request->file('answers_files');
+            if (is_array($uploadedFiles)) {
+                foreach ($uploadedFiles as $key => $file) {
+                    if ($file && $file->isValid()) {
+                        $ext = strtolower($file->getClientOriginalExtension());
+                        if (!in_array($ext, $allowedExtensions, true)) {
+                            return response()->json(['message' => 'Invalid file format uploaded.'], 422);
+                        }
+                        $path = $file->store('event_answers', 'public');
+                        $answersData['custom_files'][$key] = [
+                            'name' => $file->getClientOriginalName(),
+                            'path' => $path,
+                            'url'  => asset('storage/' . $path),
+                        ];
+                    }
+                }
+            }
+        }
+
+        foreach ($request->allFiles() as $key => $file) {
+            if ($key !== 'answers_files' && !is_array($file) && $file->isValid()) {
+                $ext = strtolower($file->getClientOriginalExtension());
+                if (!in_array($ext, $allowedExtensions, true) || $file->getSize() > 5242880) {
+                    return response()->json(['message' => 'Invalid file format or file size exceeded (max 5MB).'], 422);
+                }
+                $path = $file->store('event_answers', 'public');
+                $answersData['custom_files'][$key] = [
+                    'name' => $file->getClientOriginalName(),
+                    'path' => $path,
+                    'url'  => asset('storage/' . $path),
+                ];
+            }
+        }
+
+        $status = $event->requires_approval ? 'pending' : 'registered';
+
+        // 4. Perform capacity check and registration inside a DB transaction with pessimistic locking
         try {
-            DB::transaction(function () use ($event, $user) {
+            DB::transaction(function () use ($event, $user, $answersData, &$status) {
                 // Lock the event row for update to prevent concurrent overbooking
                 $lockedEvent = Event::where('id', $event->id)->lockForUpdate()->first();
 
@@ -87,11 +178,11 @@ class EventRegistrationController extends Controller
                     throw new \RuntimeException('Event no longer exists.', 404);
                 }
 
-                // Capacity check if set (capacity null means unlimited)
-                if (!is_null($lockedEvent->capacity)) {
-                    $currentCount = $lockedEvent->registrations()->count();
+                // Capacity check if set (capacity null means unlimited) for unmoderated mode
+                if (!$lockedEvent->requires_approval && !is_null($lockedEvent->capacity)) {
+                    $currentCount = $lockedEvent->registrations()->whereIn('status', ['registered', 'approved'])->count();
                     if ($currentCount >= $lockedEvent->capacity) {
-                        throw new \RuntimeException('This event is fully booked.', 422);
+                        $status = 'waitlisted';
                     }
                 }
 
@@ -99,6 +190,8 @@ class EventRegistrationController extends Controller
                 EventRegistration::create([
                     'event_id' => $lockedEvent->id,
                     'user_id'  => $user->id,
+                    'answers'  => $answersData,
+                    'status'   => $status,
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -108,26 +201,163 @@ class EventRegistrationController extends Controller
             ], $code);
         }
 
-        AuditService::log('event.registered', $event, [
-            'user_id'  => $user->id,
-            'event_id' => $event->id,
-        ]);
+        if ($status === 'pending') {
+            NotificationService::notifyUser(
+                $user->id,
+                'event_registration_pending',
+                'Registration Submitted',
+                "Your registration for event '{$event->title}' has been submitted and is awaiting executive review.",
+                Event::class,
+                $event->id
+            );
+
+            NotificationService::notifyClubExecutives(
+                $event->club_id,
+                'event_registration_pending_exec',
+                'New Registration Pending Review',
+                "A new registration for event '{$event->title}' requires executive review.",
+                Event::class,
+                $event->id,
+                $user->id
+            );
+        } elseif ($status === 'registered') {
+            NotificationService::notifyUser(
+                $user->id,
+                'event_registration_confirmed',
+                'Registration Confirmed',
+                "Your registration for event '{$event->title}' has been confirmed!",
+                Event::class,
+                $event->id
+            );
+        } else {
+            $position = EventRegistration::where('event_id', $event->id)->where('status', 'waitlisted')->count();
+            NotificationService::notifyUser(
+                $user->id,
+                'event_waitlist_joined',
+                'Joined Waitlist',
+                "You have joined the waitlist for event '{$event->title}' (position: {$position}).",
+                Event::class,
+                $event->id
+            );
+        }
+
+        $messageText = match ($status) {
+            'pending'    => 'Registration request submitted! Awaiting executive review.',
+            'registered' => 'Successfully registered for event.',
+            default      => 'Successfully joined the waitlist.',
+        };
+
+        return response()->json([
+            'message'             => $messageText,
+            'is_registered'       => true,
+            'status'              => $status,
+            'registrations_count' => $event->registrations()->whereIn('status', ['registered', 'approved'])->count(),
+            'spots_remaining'     => $event->spotsRemaining(),
+        ], 201);
+    }
+
+    /**
+     * POST /api/events/{event}/registrations/{user}/approve
+     *
+     * Exec-only action to approve a pending attendee registration.
+     */
+    public function approve(Request $request, Event $event, User $user): JsonResponse
+    {
+        $authUser = Auth::user();
+
+        if (!$this->canManageAttendance($authUser, $event)) {
+            return response()->json([
+                'message' => 'Only club executives can approve registrations.',
+            ], 403);
+        }
+
+        $registration = EventRegistration::where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$registration) {
+            return response()->json([
+                'message' => 'Registration request not found.',
+            ], 404);
+        }
+
+        if ($registration->status === 'approved' || $registration->status === 'registered') {
+            return response()->json([
+                'message' => 'Registration is already approved.',
+            ], 409);
+        }
+
+        $registration->update(['status' => 'approved']);
 
         NotificationService::notifyUser(
             $user->id,
-            'event_registration_confirmed',
-            'Registration Confirmed',
-            "Your registration for event '{$event->title}' has been confirmed!",
+            'event_registration_approved',
+            'Registration Approved',
+            "Your registration for event '{$event->title}' has been approved by a club executive!",
             Event::class,
             $event->id
         );
 
         return response()->json([
-            'message'             => 'Successfully registered for event.',
-            'is_registered'       => true,
-            'registrations_count' => $event->registrations()->count(),
+            'message'             => 'Registration successfully approved.',
+            'registration'        => $registration->fresh()->load('user:id,name,email,student_id,department'),
+            'registrations_count' => $event->registrations()->whereIn('status', ['registered', 'approved'])->count(),
             'spots_remaining'     => $event->spotsRemaining(),
-        ], 201);
+        ]);
+    }
+
+    /**
+     * POST /api/events/{event}/registrations/{user}/reject
+     *
+     * Exec-only action to reject a pending attendee registration.
+     */
+    public function reject(Request $request, Event $event, User $user): JsonResponse
+    {
+        $authUser = Auth::user();
+
+        if (!$this->canManageAttendance($authUser, $event)) {
+            return response()->json([
+                'message' => 'Only club executives can reject registrations.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:255',
+        ]);
+
+        $registration = EventRegistration::where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$registration) {
+            return response()->json([
+                'message' => 'Registration request not found.',
+            ], 404);
+        }
+
+        $registration->update(['status' => 'rejected']);
+
+        $reason = $validated['reason'] ?? $request->input('reason');
+        $message = "Your registration for event '{$event->title}' was rejected by a club executive.";
+        if (!empty($reason)) {
+            $message .= " Reason: {$reason}";
+        }
+
+        NotificationService::notifyUser(
+            $user->id,
+            'event_registration_rejected',
+            'Registration Rejected',
+            $message,
+            Event::class,
+            $event->id
+        );
+
+        return response()->json([
+            'message'             => 'Registration request rejected.',
+            'registration'        => $registration->fresh()->load('user:id,name,email,student_id,department'),
+            'registrations_count' => $event->registrations()->whereIn('status', ['registered', 'approved'])->count(),
+            'spots_remaining'     => $event->spotsRemaining(),
+        ]);
     }
 
     /**
@@ -157,19 +387,277 @@ class EventRegistrationController extends Controller
             ], 403);
         }
 
-        $registration->delete();
+        $wasRegistered = ($registration->status === 'registered');
 
-        AuditService::log('event.registration_cancelled', $event, [
-            'user_id'  => $user->id,
-            'event_id' => $event->id,
-        ]);
+        DB::transaction(function () use ($registration, $event, $wasRegistered) {
+            $registration->delete();
+
+            if ($wasRegistered) {
+                $this->promoteNextWaitlistUser($event);
+            }
+        });
 
         return response()->json([
             'message'             => 'Registration successfully cancelled.',
             'is_registered'       => false,
-            'registrations_count' => $event->registrations()->count(),
+            'registrations_count' => $event->registrations()->where('status', 'registered')->count(),
             'spots_remaining'     => $event->spotsRemaining(),
         ]);
+    }
+
+    /**
+     * DELETE /api/events/{event}/registrations/{user}/cancel
+     *
+     * Exec-only action to cancel another user's registration.
+     */
+    public function execCancel(Request $request, Event $event, User $user): JsonResponse
+    {
+        $authUser = Auth::user();
+
+        if (!$authUser->hasClubPermission($event->club_id, 'can_manage_events')) {
+            return response()->json([
+                'message' => 'Only club executives can cancel attendee registrations.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:255',
+        ]);
+
+        $registration = EventRegistration::where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$registration) {
+            return response()->json([
+                'message' => 'This user is not registered for the event.',
+            ], 404);
+        }
+
+        $wasRegistered = ($registration->status === 'registered');
+
+        DB::transaction(function () use ($registration, $event, $wasRegistered) {
+            $registration->delete();
+
+            if ($wasRegistered) {
+                $this->promoteNextWaitlistUser($event);
+            }
+        });
+
+        $reason = $validated['reason'] ?? $request->input('reason');
+        $message = "Your registration for event '{$event->title}' has been cancelled by a club executive.";
+        if (!empty($reason)) {
+            $message .= " Reason: {$reason}";
+        }
+
+        NotificationService::notifyUser(
+            $user->id,
+            'event_registration_cancelled_by_exec',
+            'Registration Cancelled',
+            $message,
+            Event::class,
+            $event->id
+        );
+
+        return response()->json([
+            'message'             => 'Registration cancelled by executive.',
+            'registrations_count' => $event->registrations()->where('status', 'registered')->count(),
+            'spots_remaining'     => $event->spotsRemaining(),
+        ]);
+    }
+
+    /**
+     * POST /api/events/{event}/blocks
+     *
+     * Exec-only action to block a user from registering for an event.
+     * If they have an active registration/waitlist, it implicitly cancels it first.
+     */
+    public function block(Request $request, Event $event): JsonResponse
+    {
+        $authUser = Auth::user();
+
+        if (!$authUser->hasClubPermission($event->club_id, 'can_manage_events')) {
+            return response()->json([
+                'message' => 'Only club executives can block users from registering.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'reason'  => 'nullable|string|max:255',
+        ]);
+
+        $userId = $validated['user_id'];
+
+        $alreadyBlocked = \App\Models\EventBlock::where('event_id', $event->id)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if ($alreadyBlocked) {
+            return response()->json([
+                'message' => 'This user is already blocked.',
+            ], 409);
+        }
+
+        DB::transaction(function () use ($event, $userId, $authUser, $validated) {
+            \App\Models\EventBlock::create([
+                'event_id'   => $event->id,
+                'user_id'    => $userId,
+                'blocked_by' => $authUser->id,
+                'reason'     => $validated['reason'] ?? null,
+            ]);
+
+            $registration = EventRegistration::where('event_id', $event->id)
+                ->where('user_id', $userId)
+                ->first();
+
+            if ($registration) {
+                $wasRegistered = ($registration->status === 'registered');
+                $registration->delete();
+
+                if ($wasRegistered) {
+                    $this->promoteNextWaitlistUser($event);
+                }
+            }
+        });
+
+        $reason = $validated['reason'] ?? null;
+        $message = "You have been blocked from registering for event '{$event->title}'.";
+        if (!empty($reason)) {
+            $message .= " Reason: {$reason}";
+        }
+
+        NotificationService::notifyUser(
+            $userId,
+            'event_user_blocked',
+            'Blocked from Event',
+            $message,
+            Event::class,
+            $event->id
+        );
+
+        return response()->json([
+            'message'             => 'User successfully blocked and registration cancelled.',
+            'registrations_count' => $event->registrations()->where('status', 'registered')->count(),
+            'spots_remaining'     => $event->spotsRemaining(),
+        ]);
+    }
+
+    /**
+     * DELETE /api/events/{event}/blocks/{user}
+     *
+     * Exec-only action to unblock a user.
+     */
+    public function unblock(Request $request, Event $event, User $user): JsonResponse
+    {
+        $authUser = Auth::user();
+
+        if (!$authUser->hasClubPermission($event->club_id, 'can_manage_events')) {
+            return response()->json([
+                'message' => 'Only club executives can unblock users.',
+            ], 403);
+        }
+
+        $block = \App\Models\EventBlock::where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$block) {
+            return response()->json([
+                'message' => 'This user is not blocked.',
+            ], 404);
+        }
+
+        $block->delete();
+
+        NotificationService::notifyUser(
+            $user->id,
+            'event_user_unblocked',
+            'Unblocked from Event',
+            "You have been unblocked and can now register for event '{$event->title}'.",
+            Event::class,
+            $event->id
+        );
+
+        return response()->json([
+            'message' => 'User successfully unblocked.',
+        ]);
+    }
+
+    /**
+     * GET /api/events/{event}/blocks
+     *
+     * Exec-only action to list blocked users.
+     */
+    public function blocks(Event $event): JsonResponse
+    {
+        $authUser = Auth::user();
+
+        if (!$authUser->hasClubPermission($event->club_id, 'can_manage_events')) {
+            return response()->json([
+                'message' => 'Only club executives can view blocked users.',
+            ], 403);
+        }
+
+        $blocks = \App\Models\EventBlock::with(['user:id,name,email,student_id,department', 'blockedBy:id,name'])
+            ->where('event_id', $event->id)
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'blocks' => $blocks,
+        ]);
+    }
+
+    /**
+     * Helper to promote the first waitlisted user.
+     */
+    private function promoteNextWaitlistUser(Event $event): void
+    {
+        if (is_null($event->capacity)) {
+            $next = EventRegistration::where('event_id', $event->id)
+                ->where('status', 'waitlisted')
+                ->orderBy('created_at', 'asc')
+                ->first();
+            if ($next) {
+                $next->update(['status' => 'registered']);
+                NotificationService::notifyUser(
+                    $next->user_id,
+                    'event_registration_promoted',
+                    'Promoted from Waitlist',
+                    "You have been promoted from the waitlist for event '{$event->title}' and your registration is now confirmed!",
+                    Event::class,
+                    $event->id
+                );
+            }
+            return;
+        }
+
+        $activeCount = EventRegistration::where('event_id', $event->id)
+            ->where('status', 'registered')
+            ->count();
+
+        if ($activeCount < $event->capacity) {
+            $next = EventRegistration::where('event_id', $event->id)
+                ->where('status', 'waitlisted')
+                ->orderBy('created_at', 'asc')
+                ->first();
+
+            if ($next) {
+                $next->update(['status' => 'registered']);
+
+                NotificationService::notifyUser(
+                    $next->user_id,
+                    'event_registration_promoted',
+                    'Promoted from Waitlist',
+                    "You have been promoted from the waitlist for event '{$event->title}' and your registration is now confirmed!",
+                    Event::class,
+                    $event->id
+                );
+
+                $this->promoteNextWaitlistUser($event);
+            }
+        }
     }
 
     /**
@@ -254,10 +742,10 @@ class EventRegistrationController extends Controller
             ], 403);
         }
 
-        $totalRegistered = $event->registrations()->count();
-        $attendedCount   = $event->registrations()->where('attended', true)->count();
-        $absentCount     = $event->registrations()->where('attended', false)->count();
-        $unmarkedCount   = $event->registrations()->whereNull('attended')->count();
+        $totalRegistered = $event->registrations()->where('status', 'registered')->count();
+        $attendedCount   = $event->registrations()->where('status', 'registered')->where('attended', true)->count();
+        $absentCount     = $event->registrations()->where('status', 'registered')->where('attended', false)->count();
+        $unmarkedCount   = $event->registrations()->where('status', 'registered')->whereNull('attended')->count();
 
         $attendanceRate = $totalRegistered > 0
             ? round(($attendedCount / $totalRegistered) * 100, 1)
@@ -289,14 +777,14 @@ class EventRegistrationController extends Controller
      */
     private function canManageAttendance($user, Event $event): bool
     {
-        if ($user->is_admin) {
-            return true;
-        }
-
-        return DB::table('club_members')
-            ->where('user_id', $user->id)
-            ->where('club_id', $event->club_id)
-            ->whereIn('role', Event::execRoles())
-            ->exists();
+        return $user->hasClubPermission($event->club_id, 'can_track_attendance') ||
+            DB::table('club_members')
+                ->where('user_id', $user->id)
+                ->where('club_id', $event->club_id)
+                ->where(function ($q) {
+                    $q->whereNull('status')->orWhere('status', 'active');
+                })
+                ->whereIn('role', Event::execRoles())
+                ->exists();
     }
 }

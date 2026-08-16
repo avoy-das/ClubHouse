@@ -5,6 +5,11 @@ import eventService from '../../services/eventService';
 import clubService from '../../services/clubService';
 import EventModal from '../../components/Events/EventModal';
 import { useAuth } from '../../context/AuthContext';
+import { getImageUrl } from '../../utils/imageUrl';
+import { formatDisplayDateTime } from '../../utils/dateUtils';
+import { Calendar } from 'lucide-react';
+import usePageTitle from '../../hooks/usePageTitle';
+import useDebounce from '../../hooks/useDebounce';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -16,6 +21,7 @@ const statusBadgeStyles = {
 };
 
 const EventsPage = () => {
+    usePageTitle('Events');
     const { user } = useAuth();
     const [searchParams] = useSearchParams();
     const preselectedClubId = searchParams.get('create_club_id') || searchParams.get('club_id') || '';
@@ -28,6 +34,7 @@ const EventsPage = () => {
 
     // Filter states
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebounce(search, 350);
     const [clubId, setClubId] = useState('');
     const [datePreset, setDatePreset] = useState('upcoming');
     const [statusFilter, setStatusFilter] = useState('');
@@ -70,7 +77,7 @@ const EventsPage = () => {
 
         const params = {
             page,
-            search: search.trim() || undefined,
+            search: debouncedSearch.trim() || undefined,
             club_id: clubId || undefined,
             date_preset: datePreset || undefined,
             status: statusFilter || undefined,
@@ -96,7 +103,7 @@ const EventsPage = () => {
 
     useEffect(() => {
         fetchEvents();
-    }, [page, search, clubId, datePreset, statusFilter]);
+    }, [page, debouncedSearch, clubId, datePreset, statusFilter]);
 
     const handleEventCreated = (newEvent) => {
         setIsCreateOpen(false);
@@ -106,18 +113,7 @@ const EventsPage = () => {
         }
     };
 
-    const formatDate = (isoStr) => {
-        if (!isoStr) return '';
-        const d = new Date(isoStr);
-        return d.toLocaleDateString(undefined, {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    };
+    const formatDate = (isoStr) => formatDisplayDateTime(isoStr);
 
     return (
         <MainLayout>
@@ -128,7 +124,7 @@ const EventsPage = () => {
                         Browse all published events across clubs and manage your registrations.
                     </p>
                 </div>
-                {user && (
+                {user && !user.is_admin && (
                     <button
                         onClick={() => setIsCreateOpen(true)}
                         className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5 self-start sm:self-auto"
@@ -150,8 +146,9 @@ const EventsPage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 {/* Search */}
                 <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Search Event</label>
+                    <label htmlFor="events-search-input" className="block text-xs font-medium text-slate-600 mb-1">Search Event</label>
                     <input
+                        id="events-search-input"
                         type="text"
                         placeholder="Search by event title..."
                         value={search}
@@ -162,10 +159,12 @@ const EventsPage = () => {
 
                 {/* Club Filter */}
                 <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Club</label>
+                    <label htmlFor="events-club-select" className="block text-xs font-medium text-slate-600 mb-1">Club</label>
                     <select
+                        id="events-club-select"
                         value={clubId}
                         onChange={handleClubChange}
+                        aria-label="Filter events by club"
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-slate-50"
                     >
                         <option value="">All Clubs</option>
@@ -179,10 +178,12 @@ const EventsPage = () => {
 
                 {/* Date Preset */}
                 <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Date</label>
+                    <label htmlFor="events-date-select" className="block text-xs font-medium text-slate-600 mb-1">Date</label>
                     <select
+                        id="events-date-select"
                         value={datePreset}
                         onChange={handleDatePresetChange}
+                        aria-label="Filter events by date"
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-slate-50"
                     >
                         <option value="">All Dates</option>
@@ -195,10 +196,12 @@ const EventsPage = () => {
 
                 {/* Status */}
                 <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+                    <label htmlFor="events-status-select" className="block text-xs font-medium text-slate-600 mb-1">Status</label>
                     <select
+                        id="events-status-select"
                         value={statusFilter}
                         onChange={handleStatusChange}
+                        aria-label="Filter events by status"
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-slate-50"
                     >
                         <option value="">All Statuses</option>
@@ -230,12 +233,12 @@ const EventsPage = () => {
                             <svg className="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            <h3 className="text-base font-semibold text-slate-700">No events match your filters</h3>
+                            <h2 className="text-base font-semibold text-slate-700">No events match your filters</h2>
                             <p className="text-slate-400 text-sm mt-1">Try resetting or broadening your filter criteria.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {events.map(event => {
+                            {events.map((event, index) => {
                                 const isFull = event.capacity !== null && event.registrations_count >= event.capacity;
                                 const formattedStatus = event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Published';
 
@@ -243,21 +246,40 @@ const EventsPage = () => {
                                     <div
                                         key={event.id}
                                         onClick={() => navigate(`/events/${event.id}`)}
-                                        className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between"
+                                        className="bg-white border border-slate-200 rounded-xl p-5 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between overflow-hidden group"
                                     >
                                         <div>
+                                            {getImageUrl(event.banner_url || event.banner_path) ? (
+                                                <div className="h-36 -mx-5 -mt-5 mb-4 overflow-hidden bg-slate-100 border-b border-slate-200">
+                                                    <img
+                                                        src={getImageUrl(event.banner_url || event.banner_path)}
+                                                        alt={event.title}
+                                                        loading={index === 0 ? 'eager' : 'lazy'}
+                                                        {...(index === 0 ? { fetchpriority: 'high' } : {})}
+                                                        decoding="async"
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="h-36 -mx-5 -mt-5 mb-4 overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 border-b border-slate-200 flex items-center justify-center relative">
+                                                    <div className="absolute inset-0 bg-black/10" />
+                                                    <Calendar className="w-12 h-12 text-white/40 z-10" />
+                                                </div>
+                                            )}
                                             <div className="flex items-start justify-between gap-2 mb-3">
                                                 <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">
                                                     {event.club?.name || 'Club Event'}
                                                 </span>
-                                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${statusBadgeStyles[event.status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                                                    {formattedStatus}
-                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${statusBadgeStyles[event.status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                                                        {formattedStatus}
+                                                    </span>
+                                                </div>
                                             </div>
 
-                                            <h3 className="font-bold text-slate-900 text-lg leading-snug mb-2 line-clamp-2">
+                                            <h2 className="font-bold text-slate-900 text-lg leading-snug mb-2 line-clamp-2">
                                                 {event.title}
-                                            </h3>
+                                            </h2>
 
                                             <div className="space-y-1.5 text-xs text-slate-500 mb-4">
                                                 <div className="flex items-center gap-2">
@@ -281,7 +303,7 @@ const EventsPage = () => {
                                         <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                                             {event.capacity !== null ? (
                                                 isFull ? (
-                                                    <span className="text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                                                    <span className="text-red-800 font-semibold bg-red-50 px-2 py-0.5 rounded border border-red-100">
                                                         Fully Booked
                                                     </span>
                                                 ) : (
@@ -290,7 +312,7 @@ const EventsPage = () => {
                                                     </span>
                                                 )
                                             ) : (
-                                                <span className="text-emerald-600 font-medium">Unlimited capacity</span>
+                                                <span className="text-emerald-800 font-medium">Unlimited capacity</span>
                                             )}
 
                                             <span className="text-indigo-600 font-medium hover:underline flex items-center gap-1">

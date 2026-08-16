@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { CheckCircle2, ShieldCheck, FileCheck } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, FileCheck, AlertCircle, FileText, ExternalLink } from 'lucide-react';
 import MainLayout from '../../layouts/MainLayout';
 import recruitmentService from '../../services/recruitmentService';
 import { ClubPermissionsProvider } from '../../context/ClubPermissionsContext';
@@ -10,6 +10,8 @@ import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import SuccessBanner from '../../components/ui/SuccessBanner';
+import { formatSessionLabel } from '../../utils/sessionUtils';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const RecruitmentDetailContent = () => {
     const { clubId, noticeId, id } = useParams();
@@ -93,6 +95,14 @@ const RecruitmentDetailContent = () => {
     const isAlreadyMember = notice.is_member || notice.club?.members?.some(m => m.user_id === user?.id && m.status === 'active');
     const hasApplied = Boolean(notice.my_application);
 
+    // Target sessions check
+    const hasTargetSessions = Array.isArray(notice.target_sessions) && notice.target_sessions.length > 0;
+    const isUserInTargetSession = !hasTargetSessions || (
+        user?.session !== null &&
+        user?.session !== undefined &&
+        notice.target_sessions.map(Number).includes(Number(user.session))
+    );
+
     return (
         <div className="space-y-6">
             <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border space-y-4">
@@ -104,7 +114,7 @@ const RecruitmentDetailContent = () => {
                             </span>
                             {notice.session && (
                                 <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-800 border">
-                                    Session: {notice.session}
+                                    Campaign Year: {notice.session ? 2000 + Number(notice.session) : ''}
                                 </span>
                             )}
                             {notice.status && <Badge status={notice.status} />}
@@ -123,13 +133,13 @@ const RecruitmentDetailContent = () => {
                     {/* Notice Info */}
                     <div className="md:col-span-2 space-y-4">
                         <div>
-                            <h3 className="font-bold text-gray-800 text-lg mb-1">Campaign Overview</h3>
+                            <h2 className="font-bold text-gray-800 text-lg mb-1">Campaign Overview</h2>
                             <p className="text-gray-700 whitespace-pre-line leading-relaxed">{notice.description}</p>
                         </div>
 
                         {notice.requirements && (
                             <div className="bg-gray-50 p-4 rounded border">
-                                <h4 className="font-bold text-gray-800 text-sm mb-1">Requirements & Qualifications</h4>
+                                <h3 className="font-bold text-gray-800 text-sm mb-1">Requirements & Qualifications</h3>
                                 <p className="text-gray-700 text-sm whitespace-pre-line">{notice.requirements}</p>
                             </div>
                         )}
@@ -137,7 +147,7 @@ const RecruitmentDetailContent = () => {
 
                     {/* Meta Sidebar */}
                     <div className="bg-gray-50 p-6 rounded-lg border space-y-3 text-sm">
-                        <h4 className="font-bold text-gray-800 border-b pb-2">Timeline</h4>
+                        <h3 className="font-bold text-gray-800 border-b pb-2">Timeline</h3>
                         <div>
                             <span className="text-gray-500 block">Opens:</span>
                             <span className="font-medium text-gray-900">{new Date(notice.opens_at).toLocaleString()}</span>
@@ -168,14 +178,37 @@ const RecruitmentDetailContent = () => {
                                     </p>
                                 </div>
                             </div>
+                        ) : !isUserInTargetSession ? (
+                            <div className="bg-rose-50 border border-rose-200 text-rose-900 p-5 rounded-xl flex items-start gap-3.5">
+                                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <h4 className="font-bold text-sm text-rose-900">Application Restricted to Target Student Sessions</h4>
+                                    <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+                                        This recruitment campaign is open exclusively for students belonging to session(s):{' '}
+                                        <span className="font-bold">
+                                            {notice.target_sessions.map(s => formatSessionLabel(s) || s).join(', ')}
+                                        </span>.
+                                        {user?.session !== null && user?.session !== undefined ? (
+                                            <> Your registered profile session is <span className="font-bold">{formatSessionLabel(user.session)}</span>.</>
+                                        ) : (
+                                            <> You currently have no session specified on your profile. <Link to="/profile" className="font-bold text-rose-800 underline hover:text-rose-950 ml-1">Update Profile Session</Link></>
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
                         ) : hasApplied ? (
                             <div className="bg-blue-50 border border-blue-200 text-blue-900 p-6 rounded-xl space-y-4">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-200/80 pb-3">
                                     <div className="flex items-center gap-2">
                                         <FileCheck className="w-5 h-5 text-blue-600" />
-                                        <h3 className="text-base font-bold text-blue-900">Application Already Submitted</h3>
+                                        <h3 className="text-base font-bold text-blue-900">Application Submitted</h3>
                                     </div>
-                                    {notice.my_application.status && <Badge status={notice.my_application.status} />}
+                                    {notice.my_application.status && (
+                                        <Badge status={
+                                            notice.my_application.status === 'accepted' ? 'accepted' :
+                                                notice.my_application.status === 'rejected' ? 'rejected' : 'open'
+                                        } />
+                                    )}
                                 </div>
 
                                 <p className="text-sm font-medium text-blue-800 leading-relaxed">
@@ -228,12 +261,14 @@ const RecruitmentDetailContent = () => {
                                         <div key={key}>
                                             <span className="font-semibold text-slate-500">{key}: </span>
                                             <a
-                                                href={fileObj.url}
+                                                href={getImageUrl(fileObj.url || fileObj.path)}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="text-blue-600 hover:underline break-all font-semibold inline-flex items-center gap-1 mt-0.5"
                                             >
-                                                📄 {fileObj.name || 'View Uploaded Document'} ↗
+                                                <FileText className="w-4 h-4 text-blue-600 inline shrink-0" />
+                                                <span>{fileObj.name || 'View Uploaded Document'}</span>
+                                                <ExternalLink className="w-3.5 h-3.5 inline shrink-0" />
                                             </a>
                                         </div>
                                     ))}

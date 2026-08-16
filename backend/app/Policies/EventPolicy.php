@@ -20,16 +20,53 @@ class EventPolicy
 
     public function create(User $user, Club $club): bool
     {
-        return $user->is_admin || $user->hasClubPermission($club, 'can_manage_events');
+        if ($club->status === 'suspended') {
+            return false;
+        }
+
+        return $user->hasClubPermission($club, 'can_manage_events') ||
+            \Illuminate\Support\Facades\DB::table('club_members')
+                ->where('user_id', $user->id)
+                ->where('club_id', $club->id)
+                ->where(function ($q) {
+                    $q->whereNull('status')->orWhere('status', 'active');
+                })
+                ->whereIn('role', Event::execRoles())
+                ->exists();
     }
 
     public function update(User $user, Event $event): bool
     {
-        return $user->is_admin || $user->hasClubPermission($event->club_id, 'can_manage_events');
+        if ($event->club && $event->club->status === 'suspended') {
+            return false;
+        }
+
+        return $user->hasClubPermission($event->club_id, 'can_manage_events');
     }
 
     public function delete(User $user, Event $event): bool
     {
-        return $user->is_admin || $user->hasClubPermission($event->club_id, 'can_manage_events');
+        if ($event->club && $event->club->status === 'suspended') {
+            return false;
+        }
+
+        return $user->hasClubPermission($event->club_id, 'can_manage_events');
+    }
+
+    public function manageRegistrations(User $user, Event $event): bool
+    {
+        if ($event->club && $event->club->status === 'suspended') {
+            return false;
+        }
+
+        return $user->hasClubPermission($event->club_id, 'can_manage_events') ||
+            \Illuminate\Support\Facades\DB::table('club_members')
+                ->where('user_id', $user->id)
+                ->where('club_id', $event->club_id)
+                ->where(function ($q) {
+                    $q->whereNull('status')->orWhere('status', 'active');
+                })
+                ->whereIn('role', Event::execRoles())
+                ->exists();
     }
 }

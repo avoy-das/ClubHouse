@@ -11,18 +11,37 @@ class UpdateEventRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('custom_fields') && is_string($this->custom_fields)) {
+            $decoded = json_decode($this->custom_fields, true);
+            if (is_array($decoded)) {
+                $this->merge(['custom_fields' => $decoded]);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [
             'title'          => ['sometimes', 'string', 'max:255'],
             'description'    => ['sometimes', 'nullable', 'string'],
+            'banner'         => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'visibility'     => ['sometimes', 'in:public,members_only'],
             'location_type'  => ['sometimes', 'in:physical,online'],
             'location_value' => ['sometimes', 'nullable', 'string', 'max:500'],
             'starts_at'      => ['sometimes', 'date', 'after:now'],
             'ends_at'        => ['sometimes', 'date', 'after:starts_at'],
             'capacity'       => ['sometimes', 'integer', 'min:1'],
-            'status'         => ['sometimes', 'string', 'in:draft,published,upcoming,ongoing,completed,cancelled'],
+            'requires_approval' => ['sometimes', 'nullable', 'boolean'],
+            'custom_fields'             => ['sometimes', 'nullable', 'array', 'max:20'],
+            'custom_fields.*.label'     => ['required_with:custom_fields', 'string', 'max:255'],
+            'custom_fields.*.type'      => ['required_with:custom_fields', 'string', 'in:text,textarea,select,checkbox,number'],
+            'custom_fields.*.required'  => ['nullable', 'boolean'],
+            'custom_fields.*.options'   => ['nullable', 'array'],
+            'custom_fields.*.options.*' => ['string', 'max:255'],
+            'status'          => ['sometimes', 'string', 'in:draft,published,upcoming,ongoing,completed,cancelled'],
+            'feedback_policy' => ['sometimes', 'string', 'in:attended_only,registered_only,open_to_all'],
         ];
     }
 

@@ -8,11 +8,14 @@ use App\Http\Requests\UpdateEventStatusRequest;
 use App\Models\Club;
 use App\Models\Event;
 use App\Services\AuditService;
+use App\Services\CacheInvalidationService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class EventController extends Controller
 {
@@ -34,11 +37,14 @@ class EventController extends Controller
         $datePreset = strtolower($request->query('date_preset', $request->query('date', '')));
 
         $query = Event::with(['club:id,name', 'creator:id,name'])
-            ->withCount('registrations');
+            ->withCount(['registrations' => function ($query) {
+                $query->where('status', 'registered');
+            }]);
 
         // Text search by title
         if ($search) {
-            $query->where('title', 'like', '%' . $search . '%');
+            $escaped = '%' . addcslashes($search, '%_\\') . '%';
+            $query->where('title', 'like', $escaped);
         }
 
         // Scope to specific club if requested
@@ -46,12 +52,16 @@ class EventController extends Controller
             $query->where('club_id', $clubId);
         }
 
-        // Draft event visibility: drafted events aren't shown to members (only seen by club execs & admins)
-        if (!$user->is_admin) {
-            $isExecOfClub = $clubId ? $this->isExec($user->id, (int)$clubId) : false;
-            if (!$isExecOfClub) {
-                $query->where('status', '!=', 'draft');
-            }
+        // Cancelled events and events from suspended clubs should not appear in the main events section
+        $query->where('status', '!=', 'cancelled')
+              ->whereHas('club', function ($clubQuery) {
+                  $clubQuery->where('status', '!=', 'suspended');
+              });
+
+        // Draft event visibility: drafted events aren't shown in the events page/feed (only visible when scoped to a club where user is an active executive)
+        $isExecOfClub = $clubId ? $this->isExec($user->id, (int)$clubId) : false;
+        if (!$isExecOfClub) {
+            $query->where('status', '!=', 'draft');
         }
 
         // Scope by status
@@ -109,7 +119,7 @@ class EventController extends Controller
             });
         }
 
-        $events = $query->orderBy('starts_at', 'asc')->paginate(12)->appends($request->query());
+        $events = $query->orderBy('created_at', 'desc')->paginate(12)->appends($request->query());
 
         return response()->json($events);
     }
@@ -125,26 +135,32 @@ class EventController extends Controller
         self::syncEventStatuses();
 
         $user = Auth::user();
+        $cacheKey = 'clubhouse:events:schedule:' . ($user->is_admin ? 'admin' : $user->id);
 
-        $query = Event::with('club:id,name')
-            ->whereIn('status', ['published', 'upcoming', 'ongoing'])
-            ->where(function ($q) {
-                $q->where('ends_at', '>=', now())
-                  ->orWhere('starts_at', '>=', now());
-            });
+        $events = Cache::remember($cacheKey, 120, function () use ($user) {
+            $query = Event::with('club:id,name')
+                ->whereIn('status', ['published', 'upcoming', 'ongoing'])
+                ->whereHas('club', function ($clubQuery) {
+                    $clubQuery->where('status', '!=', 'suspended');
+                })
+                ->where(function ($q) {
+                    $q->where('ends_at', '>=', now())
+                      ->orWhere('starts_at', '>=', now());
+                });
 
-        if (!$user->is_admin) {
-            $query->where(function ($q) use ($user) {
-                $q->where('visibility', 'public')
-                  ->orWhereHas('club', function ($clubQuery) use ($user) {
-                      $clubQuery->whereHas('members', function ($memberQuery) use ($user) {
-                          $memberQuery->where('user_id', $user->id);
+            if (!$user->is_admin) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('visibility', 'public')
+                      ->orWhereHas('club', function ($clubQuery) use ($user) {
+                          $clubQuery->whereHas('members', function ($memberQuery) use ($user) {
+                              $memberQuery->where('user_id', $user->id);
+                          });
                       });
-                  });
-            });
-        }
+                });
+            }
 
-        $events = $query->orderBy('starts_at', 'asc')->get();
+            return $query->orderBy('starts_at', 'asc')->get();
+        });
 
         return response()->json($events);
     }
@@ -162,11 +178,18 @@ class EventController extends Controller
         $user = Auth::user();
         $data = $request->validated();
 
-        // Must be exec of the target club (or platform admin)
-        if (!$user->is_admin && !$this->isExec($user->id, $data['club_id'])) {
+        // Must be exec of the target club
+        if (!$this->isClubExec($user->id, (int)$data['club_id'])) {
             return response()->json([
                 'message' => 'Only club executives can create events.',
             ], 403);
+        }
+
+        $targetClub = Club::find($data['club_id']);
+        if (!$targetClub || $targetClub->status === 'suspended') {
+            return response()->json([
+                'message' => 'Cannot create events for a suspended club.',
+            ], 422);
         }
 
         $targetStatus = $data['status'] ?? 'draft';
@@ -187,6 +210,18 @@ class EventController extends Controller
             $data['ends_at']
         );
 
+        if (isset($data['custom_fields']) && is_string($data['custom_fields'])) {
+            $data['custom_fields'] = json_decode($data['custom_fields'], true) ?? [];
+        }
+
+        if ($request->hasFile('banner')) {
+            $path = $request->file('banner')->store('events/banners', 'public');
+            $optimized = \App\Services\ImageOptimizerService::optimizeAndThumbnail($path);
+            $data['banner_path'] = $optimized['path'];
+            $data['banner_thumbnail_path'] = $optimized['thumbnail_path'];
+        }
+        unset($data['banner']);
+
         $event = Event::create([
             ...$data,
             'created_by' => $user->id,
@@ -198,6 +233,8 @@ class EventController extends Controller
             'club_id'  => $event->club_id,
             'starts_at'=> $event->starts_at,
         ]);
+
+        CacheInvalidationService::event($event->club_id);
 
         if ($targetStatus === 'published') {
             $this->sendEventNotification($event, 'published', $user->id);
@@ -261,19 +298,23 @@ class EventController extends Controller
         }
 
         $event->load(['club:id,name', 'creator:id,name'])
-              ->loadCount('registrations');
+              ->loadCount(['registrations' => function ($query) {
+                  $query->whereIn('status', ['registered', 'approved']);
+              }]);
 
-        $isRegistered = \App\Models\EventRegistration::where('event_id', $event->id)
+        $userRegistration = \App\Models\EventRegistration::where('event_id', $event->id)
             ->where('user_id', $user->id)
-            ->exists();
+            ->first();
+        $isRegistered = (bool)$userRegistration;
 
-        $canManage = $user->is_admin || $event->created_by === $user->id || $this->isExec($user->id, $event->club_id);
+        $canManage = $event->created_by === $user->id || $this->isExec($user->id, $event->club_id);
 
         return response()->json([
-            'event'           => $event,
-            'spots_remaining' => $event->spotsRemaining(),
-            'is_registered'   => $isRegistered,
-            'can_manage'      => $canManage,
+            'event'             => $event,
+            'spots_remaining'   => $event->spotsRemaining(),
+            'is_registered'     => $isRegistered,
+            'user_registration' => $userRegistration,
+            'can_manage'        => $canManage,
         ]);
     }
 
@@ -295,7 +336,7 @@ class EventController extends Controller
             ], 403);
         }
 
-        if (in_array($event->status, ['completed', 'cancelled'])) {
+        if (in_array($event->status, ['completed', 'cancelled']) || ($event->ends_at && $event->ends_at->isPast())) {
             return response()->json([
                 'message' => 'Cannot edit a completed or cancelled event.',
             ], 422);
@@ -340,7 +381,27 @@ class EventController extends Controller
             }
         }
 
+        if (isset($data['custom_fields']) && is_string($data['custom_fields'])) {
+            $data['custom_fields'] = json_decode($data['custom_fields'], true) ?? [];
+        }
+
+        if ($request->hasFile('banner')) {
+            if ($event->banner_path) {
+                Storage::disk('public')->delete($event->banner_path);
+            }
+            if ($event->banner_thumbnail_path) {
+                Storage::disk('public')->delete($event->banner_thumbnail_path);
+            }
+            $path = $request->file('banner')->store('events/banners', 'public');
+            $optimized = \App\Services\ImageOptimizerService::optimizeAndThumbnail($path);
+            $data['banner_path'] = $optimized['path'];
+            $data['banner_thumbnail_path'] = $optimized['thumbnail_path'];
+        }
+        unset($data['banner']);
+
         $event->update($data);
+
+        CacheInvalidationService::event($event->club_id);
 
         AuditService::log('event.updated', $event, ['changed_fields' => array_keys($data)]);
 
@@ -413,9 +474,13 @@ class EventController extends Controller
         $oldStatus = $event->status;
         $event->update(['status' => $newStatus]);
 
+        CacheInvalidationService::event($event->club_id);
+
         AuditService::log('event.status_changed', $event, [
-            'from' => $oldStatus,
-            'to'   => $newStatus,
+            'previous_status' => $oldStatus,
+            'status'          => $newStatus,
+            'previous'        => ['status' => $oldStatus],
+            'changed'         => ['status' => $newStatus],
         ]);
 
         if ($newStatus === 'cancelled') {
@@ -486,7 +551,17 @@ class EventController extends Controller
             'club_id' => $event->club_id,
         ]);
 
+        if ($event->banner_path) {
+            Storage::disk('public')->delete($event->banner_path);
+        }
+        if ($event->banner_thumbnail_path) {
+            Storage::disk('public')->delete($event->banner_thumbnail_path);
+        }
+
+        $clubId = $event->club_id;
         $event->delete();
+
+        CacheInvalidationService::event($clubId);
 
         return response()->json(['message' => 'Event deleted.']);
     }
@@ -504,9 +579,17 @@ class EventController extends Controller
         $user = \App\Models\User::find($userId);
         if (!$user) return false;
 
-        if ($user->is_admin) {
-            return true;
-        }
+        return $this->isClubExec($userId, $clubId);
+    }
+
+    /**
+     * Check if a user is strictly a club exec (president, vp, secretary, treasurer, executive)
+     * in the given club, regardless of platform admin status.
+     */
+    private function isClubExec(int $userId, int $clubId): bool
+    {
+        $user = \App\Models\User::find($userId);
+        if (!$user) return false;
 
         return $user->hasClubPermission($clubId, 'can_manage_events') ||
             DB::table('club_members')
@@ -574,21 +657,41 @@ class EventController extends Controller
     {
         $now = now();
 
-        // C. Drafted event automatically goes to cancelled if set time is reached without being published
-        Event::where('status', 'draft')
+        // Check if there are any events that need updating to avoid write locks on every GET request.
+        $hasDraftsToCancel = Event::where('status', 'draft')
             ->where('starts_at', '<=', $now)
-            ->update(['status' => 'cancelled']);
+            ->exists();
 
-        // B. Published event automatically goes to ongoing when set time starts
-        Event::where('status', 'published')
+        $hasPublishedToOngoing = Event::where('status', 'published')
             ->where('starts_at', '<=', $now)
             ->where('ends_at', '>', $now)
-            ->update(['status' => 'ongoing']);
+            ->exists();
+
+        $hasOngoingToComplete = Event::whereIn('status', ['published', 'ongoing'])
+            ->where('ends_at', '<=', $now)
+            ->exists();
+
+        // C. Drafted event automatically goes to cancelled if set time is reached without being published
+        if ($hasDraftsToCancel) {
+            Event::where('status', 'draft')
+                ->where('starts_at', '<=', $now)
+                ->update(['status' => 'cancelled']);
+        }
+
+        // B. Published event automatically goes to ongoing when set time starts
+        if ($hasPublishedToOngoing) {
+            Event::where('status', 'published')
+                ->where('starts_at', '<=', $now)
+                ->where('ends_at', '>', $now)
+                ->update(['status' => 'ongoing']);
+        }
 
         // B. Published or ongoing event automatically goes to completed when set time ends
-        Event::whereIn('status', ['published', 'ongoing'])
-            ->where('ends_at', '<=', $now)
-            ->update(['status' => 'completed']);
+        if ($hasOngoingToComplete) {
+            Event::whereIn('status', ['published', 'ongoing'])
+                ->where('ends_at', '<=', $now)
+                ->update(['status' => 'completed']);
+        }
     }
 
     /**
@@ -652,5 +755,50 @@ class EventController extends Controller
                 NotificationService::notifyClubMembers($event->club_id, 'event_updated', $title, $message, Event::class, $event->id, $excludeUserId);
             }
         }
+    }
+
+    /**
+     * POST /api/events/{event}/send-reminder
+     *
+     * Exec-only manual trigger to send custom reminder notifications to registered attendees.
+     */
+    public function sendReminder(Request $request, Event $event): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->hasClubPermission($event->club_id, 'can_manage_events')) {
+            return response()->json([
+                'message' => 'Only club executives can send event reminders.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'message' => 'nullable|string|max:500',
+        ]);
+
+        $customMessage = trim($validated['message'] ?? '');
+        $title = "Event Reminder: {$event->title}";
+        $message = $customMessage !== ''
+            ? $customMessage
+            : "Reminder! '{$event->title}' is scheduled for {$event->starts_at->format('M d, Y \a\t h:i A')}. See you there!";
+
+        NotificationService::notifyEventAttendees(
+            $event->id,
+            'event_manual_reminder',
+            $title,
+            $message,
+            Event::class,
+            $event->id,
+            $user->id
+        );
+
+        AuditService::log('event.reminder_sent', $event, [
+            'sent_by' => $user->id,
+            'message' => $message,
+        ]);
+
+        return response()->json([
+            'message' => 'Event reminder successfully sent to all registered attendees.',
+        ]);
     }
 }

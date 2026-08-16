@@ -13,6 +13,8 @@ class Event extends Model
         'created_by',
         'title',
         'description',
+        'banner_path',
+        'banner_thumbnail_path',
         'status',
         'visibility',
         'location_type',
@@ -20,13 +22,33 @@ class Event extends Model
         'starts_at',
         'ends_at',
         'capacity',
+        'requires_approval',
+        'custom_fields',
+        'feedback_policy',
     ];
 
     protected $casts = [
-        'starts_at' => 'datetime',
-        'ends_at'   => 'datetime',
-        'capacity'  => 'integer',
+        'starts_at'         => 'datetime',
+        'ends_at'           => 'datetime',
+        'capacity'          => 'integer',
+        'requires_approval' => 'boolean',
+        'custom_fields'     => 'array',
     ];
+
+    protected $appends = [
+        'banner_url',
+        'banner_thumbnail_url',
+    ];
+
+    public function getBannerUrlAttribute(): ?string
+    {
+        return $this->banner_path ? asset('storage/' . ltrim($this->banner_path, '/')) : null;
+    }
+
+    public function getBannerThumbnailUrlAttribute(): ?string
+    {
+        return $this->banner_thumbnail_path ? asset('storage/' . ltrim($this->banner_thumbnail_path, '/')) : null;
+    }
 
     // -------------------------------------------------------
     // Relationships
@@ -47,6 +69,11 @@ class Event extends Model
         return $this->hasMany(EventRegistration::class);
     }
 
+    public function blocks(): HasMany
+    {
+        return $this->hasMany(EventBlock::class);
+    }
+
     public function feedback(): HasMany
     {
         return $this->hasMany(EventFeedback::class);
@@ -62,7 +89,11 @@ class Event extends Model
      */
     public function spotsRemaining(): int
     {
-        return max(0, $this->capacity - $this->registrations()->count());
+        if (is_null($this->capacity)) {
+            return 999999;
+        }
+        $registeredCount = $this->registrations()->whereIn('status', ['registered', 'approved'])->count();
+        return max(0, $this->capacity - $registeredCount);
     }
 
     /**
@@ -71,7 +102,13 @@ class Event extends Model
      */
     public function isRegistrationOpen(): bool
     {
-        return $this->status === 'published' && $this->spotsRemaining() > 0;
+        if ($this->status !== 'published') {
+            return false;
+        }
+        if (is_null($this->capacity)) {
+            return true;
+        }
+        return $this->spotsRemaining() > 0;
     }
 
     /**

@@ -30,7 +30,7 @@ class NewEntitiesSeeder extends Seeder
         $exec1 = User::create([
             'name'        => 'Rahim Ahmed',
             'student_id'  => 'ASH200010M',
-            'email'       => 'rahim.robotics@nstu.edu.bd',
+            'email'       => 'rahim.robotics@student.nstu.edu.bd',
             'password'    => $hashedPassword,
             'department'  => 'CSTE',
             'phone'       => '01700000002',
@@ -40,7 +40,7 @@ class NewEntitiesSeeder extends Seeder
         $exec2 = User::create([
             'name'        => 'Nusrat Jahan',
             'student_id'  => 'ASH200011M',
-            'email'       => 'nusrat.robotics@nstu.edu.bd',
+            'email'       => 'nusrat.robotics@student.nstu.edu.bd',
             'password'    => $hashedPassword,
             'department'  => 'EEE',
             'phone'       => '01700000003',
@@ -50,7 +50,7 @@ class NewEntitiesSeeder extends Seeder
         $exec3 = User::create([
             'name'        => 'Tanvir Hassan',
             'student_id'  => 'ASH200012M',
-            'email'       => 'tanvir.debate@nstu.edu.bd',
+            'email'       => 'tanvir.debate@student.nstu.edu.bd',
             'password'    => $hashedPassword,
             'department'  => 'English',
             'phone'       => '01700000004',
@@ -60,7 +60,7 @@ class NewEntitiesSeeder extends Seeder
         $normalMember = User::create([
             'name'        => 'Sultana Razia',
             'student_id'  => 'ASH200013M',
-            'email'       => 'sultana.member@nstu.edu.bd',
+            'email'       => 'sultana.member@student.nstu.edu.bd',
             'password'    => $hashedPassword,
             'department'  => 'ICE',
             'phone'       => '01700000005',

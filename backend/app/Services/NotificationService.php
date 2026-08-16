@@ -48,9 +48,31 @@ class NotificationService
 
         $userIds = $query->pluck('id');
 
-        foreach ($userIds as $userId) {
-            self::notifyUser($userId, $type, $title, $message, $relatedType, $relatedId);
+        self::sendBulkNotifications($userIds, $type, $title, $message, $relatedType, $relatedId);
+    }
+
+    /**
+     * Send notification to users belonging to specific student sessions.
+     */
+    public static function notifyUsersBySessions(
+        array $sessions,
+        string $type,
+        string $title,
+        string $message,
+        ?string $relatedType = null,
+        ?int $relatedId = null,
+        ?int $excludeUserId = null
+    ): void {
+        if (empty($sessions)) return;
+
+        $query = User::whereIn('session', $sessions);
+        if ($excludeUserId) {
+            $query->where('id', '!=', $excludeUserId);
         }
+
+        $userIds = $query->pluck('id');
+
+        self::sendBulkNotifications($userIds, $type, $title, $message, $relatedType, $relatedId);
     }
 
     /**
@@ -71,9 +93,7 @@ class NotificationService
 
         $adminIds = $query->pluck('id');
 
-        foreach ($adminIds as $adminId) {
-            self::notifyUser($adminId, $type, $title, $message, $relatedType, $relatedId);
-        }
+        self::sendBulkNotifications($adminIds, $type, $title, $message, $relatedType, $relatedId);
     }
 
     /**
@@ -101,12 +121,7 @@ class NotificationService
             ->pluck('user_id')
             ->unique();
 
-        foreach ($execUserIds as $userId) {
-            if ($excludeUserId && $userId == $excludeUserId) {
-                continue;
-            }
-            self::notifyUser($userId, $type, $title, $message, $relatedType, $relatedId);
-        }
+        self::sendBulkNotifications($execUserIds, $type, $title, $message, $relatedType, $relatedId, $excludeUserId);
     }
 
     /**
@@ -126,12 +141,7 @@ class NotificationService
             ->pluck('user_id')
             ->unique();
 
-        foreach ($memberUserIds as $userId) {
-            if ($excludeUserId && $userId == $excludeUserId) {
-                continue;
-            }
-            self::notifyUser($userId, $type, $title, $message, $relatedType, $relatedId);
-        }
+        self::sendBulkNotifications($memberUserIds, $type, $title, $message, $relatedType, $relatedId, $excludeUserId);
     }
 
     /**
@@ -147,14 +157,65 @@ class NotificationService
         ?int $excludeUserId = null
     ): void {
         $attendeeUserIds = EventRegistration::where('event_id', $eventId)
+            ->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', 'registered');
+            })
             ->pluck('user_id')
             ->unique();
 
-        foreach ($attendeeUserIds as $userId) {
+        self::sendBulkNotifications($attendeeUserIds, $type, $title, $message, $relatedType, $relatedId, $excludeUserId);
+    }
+
+    /**
+     * Send notification to a collection or array of specific user IDs.
+     */
+    public static function notifyUserIds(
+        iterable $userIds,
+        string $type,
+        string $title,
+        string $message,
+        ?string $relatedType = null,
+        ?int $relatedId = null,
+        ?int $excludeUserId = null
+    ): void {
+        self::sendBulkNotifications($userIds, $type, $title, $message, $relatedType, $relatedId, $excludeUserId);
+    }
+
+    /**
+     * Helper to perform chunked bulk insertion of notifications.
+     */
+    private static function sendBulkNotifications(
+        iterable $userIds,
+        string $type,
+        string $title,
+        string $message,
+        ?string $relatedType = null,
+        ?int $relatedId = null,
+        ?int $excludeUserId = null
+    ): void {
+        $now = now();
+        $insertData = [];
+
+        foreach ($userIds as $userId) {
             if ($excludeUserId && $userId == $excludeUserId) {
                 continue;
             }
-            self::notifyUser($userId, $type, $title, $message, $relatedType, $relatedId);
+            $insertData[] = [
+                'user_id'      => $userId,
+                'type'         => $type,
+                'title'        => $title,
+                'message'      => $message,
+                'related_type' => $relatedType,
+                'related_id'   => $relatedId,
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ];
+        }
+
+        if (!empty($insertData)) {
+            foreach (array_chunk($insertData, 500) as $chunk) {
+                Notification::insert($chunk);
+            }
         }
     }
 }

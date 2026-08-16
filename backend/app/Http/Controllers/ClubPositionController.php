@@ -6,6 +6,7 @@ use App\Http\Requests\StoreClubPositionRequest;
 use App\Http\Requests\UpdateClubPositionRequest;
 use App\Models\Club;
 use App\Models\ClubPosition;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +20,7 @@ class ClubPositionController extends Controller
     public function store(StoreClubPositionRequest $request, Club $club): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($club, 'can_manage_members')) {
+        if (!$user->hasClubPermission($club, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -31,13 +32,18 @@ class ClubPositionController extends Controller
 
         $position = $club->positions()->create($data);
 
+        AuditService::log('club.position_created', $position, [
+            'title'  => $position->title,
+            'fields' => $data,
+        ], $user->id, $club->id);
+
         return response()->json($position, 201);
     }
 
     public function update(UpdateClubPositionRequest $request, ClubPosition $position): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($position->club_id, 'can_manage_members')) {
+        if (!$user->hasClubPermission($position->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -49,7 +55,19 @@ class ClubPositionController extends Controller
                 ->update(['is_default' => false]);
         }
 
+        $original = [];
+        foreach (array_keys($data) as $field) {
+            $original[$field] = $position->getOriginal($field);
+        }
+
         $position->update($data);
+
+        AuditService::log('club.position_updated', $position, [
+            'title'          => $position->title,
+            'changed'        => array_intersect_key($position->getChanges(), $data),
+            'previous'       => $original,
+            'changed_fields' => array_keys($data),
+        ], $user->id, $position->club_id);
 
         return response()->json($position);
     }
@@ -57,9 +75,13 @@ class ClubPositionController extends Controller
     public function destroy(Request $request, ClubPosition $position): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($position->club_id, 'can_manage_members')) {
+        if (!$user->hasClubPermission($position->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
+
+        AuditService::log('club.position_deleted', $position, [
+            'title' => $position->title,
+        ], $user->id, $position->club_id);
 
         $position->delete();
 

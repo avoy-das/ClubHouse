@@ -1,16 +1,70 @@
-# React + Vite
+# ClubHouse Frontend SPA (React 19 + Vite + Tailwind CSS)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The Single-Page Application (SPA) frontend for the **ClubHouse** University Club Management Platform. Built on [React 19](https://react.dev), [Vite](https://vitejs.dev), [React Router v7](https://reactrouter.com), and [Tailwind CSS](https://tailwindcss.com).
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features & Capabilities
 
-## React Compiler
+- **Authentication Context**: Reactive auth state management via `AuthContext` with automatic Sanctum token persistence in `localStorage`.
+- **Dynamic Club Executive Permissions**: `ClubPermissionsContext` evaluates user role position flags (`can_manage_members`, `can_manage_events`, etc.) dynamically per club.
+- **Route Protection Guards**:
+  - `ProtectedRoute`: Access restriction for unauthenticated visitors.
+  - `AdminRoute`: Access restriction for non-administrator users.
+  - `ClubExecutiveRoute`: Access restriction for non-executive club users.
+- **Responsive UI Components**: Built using modular Tailwind CSS classes with custom badges, modals, status banners, loading spinners, and layout components.
+- **Service Layer Pattern**: 11 dedicated service modules encapsulating API communication via Axios with global Bearer token interceptors and 401 redirect handling.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## Prerequisites
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- Node.js >= 18.0
+- npm >= 9.0
+
+---
+
+## Installation & Local Development
+
+1. **Navigate to frontend directory**:
+   ```bash
+   cd frontend
+   ```
+
+2. **Install Node packages**:
+   ```bash
+   npm install
+   ```
+
+3. **Start local development server**:
+   ```bash
+   npm run dev
+   ```
+   The application will be accessible at `http://localhost:5173`.
+
+---
+
+## Production Build
+
+To compile static assets for production:
+
+```bash
+npm run build
+```
+
+Preview the production build locally:
+
+```bash
+npm run preview
+```
+
+---
+
+## Key Directory Layout
+
+- `src/components/` — Subdirectories for layout shells (`AppLayout`, `Navbar`, `SearchBar`), UI primitives (`Badge`, `Modal`, `Button`, `Card`, `ErrorBanner`, `SuccessBanner`, `LoadingSpinner`), club components (`ClubCard`, `EditClubModal`, `MembersDirectory`, `PositionAssignment`, `TransferPresidencyModal`), event components (`EventModal`, `MarkAttendanceModal`), and admin components (`UserManagementSection`).
+- `src/context/` — React Context providers (`AuthContext`, `ClubPermissionsContext`).
+- `src/pages/` — 12 Feature page modules (Admin, Announcements, Clubs, Dashboard, Events, Login, Notifications, Profile, Recruitment, Register, Search, Users).
+- `src/routes/` — Route guards (`ProtectedRoute`, `AdminRoute`, `ClubExecutiveRoute`).
+- `src/services/` — 10 Axios-based API service files.
+- `src/App.jsx` — React Router v7 routes map.

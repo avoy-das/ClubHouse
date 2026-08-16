@@ -7,6 +7,7 @@ use App\Models\Club;
 use App\Models\ClubEditRequest;
 use App\Models\ClubMember;
 use App\Services\AuditService;
+use App\Services\CacheInvalidationService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,16 +21,24 @@ class ClubEditRequestController extends Controller
     {
         $user = $request->user();
 
-        // Check if user is executive of this club or admin
-        if (!$user->is_admin && !$this->isExec($user->id, $club->id)) {
-            return response()->json(['message' => 'Only club executives or administrators can submit edit requests.'], 403);
+        if ($user->is_admin) {
+            return response()->json(['message' => 'Administrators cannot change club details.'], 403);
+        }
+
+        if (!$this->isExec($user->id, $club->id)) {
+            return response()->json(['message' => 'Only club executives can submit edit requests.'], 403);
         }
 
         $data = $request->validated();
 
         $logoPath = null;
         if ($request->hasFile('logo')) {
-            $logoPath = $request->file('logo')->store('logos', 'public');
+            $logoPath = $request->file('logo')->store('clubs/logos', 'public');
+        }
+
+        $bannerPath = null;
+        if ($request->hasFile('banner')) {
+            $bannerPath = $request->file('banner')->store('clubs/banners', 'public');
         }
 
         $editRequest = ClubEditRequest::create([
@@ -42,6 +51,7 @@ class ClubEditRequestController extends Controller
             'contact_email' => $data['contact_email'] ?? $club->contact_email,
             'contact_phone' => array_key_exists('contact_phone', $data) ? $data['contact_phone'] : $club->contact_phone,
             'logo_path'     => $logoPath ?? $club->logo_path,
+            'banner_path'   => $bannerPath ?? $club->banner_path,
             'reason'        => $data['reason'] ?? 'Executive submitted club details update.',
             'status'        => 'pending',
         ]);
@@ -109,8 +119,11 @@ class ClubEditRequestController extends Controller
         if ($clubEditRequest->contact_email) $updateData['contact_email'] = $clubEditRequest->contact_email;
         if ($clubEditRequest->contact_phone !== null) $updateData['contact_phone'] = $clubEditRequest->contact_phone;
         if ($clubEditRequest->logo_path)     $updateData['logo_path']     = $clubEditRequest->logo_path;
+        if ($clubEditRequest->banner_path)   $updateData['banner_path']   = $clubEditRequest->banner_path;
 
         $club->update($updateData);
+
+        CacheInvalidationService::club($club->id);
 
         $clubEditRequest->update([
             'status'      => 'approved',

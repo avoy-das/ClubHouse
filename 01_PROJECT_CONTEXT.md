@@ -1,113 +1,125 @@
-# ClubHouse — Project Context & Roadmap
+# ClubHouse — Project Context & System Architecture
 
-> **Read this file first.** It describes what already exists in the repository, what conventions are already established, and what needs to be built next. The other two files (`02_BACKEND_DEVELOPMENT_GUIDE.md` and `03_FRONTEND_DEVELOPMENT_GUIDE.md`) contain the detailed technical specification for the remaining work. This document was produced by analyzing the actual project ZIP (not assumptions) — every convention described below is taken directly from existing code.
-
----
-
-## 1. What ClubHouse Is
-
-ClubHouse is a centralized web platform for managing university club activities: club discovery and membership, event creation and registration, attendance and certificates, announcements, recruitment, feedback, and admin oversight.
-
-An SRS document was used for requirements gathering only. **Its ER diagram is outdated and must not be used.** The database design in `02_BACKEND_DEVELOPMENT_GUIDE.md` is the authoritative, normalized schema for this project and supersedes the SRS's data model entirely. The SRS's functional requirements, use cases, and business rules are still valid as *behavioral* references.
+> **Authoritative System Reference.** This document details the completed implementation of the **ClubHouse** University Club Management Platform. All 10 core development phases, plus system extensions (Global Search, Club Edit Requests, Audit Logging Observer, targeted announcements, custom registration questions, club advisor management, and banner media support), are fully built and verified across the backend and frontend.
 
 ---
 
-## 2. Tech Stack (confirmed from the repository)
+## 1. Project Overview & Scope
 
-| Layer | Technology | Version |
+ClubHouse is a centralized, web-based software solution designed to digitize university club operations. The platform serves platform administrators, club executives, active club members, and general university students.
+
+### Implemented Feature Modules
+
+1. **User Authentication & Profiles**: Registration, login, profile editing, password changes, session targeting, membership history display.
+2. **Club Lifecycle & Governance**: Club creation, admin approval workflow, club details edit request system, club suspension, custom position creation, advisor contact management, banner media uploads, and fine-grained position permissions.
+3. **Membership Workflows**: Join request submission, executive review (approve/reject), member listing, role assignment, presidency transfer, committee additions, and voluntary leaving/removal.
+4. **Events & Attendance**: Event creation (public vs. members-only), registration limits, custom registration fields/answers, cover banners, status tracking (draft/published/cancelled/completed), attendance marking, and CSV export.
+5. **Announcements**: Targeted multi-audience announcements (all students, club members, executive-only, or custom recipient selection) with pinning/unpinning capabilities, attachment links, and sender role display.
+7. **Recruitment Drives**: Custom application forms with flexible extra fields, multi-notice listings with target sessions, application submission with attachment links, and status decisioning (pending/accepted/rejected).
+8. **Feedback & Reviews**: Star rating (1-5) and feedback submission restricted to confirmed event attendees.
+9. **Notifications & Auditing**: In-app notifications with unread counts and read markers, combined with an automated `AuditObserver` log of critical database actions.
+10. **Admin Dashboard & Analytics**: System overview metrics, club performance breakdown reports, user management, club edit request management, and system audit trail viewing.
+11. **Global Search Engine**: Unified backend search API endpoint querying across clubs, events, announcements, and recruitment opportunities.
+
+---
+
+## 2. Tech Stack & Environment Specs
+
+| Layer | Technology | Specification / Version |
 |---|---|---|
-| Backend framework | Laravel | ^12.0 |
-| Backend language | PHP | ^8.2 |
-| Auth | Laravel Sanctum (token-based, `Bearer` header) | ^4.0 |
-| Database | MySQL | — |
-| Frontend framework | React | ^19.2 |
-| Build tool | Vite | ^8.1 |
-| Routing | react-router-dom | ^7.18 |
-| HTTP client | axios | ^1.18 |
-| Styling | Tailwind CSS | ^3.4 |
-| Forms library (installed, currently unused) | react-hook-form | ^7.83 |
-| Linting | oxlint | ^1.71 |
+| **Backend Framework** | Laravel | ^12.0 |
+| **Backend Language** | PHP | ^8.2 |
+| **Authentication** | Laravel Sanctum | ^4.0 (Bearer Token via HTTP header) |
+| **Database Engine** | MySQL / SQLite | 50 migration files covering 17 domain tables |
+| **Frontend Framework** | React | ^19.2 |
+| **Build Tool** | Vite | ^8.1 |
+| **Routing** | react-router-dom | ^7.18 |
+| **HTTP Client** | Axios | ^1.18 (Configured in `src/services/api.js`) |
+| **Styling** | Tailwind CSS | ^3.4 |
+| **Linting** | Oxlint | ^1.71 |
 
-Repository layout:
+---
+
+## 3. Implemented Backend Architecture
+
+### Directory Structure
 ```
-ClubHouse/
-├── backend/     (Laravel app, standard structure, no sub-namespacing)
-└── frontend/    (Vite React app)
+backend/
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/    # 22 RESTful Controllers
+│   │   ├── Middleware/     # IsAdmin Middleware
+│   │   └── Requests/       # 18 Form Request Validation Classes
+│   ├── Models/             # 17 Eloquent Models
+│   ├── Observers/          # AuditObserver (auto-logs model changes)
+│   ├── Policies/           # 7 Policy Authorization Classes
+│   ├── Providers/          # AppServiceProvider
+│   └── Services/           # ClubMembershipService
+├── config/                 # Sanctum, CORS, Auth, Database configs
+├── database/
+│   ├── migrations/         # 50 Migration files
+│   ├── factories/          # Model Factories
+│   └── seeders/            # Database Seeders
+└── routes/
+    └── api.php             # Unified RESTful API routes
 ```
 
----
+### Core Architectural Decisions
 
-## 3. What Is Already Implemented — DO NOT MODIFY unless explicitly asked
-
-### Backend
-- `app/Models/User.php` — fillable: `name, student_id, email, password, department, phone, is_admin`. Casts `is_admin` to boolean, `password` to hashed.
-- `app/Http/Controllers/AuthController.php` — `register`, `login`, `logout`, `me`.
-- `app/Http/Controllers/UserController.php` — `index`, `show`, `update` (admin-only).
-- `app/Http/Requests/RegisterRequest.php`, `LoginRequest.php` (note: `LoginRequest::rules()` is currently empty — validation happens implicitly via `Auth::attempt`; leave as-is unless asked to harden it).
-- `app/Http/Middleware/IsAdmin.php` — registered as alias `is_admin` in `bootstrap/app.php`.
-- `routes/api.php` — public `/register`, `/login`; `auth:sanctum` group with `/logout`, `/me`; nested `is_admin` group with `/users*`.
-- Migration: `0001_01_01_000000_create_users_table.php` (already includes `student_id`, `department`, `phone`, `is_admin` — this was customized from the Laravel default).
-- Sanctum personal access tokens table is present.
-
-### Frontend
-- `src/context/AuthContext.jsx` — exposes `user`, `loading`, `login(credentials)`, `logout()`, `isAdmin()`. Wraps the whole app in `App.jsx`.
-- `src/routes/ProtectedRoute.jsx` — redirects to `/login` if no `user`.
-- `src/routes/AdminROute.jsx` — **note the exact filename typo `AdminROute.jsx`** — redirects non-admins to `/dashboard`. Keep this filename as-is for consistency; do not silently rename it (renaming breaks nothing functionally in imports as long as it's done everywhere consistently, but there is no need to touch it).
-- `src/services/api.js` — axios instance, `baseURL: 'http://localhost:8000/api'`, attaches `Authorization: Bearer <token>` from `localStorage.getItem('token')`, and force-redirects to `/login` on any global 401.
-- `src/services/authService.js` — `register`, `login` (stores token), `logout`, `me`, `getToken`, `isLoggedIn`.
-- `src/pages/Login/Login.jsx`, `src/pages/Register/Register.jsx` — plain HTML forms with manual `useState` error/loading handling (no react-hook-form used yet, no external validation library, no toast library). Styling: white card on `bg-gray-100`, Tailwind utility classes, blue-600 primary buttons, `rounded`, `shadow-md`.
-- `App.jsx` — currently has a hard-coded placeholder `Dashboard` component and only `/login`, `/register`, `/dashboard` routes.
-
-**Rule: authentication is complete and frozen.** Every new feature must plug into this existing `AuthContext` / `api.js` / `ProtectedRoute` / `AdminRoute` infrastructure — do not create a second auth system, a second axios instance, or a second token storage mechanism.
+- **Single `users` Table**: User roles are unified in the `users` table with an `is_admin` boolean flag for global Platform Administrators.
+- **Derived Club Executive Status**: Club executive permissions are never hardcoded on the user. An executive is dynamically derived when a user holds a position (`club_member_positions`) linked to a `club_positions` row where any permission flag (`can_manage_members`, `can_manage_events`, `can_manage_announcements`, `can_manage_recruitment`, `can_track_attendance`) is `true`.
+- **Observer-Based Audit Logging**: The `AuditObserver` automatically records `created`, `updated`, and `deleted` actions across domain models into `audit_logs` without cluttering controller logic.
+- **Form Request Validation**: Every write operation validates input payloads cleanly via dedicated Form Request classes under `app/Http/Requests`.
 
 ---
 
-## 4. Domain Model Decision — Executives Are Not a Separate User Type
+## 4. Implemented Frontend Architecture
 
-This is the single most important architectural decision for this project, and it deliberately diverges from the SRS's actor model:
+### Directory Structure
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── admin/          # UserManagementSection
+│   │   ├── clubs/          # AddCommitteeMemberModal, ClubAuditLogModal, ClubCard, EditAdvisorModal, EditClubModal, MembersDirectory, MembershipRequestList, PositionAssignment, TransferPresidencyModal
+│   │   ├── Events/         # AttendanceReportModal, EventModal, MarkAttendanceModal
+│   │   ├── layout/         # AppLayout, Navbar, SearchBar
+│   │   └── ui/             # Badge, Button, Card, Modal, ErrorBanner, SuccessBanner, LoadingSpinner
+│   ├── context/            # AuthContext, ClubPermissionsContext
+│   ├── pages/              # 12 Page feature folders (Admin, Announcements, Clubs, Dashboard, Events, Login, Notifications, Profile, Recruitment, Register, Search, Users)
+│   ├── routes/             # ProtectedRoute, AdminRoute, ClubExecutiveRoute
+│   ├── services/           # 10 Axios-based API service files
+│   ├── App.jsx             # React Router v7 main routing configuration
+│   └── index.css           # Tailwind base styles
+```
 
-- There is **one** `users` table (already built). A user is a Student, and may *additionally* be a Club Member of zero or more clubs, and may *additionally* hold one or more Positions within those memberships (President, Treasurer, etc.).
-- `is_admin` on `users` is the **only** global role flag, reserved for Platform Administrators (SRS §2.1.3).
-- "Club Executive" is never a value stored on the `users` table. It is a **derived** status: a user is an executive of a club if they have an active `club_member_positions` row (via their `club_members` row) linking to a `club_positions` row with any permission flag set to `true`.
-- Each club can define its own set of positions (a club is not forced into a fixed President/VP/Secretary/Treasurer structure). This directly satisfies SRS UR-E1–E6 without hardcoding role names anywhere in code.
+### Key Frontend Patterns
 
-See `02_BACKEND_DEVELOPMENT_GUIDE.md §2` for the full schema and `03_FRONTEND_DEVELOPMENT_GUIDE.md §3` for how the frontend should query and render "is this user an executive of club X, and what can they do."
-
----
-
-## 5. Global Conventions to Follow
-
-### Backend
-- Flat controller namespace: `App\Http\Controllers\{Name}Controller` — no sub-folders like `Api/` or `V1/`. This matches `AuthController` / `UserController`.
-- Validation via Form Requests in `App\Http\Requests`, one per action where the action has a meaningful body (`StoreXRequest`, `UpdateXRequest`), matching `RegisterRequest` naming style (not `Store...`/`Update...` in the existing 2 files because auth only has one shape each — but for CRUD resources, use `Store{Model}Request` / `Update{Model}Request`).
-- JSON responses only, via `response()->json(...)`. Success payloads return the resource/collection directly (see `AuthController::me`, `UserController::index`) — do not introduce a `{ data: ... }` wrapper unless explicitly asked, to stay consistent with existing responses.
-- Errors: `response()->json(['message' => '...'], <status>)`, matching `AuthController::login`'s 401 and `IsAdmin`'s 403.
-- Route model binding is used for simple resources (`UserController::show(User $user)`) — use the same pattern for new controllers (`EventController::show(Event $event)`, etc.), scoped through nested route parameters where a resource logically belongs to a club (e.g., `clubs/{club}/events/{event}`).
-- Middleware aliases go in `bootstrap/app.php`'s `->withMiddleware()` block, exactly like `is_admin` was added. New authorization middleware/policies should follow this same registration pattern.
-- All new tables use Laravel's default `id()` (`bigIncrements`) primary keys and `timestamps()`, matching the existing `users` migration style.
-
-### Frontend
-- Page components live under `src/pages/{Feature}/{PageName}.jsx` (PascalCase folder and file), matching `pages/Login/Login.jsx` and `pages/Register/Register.jsx`.
-- One service file per backend resource area under `src/services/{name}Service.js`, all built on top of the shared `api.js` instance, matching `authService.js`. Never call `axios` directly from a component — always go through a service function.
-- Route guards (`ProtectedRoute`, `AdminRoute`) wrap route elements in `App.jsx`; new role-scoped routes (e.g., "executive-only") should follow the same wrapper-component pattern rather than inline conditional logic scattered across pages.
-- Tailwind utility-class styling matching the existing look: white cards (`bg-white rounded shadow-md`), gray page background (`bg-gray-100`), blue-600 primary actions, red-100/red-700 error banners, consistent `px-3 py-2 text-sm` form field sizing.
-- No component library is installed (no MUI/shadcn/etc.) — keep building with raw Tailwind utility classes for consistency, unless the user explicitly asks to add one.
+- **Centralized Service Layer**: Components never call Axios directly. All API communication routes through dedicated files in `src/services/`.
+- **Axios Authorization Interceptor**: [api.js](file:///c:/Users/Popular%20Computer/ClubHouse/frontend/src/services/api.js) automatically injects `Bearer <token>` from `localStorage` into every request header and handles 401 unauthenticated redirects globally.
+- **Route Protection**: [ProtectedRoute.jsx](file:///c:/Users/Popular%20Computer/ClubHouse/frontend/src/routes/ProtectedRoute.jsx) guards member-only routes, while [AdminRoute.jsx](file:///c:/Users/Popular%20Computer/ClubHouse/frontend/src/routes/AdminRoute.jsx) enforces platform administrator access.
 
 ---
 
-## 6. Build Order / Roadmap
+## 5. Development Milestones Completed
 
-Build in this order — each phase is usable/demoable on its own and later phases depend on earlier ones:
+All 10 original roadmap phases and additional capabilities have been successfully built:
 
-1. **Clubs & Membership core** — `clubs`, `club_positions`, `club_members`, `club_member_positions`, `membership_requests`. Enables: browse clubs, create club (admin-approved), join/leave, executive position assignment, membership approval.
-2. **Admin club oversight** — approve/suspend/delete clubs (extends admin surface already scaffolded by `is_admin` middleware).
-3. **Announcements** — `announcements` (simplest new module, good for validating the permission-check pattern end-to-end before tackling events).
-4. **Events & Registration** — `events`, `event_registrations`. Enables: create/update/delete events, browse/register/cancel.
-5. **Attendance & Certificates** — attendance fields on `event_registrations`, `certificates`. Enables: attendance tracking, auto-generated certificates, download.
-6. **Feedback** — `event_feedback`, gated on confirmed attendance.
-7. **Recruitment** — `recruitment_notices`, `recruitment_applications`.
-8. **Notifications** — `notifications` table + triggers from the above modules (membership approval, event updates, announcements, recruitment decisions).
-9. **Admin reporting & audit** — `audit_logs`, admin dashboard aggregates/exports.
-10. **(Optional/stretch)** Club photo gallery — `club_galleries` (referenced only in the SRS use-case diagram, not detailed in functional requirements; build last if time permits).
+- **Phase 1: Clubs & Membership Core** (`clubs`, `club_positions`, `club_members`, `club_member_positions`, `membership_requests`)
+- **Phase 2: Admin Oversight & Approvals** (Club approval, rejection, suspension, club edit request management)
+- **Phase 3: Announcements & Targeting** (`announcements`, global & targeted audience options, attachments, sender roles, pin/unpin)
+- **Phase 4: Events & Registration** (`events`, `event_registrations`, capacity checks, custom registration fields, schedule view)
+- **Phase 5: Attendance Tracking** (attendance marking, CSV reporting)
+- **Phase 6: Feedback & Ratings** (`event_feedback`, attendance-restricted ratings and reviews)
+- **Phase 7: Recruitment Drives** (`recruitment_notices`, `recruitment_applications`, custom field JSON definitions, session targets)
+- **Phase 8: Notifications System** (`notifications`, unread badges, mark-as-read API)
+- **Phase 9: Analytics & Audit Logs** (`audit_logs`, `ReportController`, overall dashboard statistics)
+- **Phase 10: Club Photo Gallery & Search** (`club_galleries`, `SearchController`, unified frontend search)
 
-Each phase's exact tables, models, controllers, routes, and frontend pages are fully specified in files 02 and 03 — build strictly one phase at a time and keep the app runnable after each phase.
+---
+
+## 6. Coding & Architectural Standards
+
+- **Controllers**: Keep methods lean by offloading validation to Form Requests and policy checks to Policies.
+- **API Responses**: Consistently return direct JSON models or standard response arrays (`message`, status codes 200/201/400/401/403/404/422).
+- **Styling**: Strictly use Tailwind CSS utility classes; keep components responsive across desktop and mobile breakpoints.

@@ -2,16 +2,19 @@ import { Link } from 'react-router-dom';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const ClubCard = ({ club }) => {
+    const logoUrl = getImageUrl(club.logo_url || club.logo_path);
+
     return (
         <Card className="flex flex-col justify-between hover:shadow-lg transition">
             <div>
                 <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xl overflow-hidden border">
-                            {club.logo_path ? (
-                                <img src={club.logo_path} alt={club.name} className="w-full h-full object-cover" />
+                            {logoUrl ? (
+                                <img src={logoUrl} alt={club.name} loading="lazy" decoding="async" width="48" height="48" className="w-full h-full object-cover" />
                             ) : (
                                 club.name?.substring(0, 2).toUpperCase() || 'CH'
                             )}

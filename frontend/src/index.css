@@ -4,13 +4,14 @@
 
 @layer base {
   body {
-    font-family: 'Work Sans', 'Inter', system-ui, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     background-color: #fbf9f4;
     color: #1b1c19;
     -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Urbanist', sans-serif;
+    letter-spacing: 0.015em;
   }
 }
 

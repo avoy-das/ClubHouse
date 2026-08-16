@@ -9,11 +9,17 @@ use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $users = User::with(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,title,is_executive'])
-            ->latest()
-            ->get();
+        $query = User::select(['id', 'name', 'student_id', 'email', 'department', 'session', 'phone', 'is_admin', 'created_at'])
+            ->with(['clubMemberships.club:id,name', 'clubMemberships.positions.position:id,title,is_executive'])
+            ->latest();
+
+        if ($request->has('page')) {
+            $users = $query->paginate((int) $request->query('per_page', 25));
+        } else {
+            $users = $query->get();
+        }
 
         return response()->json($users);
     }
@@ -29,15 +35,26 @@ class UserController extends Controller
         $validated = $request->validate([
             'name'       => ['sometimes', 'string', 'max:255'],
             'department' => ['sometimes', 'string', 'max:255'],
+            'session'    => ['sometimes', 'nullable', 'integer', 'min:0', 'max:99'],
             'phone'      => ['sometimes', 'nullable', 'string', 'max:20'],
             'is_admin'   => ['sometimes', 'boolean'],
         ]);
 
         $oldIsAdmin = $user->is_admin;
+        $adminFields = [];
+        if (array_key_exists('is_admin', $validated)) {
+            $adminFields['is_admin'] = $validated['is_admin'];
+            unset($validated['is_admin']);
+        }
 
         $user->update($validated);
 
-        if (array_key_exists('is_admin', $validated) && $validated['is_admin'] !== $oldIsAdmin) {
+        if (!empty($adminFields)) {
+            $user->is_admin = $adminFields['is_admin'];
+            $user->save();
+        }
+
+        if (!empty($adminFields) && $adminFields['is_admin'] !== $oldIsAdmin) {
             $action = $user->is_admin ? 'admin.role_promoted' : 'admin.role_demoted';
             AuditService::log($action, $user, [
                 'target_user_id' => $user->id,

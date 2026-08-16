@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import clubService from '../../services/clubService';
@@ -7,55 +7,23 @@ import { useAuth } from '../../context/AuthContext';
 import EditClubModal from '../../components/Clubs/EditClubModal';
 import ClubAuditLogModal from '../../components/Clubs/ClubAuditLogModal';
 import EventModal from '../../components/Events/EventModal';
-import { ArrowLeft, Edit, FileText, Search, Shield, Building2, Megaphone, Target, Calendar } from 'lucide-react';
-
-const roleLabels = {
-    president:      'President',
-    vice_president: 'Vice President',
-    secretary:      'Secretary',
-    treasurer:      'Treasurer',
-    member:         'Member',
-};
-
-const getRoleRank = (role) => {
-    switch ((role || 'member').toLowerCase()) {
-        case 'president': return 10;
-        case 'vice_president':
-        case 'vice president':
-        case 'vp': return 9;
-        case 'secretary':
-        case 'treasurer': return 8;
-        case 'executive': return 7;
-        default: return 1;
-    }
-};
-
-const getMemberHighestRank = (member) => {
-    let maxRank = getRoleRank(member?.role);
-    if (member?.positions && Array.isArray(member.positions)) {
-        member.positions.forEach(p => {
-            if (p.position?.title) {
-                const title = p.position.title.toLowerCase();
-                let rank = 1;
-                if (title.includes('president') && !title.includes('vice')) rank = 10;
-                else if (title.includes('vice') || title.includes('vp')) rank = 9;
-                else if (title.includes('secretary') || title.includes('treasurer')) rank = 8;
-                else if (p.position.is_executive || p.position.can_manage_members) rank = 7;
-                if (rank > maxRank) maxRank = rank;
-            }
-        });
-    }
-    return maxRank;
-};
+import MembersDirectory from '../../components/Clubs/MembersDirectory';
+import SuspendClubModal from '../../components/admin/SuspendClubModal';
+import { ArrowLeft, Edit, FileText, Shield, ShieldAlert, Megaphone, Target, Calendar, Clock, MapPin, ExternalLink } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
+import { roleLabels } from '../../utils/roleUtils';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const ClubDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user, isAdmin } = useAuth();
     const [club, setClub]         = useState(null);
+    usePageTitle(club ? club.name : 'Club Detail');
     const [loading, setLoading]   = useState(true);
     const [error, setError]       = useState(null);
     const [suspending, setSuspending] = useState(false);
+    const [activating, setActivating] = useState(false);
     const [leaving, setLeaving] = useState(false);
     const [toast, setToast] = useState(null);
 
@@ -68,97 +36,79 @@ const ClubDetail = () => {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isLogsOpen, setIsLogsOpen] = useState(false);
     const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
-
-    // Contextual member search state
-    const [memberQuery, setMemberQuery] = useState('');
-    const [membersList, setMembersList] = useState([]);
-    const [searchingMembers, setSearchingMembers] = useState(false);
-    const [updatingUserId, setUpdatingUserId] = useState(null);
+    const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
 
     const myMembership = club?.members?.find(m => m.user_id === user?.id);
     const isExec = isAdmin() || (myMembership && ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(myMembership.role));
+    const isClubExec = !user?.is_admin && Boolean(myMembership && ['president', 'vice_president', 'secretary', 'treasurer', 'executive'].includes(myMembership.role));
 
-    const formatDate = (isoStr) => {
-        if (!isoStr) return 'N/A';
-        return new Date(isoStr).toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    };
-
-    const fetchClubDetails = () => {
-        clubService.getClub(id)
-            .then(res => {
-                setClub(res.data);
-                if (res.data?.members) {
-                    setMembersList(res.data.members);
-                }
-            })
-            .catch(() => setError('Club not found.'))
-            .finally(() => setLoading(false));
-    };
-
-    const fetchPendingEditRequest = () => {
-        clubService.getPendingEditRequest(id)
-            .then(res => setPendingEditRequest(res.data?.pending_request || null))
-            .catch(() => setPendingEditRequest(null));
-    };
-
-    const fetchClubEvents = () => {
-        setLoadingEvents(true);
-        api.get('/events', { params: { club_id: id } })
-            .then(res => {
-                const data = res.data?.data || res.data || [];
-                setClubEvents(Array.isArray(data) ? data : []);
-            })
-            .catch(() => setClubEvents([]))
-            .finally(() => setLoadingEvents(false));
-    };
-
-    useEffect(() => {
-        fetchClubDetails();
-        fetchClubEvents();
-        fetchPendingEditRequest();
-    }, [id]);
-
-    // Handle API contextual member search with ?q=
     useEffect(() => {
         let isMounted = true;
-        const fetchMembers = async () => {
-            setSearchingMembers(true);
-            try {
-                const res = await clubService.listMembers(id, memberQuery.trim());
-                if (isMounted) {
-                    setMembersList(res.data || []);
-                }
-            } catch {
-                // Ignore temporary network search errors
-            } finally {
-                if (isMounted) setSearchingMembers(false);
+        setLoading(true);
+        setLoadingEvents(true);
+
+        Promise.allSettled([
+            clubService.getClub(id),
+            api.get('/events', { params: { club_id: id } }),
+            clubService.getPendingEditRequest(id),
+        ]).then(([clubRes, eventsRes, editReqRes]) => {
+            if (!isMounted) return;
+
+            if (clubRes.status === 'fulfilled') {
+                setClub(clubRes.value.data);
+            } else {
+                setError('Club not found.');
             }
-        };
 
-        const timer = setTimeout(() => {
-            if (id) fetchMembers();
-        }, 300);
+            if (eventsRes.status === 'fulfilled') {
+                const data = eventsRes.value.data?.data || eventsRes.value.data || [];
+                setClubEvents(Array.isArray(data) ? data : []);
+            } else {
+                setClubEvents([]);
+            }
 
-        return () => {
-            isMounted = false;
-            clearTimeout(timer);
-        };
-    }, [id, memberQuery]);
+            if (editReqRes.status === 'fulfilled') {
+                setPendingEditRequest(editReqRes.value.data?.pending_request || null);
+            } else {
+                setPendingEditRequest(null);
+            }
+        }).finally(() => {
+            if (isMounted) {
+                setLoading(false);
+                setLoadingEvents(false);
+            }
+        });
 
-    const handleSuspend = async () => {
-        if (!window.confirm('Are you sure you want to suspend this club?')) return;
+        return () => { isMounted = false; };
+    }, [id]);
+
+    const handleSuspendConfirm = async (reason) => {
         setSuspending(true);
         try {
-            await clubService.adminSuspend(id);
-            setClub(prev => ({ ...prev, status: 'suspended' }));
-        } catch {
-            alert('Failed to suspend club.');
+            await clubService.adminSuspend(id, reason);
+            setClub(prev => ({ ...prev, status: 'suspended', suspension_reason: reason }));
+            setToast({
+                type: 'success',
+                message: 'Club has been suspended successfully.',
+            });
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to suspend club.');
+            throw err;
         } finally {
             setSuspending(false);
+        }
+    };
+
+    const handleActivate = async () => {
+        if (!window.confirm('Are you sure you want to make this club active again?')) return;
+        setActivating(true);
+        try {
+            await clubService.adminActivate(id);
+            setClub(prev => ({ ...prev, status: 'approved' }));
+        } catch {
+            alert('Failed to activate club.');
+        } finally {
+            setActivating(false);
         }
     };
 
@@ -182,48 +132,6 @@ const ClubDetail = () => {
         }
     };
 
-    // Executive Action Handlers for Members
-    const handleRoleChange = async (targetUserId, newRole) => {
-        setUpdatingUserId(targetUserId);
-        try {
-            await clubService.updateMemberRole(id, targetUserId, newRole);
-            setMembersList(prev =>
-                prev.map(m => m.user_id === targetUserId ? { ...m, role: newRole } : m)
-            );
-            setToast({
-                type: 'success',
-                message: `Member role updated to ${roleLabels[newRole] || newRole}.`,
-            });
-        } catch (err) {
-            setToast({
-                type: 'error',
-                message: err.response?.data?.message || 'Failed to update member role.',
-            });
-        } finally {
-            setUpdatingUserId(null);
-        }
-    };
-
-    const handleRemoveMember = async (targetUserId, memberName) => {
-        if (!window.confirm(`Are you sure you want to remove ${memberName || 'this member'} from ${club.name}?`)) return;
-        setUpdatingUserId(targetUserId);
-        try {
-            await clubService.removeMember(id, targetUserId);
-            setMembersList(prev => prev.filter(m => m.user_id !== targetUserId));
-            setToast({
-                type: 'success',
-                message: 'Member removed from club successfully.',
-            });
-        } catch (err) {
-            setToast({
-                type: 'error',
-                message: err.response?.data?.message || 'Failed to remove member.',
-            });
-        } finally {
-            setUpdatingUserId(null);
-        }
-    };
-
     const handleClubUpdated = (updatedClub, message) => {
         setClub(updatedClub);
         setToast({
@@ -231,6 +139,10 @@ const ClubDetail = () => {
             message: message || 'Club details updated successfully.',
         });
     };
+
+    const handleMembersClubUpdate = useCallback((updated) => {
+        setClub(updated);
+    }, []);
 
     if (loading) return (
         <MainLayout>
@@ -272,11 +184,26 @@ const ClubDetail = () => {
                 </div>
             )}
 
+            {/* Pending Club Creation Approval Banner */}
+            {club.status === 'pending' && (
+                <div className="mb-6 bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl p-5 shadow-xs flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-200/80 rounded-xl text-amber-800 font-bold shrink-0"><Clock className="w-5 h-5 text-amber-800" /></div>
+                        <div>
+                            <p className="text-xs font-bold text-amber-950 uppercase tracking-wider">Requested by you — Waiting for approval</p>
+                            <p className="text-xs text-amber-900 mt-0.5">
+                                This club creation request is currently pending administrator approval. You can view all submitted details below, but club management features remain disabled until approved.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Pending Edit Request Banner */}
             {pendingEditRequest && (
                 <div className="mb-6 bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl p-4 shadow-xs flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-200/80 rounded-xl text-amber-800 font-bold shrink-0">⏳</div>
+                        <div className="p-2 bg-amber-200/80 rounded-xl text-amber-800 font-bold shrink-0"><Clock className="w-5 h-5 text-amber-800" /></div>
                         <div>
                             <p className="text-xs font-bold text-amber-950 uppercase tracking-wider">Club Edit Request Under Review</p>
                             <p className="text-xs text-amber-900 mt-0.5">
@@ -287,13 +214,36 @@ const ClubDetail = () => {
                 </div>
             )}
 
-            {/* Executive & Admin Management Control Suite Toolbar */}
-            {(isExec || isAdmin()) && (
+            {/* Suspended Club Banner */}
+            {club.status === 'suspended' && (
+                <div className="mb-6 bg-rose-50 border-2 border-rose-300 text-rose-900 rounded-2xl p-5 shadow-xs flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-rose-200/80 rounded-xl text-rose-800 font-bold shrink-0 mt-0.5">
+                            <ShieldAlert className="w-5 h-5 text-rose-800" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold text-rose-950 uppercase tracking-wider">Club Suspended by Administration</p>
+                            <p className="text-xs text-rose-900 mt-1">
+                                This club is currently suspended by administration. Normal club operations and event features are temporarily paused.
+                            </p>
+                            {club.suspension_reason && (
+                                <div className="mt-3 p-3 bg-white/80 border border-rose-200 rounded-xl">
+                                    <p className="text-xs font-bold text-rose-950">Official Reason for Suspension:</p>
+                                    <p className="text-xs text-rose-900 mt-0.5 whitespace-pre-wrap">{club.suspension_reason}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Club Executive Management Control Suite Toolbar */}
+            {club.status === 'approved' && isClubExec && (
                 <div className="mb-6 bg-[#0f172a] text-white rounded-2xl p-5 shadow-xs border border-slate-800">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                             <span className="text-xs font-semibold uppercase tracking-wider text-[#eab308]">
-                                {isAdmin() ? 'Administrator Control Suite' : 'Club Executive Control Suite'}
+                                Club Executive Control Suite
                             </span>
                             <h3 className="text-lg font-bold text-white mt-0.5">
                                 Club & Roster Management
@@ -301,20 +251,18 @@ const ClubDetail = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
-                            {isExec && (
-                                <button
-                                    onClick={() => setIsCreateEventOpen(true)}
-                                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
-                                >
-                                    <Calendar className="w-4 h-4" /> Create Event
-                                </button>
-                            )}
+                            <button
+                                onClick={() => setIsCreateEventOpen(true)}
+                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
+                            >
+                                <Calendar className="w-4 h-4" /> Create Event
+                            </button>
 
                             <button
                                 onClick={() => setIsEditOpen(true)}
                                 className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
                             >
-                                <Edit className="w-4 h-4" /> {isAdmin() ? 'Edit Club Details (Direct)' : 'Edit Club Details'}
+                                <Edit className="w-4 h-4" /> Edit Club Details
                             </button>
 
                             <button
@@ -328,50 +276,74 @@ const ClubDetail = () => {
                 </div>
             )}
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6 shadow-xs">
-                <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
-                    <div className="flex items-center gap-4">
-                        {club.logo_path ? (
-                            <img
-                                src={`/storage/${club.logo_path}`}
-                                alt={club.name}
-                                className="w-14 h-14 rounded-2xl object-cover border border-slate-200"
-                            />
-                        ) : (
-                            <div className="w-14 h-14 rounded-2xl bg-[#eff4ff] text-[#2563eb] flex items-center justify-center font-extrabold text-xl border border-blue-200/60">
-                                {club.name.charAt(0)}
+            <div className="bg-white border border-slate-200 rounded-2xl mb-6 shadow-xs overflow-hidden">
+                {getImageUrl(club.banner_url || club.banner_path) ? (
+                    <div className="h-44 w-full bg-slate-100 relative">
+                        <img
+                            src={getImageUrl(club.banner_url || club.banner_path)}
+                            alt={`${club.name} Banner`}
+                            className="w-full h-full object-cover"
+                        />
+                    </div>
+                ) : (
+                    <div className="h-28 w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-800 relative opacity-90" />
+                )}
+
+                <div className="p-6 relative pt-4">
+                    <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-white -mt-10 shrink-0 relative z-10">
+                                {getImageUrl(club.logo_url || club.logo_path) ? (
+                                    <img
+                                        src={getImageUrl(club.logo_url || club.logo_path)}
+                                        alt={club.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-[#eff4ff] text-[#2563eb] flex items-center justify-center font-extrabold text-xl">
+                                        {club.name.charAt(0)}
+                                    </div>
+                                )}
                             </div>
-                        )}
-                        <div>
-                            <h1 className="text-2xl font-bold text-[#0b1c30]">{club.name}</h1>
-                            {club.department && <p className="text-slate-500 text-sm mt-0.5">{club.department}</p>}
+                            <div>
+                                <h1 className="text-2xl font-bold text-[#0b1c30]">{club.name}</h1>
+                                {club.department && <p className="text-slate-500 text-sm mt-0.5">{club.department}</p>}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <span className="px-3 py-1 bg-[#f8f9ff] text-[#0b1c30] text-xs font-semibold rounded-full border border-slate-200">
+                                {club.category}
+                            </span>
+                            {myMembership && (
+                                <button
+                                    onClick={handleLeaveClub}
+                                    disabled={leaving}
+                                    className="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors disabled:opacity-50"
+                                >
+                                    {leaving ? 'Leaving...' : 'Leave Club'}
+                                </button>
+                            )}
+                            {isAdmin() && club.status === 'approved' && (
+                                <button
+                                    onClick={() => setIsSuspendModalOpen(true)}
+                                    disabled={suspending}
+                                    className="px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                                >
+                                    Suspend Club
+                                </button>
+                            )}
+                            {isAdmin() && club.status === 'suspended' && (
+                                <button
+                                    onClick={handleActivate}
+                                    disabled={activating}
+                                    className="px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                                >
+                                    {activating ? 'Activating...' : 'Activate Club'}
+                                </button>
+                            )}
                         </div>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                        <span className="px-3 py-1 bg-[#f8f9ff] text-[#0b1c30] text-xs font-semibold rounded-full border border-slate-200">
-                            {club.category}
-                        </span>
-                        {myMembership && (
-                            <button
-                                onClick={handleLeaveClub}
-                                disabled={leaving}
-                                className="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors disabled:opacity-50"
-                            >
-                                {leaving ? 'Leaving...' : 'Leave Club'}
-                            </button>
-                        )}
-                        {isAdmin() && club.status === 'approved' && (
-                            <button
-                                onClick={handleSuspend}
-                                disabled={suspending}
-                                className="px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
-                            >
-                                {suspending ? 'Suspending...' : 'Suspend Club'}
-                            </button>
-                        )}
-                    </div>
-                </div>
 
                 <p className="text-slate-700 text-sm leading-relaxed mb-6">
                     {club.description}
@@ -382,16 +354,35 @@ const ClubDetail = () => {
                         <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Contact Email</p>
                         <p className="text-[#0b1c30] font-medium">{club.contact_email}</p>
                     </div>
-                    {club.contact_phone && (
-                        <div>
-                            <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Contact Phone</p>
-                            <p className="text-[#0b1c30] font-medium">{club.contact_phone}</p>
+                    <div>
+                        <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Contact Phone</p>
+                        <p className="text-[#0b1c30] font-medium">{club.contact_phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Created On</p>
+                        <p className="text-[#0b1c30] font-medium">{new Date(club.created_at).toLocaleDateString()}</p>
+                    </div>
+                    {club.reason && (
+                        <div className="sm:col-span-3 border-t border-slate-200/60 pt-3">
+                            <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Reason for Creation Request</p>
+                            <p className="text-[#0b1c30] font-medium text-xs leading-relaxed">{club.reason}</p>
                         </div>
                     )}
-                    <div>
-                        <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Founded by</p>
-                        <p className="text-[#0b1c30] font-medium">{club.creator?.name}</p>
-                    </div>
+                    {getImageUrl(club.permission_doc_url || club.permission_doc_path) && (
+                        <div className="sm:col-span-3 border-t border-slate-200/60 pt-3">
+                            <p className="text-slate-400 text-xs uppercase tracking-wide mb-1 font-medium">Authority Permission Document</p>
+                            <a
+                                href={getImageUrl(club.permission_doc_url || club.permission_doc_path)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-blue-600 hover:underline text-xs font-semibold inline-flex items-center gap-1"
+                            >
+                                <FileText className="w-4 h-4 text-blue-600 inline shrink-0" />
+                                <span>View Submitted Permission Document / Letter</span>
+                                <ExternalLink className="w-3.5 h-3.5 inline shrink-0" />
+                            </a>
+                        </div>
+                    )}
                 </div>
 
                 {/* Module Quick Links */}
@@ -410,6 +401,7 @@ const ClubDetail = () => {
                     </button>
                 </div>
             </div>
+        </div>
 
             {/* Club Events Directory */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6 shadow-xs space-y-4">
@@ -420,14 +412,6 @@ const ClubDetail = () => {
                         </h2>
                         <p className="text-xs text-slate-500 mt-0.5">All events organized by {club.name}</p>
                     </div>
-                    {isExec && (
-                        <button
-                            onClick={() => setIsCreateEventOpen(true)}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-xs flex items-center gap-1"
-                        >
-                            + Create Event
-                        </button>
-                    )}
                 </div>
 
                 {loadingEvents ? (
@@ -466,7 +450,7 @@ const ClubDetail = () => {
                                         {new Date(ev.starts_at).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
                                     </div>
                                     {ev.location_value && (
-                                        <div className="text-slate-500 truncate">📍 {ev.location_value}</div>
+                                        <div className="text-slate-500 truncate flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" /> {ev.location_value}</div>
                                     )}
                                 </div>
                             </div>
@@ -475,115 +459,8 @@ const ClubDetail = () => {
                 )}
             </div>
 
-            {/* Contextual Member Search Roster */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <h2 className="text-base font-semibold text-[#0b1c30]">
-                            Members Directory ({membersList.length})
-                        </h2>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                            {isAdmin()
-                                ? 'Admin mode: Platform-wide roster & role actions'
-                                : isExec
-                                ? 'Executive mode: Manage club member roles and permissions'
-                                : 'Member mode: Browsing club roster'}
-                        </p>
-                    </div>
-
-                    <div className="relative w-full sm:w-72">
-                        <input
-                            type="text"
-                            placeholder="Filter by name or student ID..."
-                            value={memberQuery}
-                            onChange={(e) => setMemberQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#2563eb] bg-white"
-                        />
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                    </div>
-                </div>
-
-                {searchingMembers ? (
-                    <div className="py-6 text-center text-slate-400 text-sm animate-pulse">Searching members...</div>
-                ) : membersList.length > 0 ? (
-                    <div className="divide-y divide-slate-100">
-                        {membersList.map(member => {
-                            const isUpdating = updatingUserId === member.user_id;
-                            const memberName = member.user?.name || member.name || `User #${member.user_id}`;
-                            const isSelf = user && (member.user_id === user.id || member.id === myMembership?.id);
-                            const callerRank = isAdmin() ? 100 : (myMembership ? getMemberHighestRank(myMembership) : 1);
-                            const targetCurrentRank = getMemberHighestRank(member);
-                            const canManageTarget = isExec && !isSelf && (isAdmin() || callerRank > targetCurrentRank);
-
-                            const availableRoleOptions = [
-                                { value: 'president', label: 'President', rank: 10 },
-                                { value: 'vice_president', label: 'Vice President', rank: 9 },
-                                { value: 'secretary', label: 'Secretary', rank: 8 },
-                                { value: 'treasurer', label: 'Treasurer', rank: 8 },
-                                { value: 'member', label: 'Member', rank: 1 },
-                            ].filter(opt => isAdmin() || opt.rank < callerRank);
-
-                            return (
-                                <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3">
-                                    <div>
-                                        <span className="text-sm font-semibold text-[#0b1c30] block">
-                                            {memberName}
-                                        </span>
-                                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                                            {(member.user?.student_id || member.student_id) && (
-                                                <span>ID: {member.user?.student_id || member.student_id} {member.user?.department ? `• ${member.user.department}` : ''}</span>
-                                            )}
-                                            {member.joined_at && (
-                                                <>
-                                                    <span>&bull;</span>
-                                                    <span>Joined {formatDate(member.joined_at)}</span>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Action controls / Role badge */}
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        {canManageTarget ? (
-                                            <>
-                                                {/* Role Dropdown */}
-                                                <select
-                                                    value={member.role}
-                                                    onChange={(e) => handleRoleChange(member.user_id, e.target.value)}
-                                                    disabled={isUpdating}
-                                                    className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 bg-[#f8f9ff] text-[#0b1c30] focus:border-[#2563eb]"
-                                                >
-                                                    {availableRoleOptions.map(opt => (
-                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                                    ))}
-                                                </select>
-
-                                                {/* Kick / Remove Button */}
-                                                <button
-                                                    onClick={() => handleRemoveMember(member.user_id, memberName)}
-                                                    disabled={isUpdating}
-                                                    title="Remove member"
-                                                    className="px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors disabled:opacity-40"
-                                                >
-                                                    Remove
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <span className="text-xs text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full font-medium capitalize">
-                                                {roleLabels[member.role] || member.role || 'Member'}{isSelf ? ' (You)' : ''}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <p className="text-slate-400 text-sm py-4 text-center">
-                        {memberQuery ? `No members found matching '${memberQuery}'` : 'No members yet.'}
-                    </p>
-                )}
-            </div>
+            {/* Contextual Members Directory (Two-Section Layout with Advisor Card) */}
+            <MembersDirectory clubId={id} initialClub={club} onClubUpdated={handleMembersClubUpdate} />
 
             {/* Modals */}
             <EditClubModal
@@ -612,6 +489,14 @@ const ClubDetail = () => {
                     });
                 }}
             />
+
+            <SuspendClubModal
+                isOpen={isSuspendModalOpen}
+                onClose={() => setIsSuspendModalOpen(false)}
+                clubName={club?.name}
+                onConfirm={handleSuspendConfirm}
+            />
+
         </MainLayout>
     );
 };

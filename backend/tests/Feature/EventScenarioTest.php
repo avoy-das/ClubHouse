@@ -84,9 +84,10 @@ class EventScenarioTest extends TestCase
         $regResponse = $this->actingAs($this->newUser)
             ->postJson("/api/events/{$event->id}/register");
 
-        $regResponse->assertStatus(422)
+        $regResponse->assertStatus(201)
             ->assertJson([
-                'message' => 'This event is fully booked.',
+                'status' => 'waitlisted',
+                'message' => 'Successfully joined the waitlist.',
             ]);
     }
 
@@ -126,7 +127,7 @@ class EventScenarioTest extends TestCase
     public function test_criteria_4_ongoing_event_cancellation_restricted()
     {
         $event = Event::where('title', 'Live Hackathon 2026')->firstOrFail();
-        $registeredUser = User::where('email', 'student4@nstu.edu.bd')->firstOrFail();
+        $registeredUser = User::where('email', 'student4@student.nstu.edu.bd')->firstOrFail();
 
         // Attempt to cancel registration while event is ongoing
         $cancelResponse = $this->actingAs($registeredUser)

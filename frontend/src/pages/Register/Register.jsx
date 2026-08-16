@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import authService from '../../services/authService';
 import { Users, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { generateSessionOptions } from '../../utils/sessionUtils';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const Register = () => {
+    usePageTitle('Register');
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -14,6 +17,8 @@ const Register = () => {
         setError('');
         setLoading(true);
 
+        const sessionVal = e.target.session.value;
+
         const data = {
             name: e.target.name.value,
             student_id: e.target.student_id.value,
@@ -21,6 +26,7 @@ const Register = () => {
             password: e.target.password.value,
             password_confirmation: e.target.password_confirmation.value,
             department: e.target.department.value,
+            session: sessionVal !== '' ? parseInt(sessionVal, 10) : null,
             phone: e.target.phone.value,
         };
 
@@ -44,14 +50,14 @@ const Register = () => {
                     <div className="w-12 h-12 rounded-full bg-[#1c1b1b] text-white flex items-center justify-center shadow-xs mb-4">
                         <Users className="w-6 h-6" />
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1b1c19] tracking-tight font-heading">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1b1c19] font-heading">
                         Create ClubHouse Account
                     </h1>
 
                 </div>
 
                 {error && (
-                    <div className="bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb59f] px-4 py-3 rounded-2xl mb-6 text-xs font-semibold text-center">
+                    <div data-testid="register-error-alert" className="bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb59f] px-4 py-3 rounded-2xl mb-6 text-xs font-semibold text-center">
                         {error}
                     </div>
                 )}
@@ -67,6 +73,7 @@ const Register = () => {
                                 type="text"
                                 name="name"
                                 required
+                                data-testid="register-name-input"
                                 placeholder="Hasan Mahmud Joy"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
@@ -81,6 +88,7 @@ const Register = () => {
                                 type="text"
                                 name="student_id"
                                 required
+                                data-testid="register-student-id-input"
                                 placeholder="MUH2325012M"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
@@ -94,9 +102,30 @@ const Register = () => {
                             <input
                                 type="text"
                                 name="department"
+                                data-testid="register-department-input"
                                 placeholder="Computer Science & Engineering"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
+                        </div>
+
+                        {/* Session */}
+                        <div>
+                            <label className="block text-xs font-bold text-[#1b1c19] mb-1.5 font-heading">
+                                Session <span className="text-[#858383] font-normal">(optional)</span>
+                            </label>
+                            <select
+                                name="session"
+                                defaultValue=""
+                                data-testid="register-session-select"
+                                className="w-full bg-[#f5f3ee] text-[#1b1c19] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all appearance-none cursor-pointer"
+                            >
+                                <option value="">Select Academic Session</option>
+                                {generateSessionOptions().map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* Email Address */}
@@ -108,6 +137,7 @@ const Register = () => {
                                 type="email"
                                 name="email"
                                 required
+                                data-testid="register-email-input"
                                 placeholder="hasan@student.nstu.edu.bd"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
@@ -123,6 +153,7 @@ const Register = () => {
                                     type={showPassword ? 'text' : 'password'}
                                     name="password"
                                     required
+                                    data-testid="register-password-input"
                                     placeholder="••••••••"
                                     className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full pl-4 pr-10 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                                 />
@@ -145,6 +176,7 @@ const Register = () => {
                                 type="password"
                                 name="password_confirmation"
                                 required
+                                data-testid="register-password-confirm-input"
                                 placeholder="••••••••"
                                 className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                             />
@@ -159,6 +191,7 @@ const Register = () => {
                         <input
                             type="text"
                             name="phone"
+                            data-testid="register-phone-input"
                             placeholder="+880 1714-671105"
                             className="w-full bg-[#f5f3ee] text-[#1b1c19] placeholder-[#a39f99] text-xs rounded-full px-4 py-3 border border-[#e4e2dd] focus:outline-none focus:border-[#1c1b1b] focus:bg-white transition-all"
                         />
@@ -170,6 +203,7 @@ const Register = () => {
                             <input
                                 type="checkbox"
                                 required
+                                data-testid="register-terms-checkbox"
                                 className="mt-0.5 rounded-md border-[#cbc6bd] text-[#1c1b1b] focus:ring-0 cursor-pointer"
                             />
                             <span className="leading-relaxed">
@@ -183,6 +217,7 @@ const Register = () => {
                     <button
                         type="submit"
                         disabled={loading}
+                        data-testid="register-submit-btn"
                         className="w-full bg-[#1c1b1b] hover:bg-[#30312e] text-white font-bold py-3.5 rounded-full text-xs transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 mt-4"
                     >
                         <span>{loading ? 'Creating Account...' : 'Create Account'}</span>
@@ -195,6 +230,7 @@ const Register = () => {
                     <span className="text-xs text-[#615e57]">Already part of the community?</span>
                     <Link
                         to="/login"
+                        data-testid="register-login-link"
                         className="px-4 py-2 bg-[#f5f3ee] hover:bg-[#e8e2d9] text-[#1b1c19] border border-[#e4e2dd] rounded-full text-xs font-bold transition-colors flex items-center gap-1.5"
                     >
                         <span>Back to Login</span>

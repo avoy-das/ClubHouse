@@ -7,11 +7,16 @@ use App\Http\Requests\UpdateClubRequest;
 use App\Models\Club;
 use App\Models\ClubMember;
 use App\Models\User;
+use App\Models\Event;
 use App\Models\AuditLog;
 use App\Services\AuditService;
+use App\Services\CacheInvalidationService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class ClubController extends Controller
 {
@@ -19,10 +24,15 @@ class ClubController extends Controller
     public function store(CreateClubRequest $request)
     {
         $logoPath = null;
+        $bannerPath = null;
         $permissionDocPath = null;
 
         if ($request->hasFile('logo')) {
-            $logoPath = $request->file('logo')->store('logos', 'public');
+            $logoPath = $request->file('logo')->store('clubs/logos', 'public');
+        }
+
+        if ($request->hasFile('banner')) {
+            $bannerPath = $request->file('banner')->store('clubs/banners', 'public');
         }
 
         if ($request->hasFile('permission_document')) {
@@ -37,6 +47,7 @@ class ClubController extends Controller
             'contact_email'       => $request->contact_email,
             'contact_phone'       => $request->contact_phone,
             'logo_path'           => $logoPath,
+            'banner_path'         => $bannerPath,
             'permission_doc_path' => $permissionDocPath,
             'reason'              => $request->reason,
             'status'              => 'pending',
@@ -54,6 +65,15 @@ class ClubController extends Controller
             $request->user()->id
         );
 
+        NotificationService::notifyUser(
+            $request->user()->id,
+            'club_creation_request_submitted',
+            'Club Creation Request Submitted',
+            "Your request to create the club '{$club->name}' has been submitted and is currently pending approval.",
+            Club::class,
+            $club->id
+        );
+
         return response()->json([
             'message' => 'Club creation request submitted successfully.',
             'club'    => $club,
@@ -67,8 +87,28 @@ class ClubController extends Controller
             return response()->json($request->user()->getExecutiveClubs());
         }
 
-        $clubs = Club::where('status', 'approved')
-            ->with('creator:id,name')
+        $user = $request->user();
+
+        $query = Club::query();
+
+        if ($user) {
+            if ($user->is_admin) {
+                // Admins see approved, pending, and suspended clubs on the main page (excluding rejected)
+                $query->where('status', '!=', 'rejected');
+            } else {
+                $query->where(function ($q) use ($user) {
+                    $q->where('status', 'approved')
+                      ->orWhere(function ($q2) use ($user) {
+                          $q2->where('created_by', $user->id)
+                             ->where('status', '!=', 'rejected');
+                      });
+                });
+            }
+        } else {
+            $query->where('status', 'approved');
+        }
+
+        $clubs = $query->with('creator:id,name')
             ->withCount('members')
             ->latest()
             ->get();
@@ -82,19 +122,24 @@ class ClubController extends Controller
         return response()->json($request->user()->getExecutiveClubs());
     }
 
-    // Any authenticated user can view an approved club (or admins/members/creators for pending/suspended clubs)
+    // Any authenticated user can view an approved or suspended club (or admins/creators for pending clubs)
     public function show(Request $request, Club $club)
     {
         $user = $request->user();
-        $isMemberOrExec = $user && ClubMember::where('club_id', $club->id)->where('user_id', $user->id)->exists();
 
-        if ($club->status !== 'approved' && (!$user || (!$user->is_admin && $club->created_by !== $user->id && !$isMemberOrExec))) {
+        if ($club->status === 'rejected') {
             return response()->json(['message' => 'Club not found.'], 404);
         }
 
-        $club->load('creator:id,name', 'members.user:id,name', 'members.positions.position');
+        if ($club->status === 'pending' && (!$user || (!$user->is_admin && $club->created_by !== $user->id))) {
+            return response()->json(['message' => 'Club not found.'], 404);
+        }
 
-        return response()->json($club);
+        $cachedClub = Cache::remember("clubhouse:clubs:show:{$club->id}", 180, function () use ($club) {
+            return $club->load('creator:id,name', 'members.user:id,name', 'members.positions.position');
+        });
+
+        return response()->json($cachedClub);
     }
 
     // Admin only — view all clubs regardless of status
@@ -131,6 +176,8 @@ class ClubController extends Controller
         AuditService::log('club.approved', $club, [
             'previous_status' => 'pending',
         ]);
+
+        CacheInvalidationService::club($club->id);
 
         NotificationService::notifyUser(
             $club->created_by,
@@ -183,26 +230,52 @@ class ClubController extends Controller
         ]);
     }
 
-    // Admin only — update club details
+    // Club Executive action — update club details (Admins cannot change club details)
     public function update(UpdateClubRequest $request, Club $club)
     {
         $user = $request->user();
 
-        if (!$user->is_admin) {
-            return response()->json(['message' => 'Only administrators can edit club details.'], 403);
+        if ($user->is_admin) {
+            return response()->json(['message' => 'Administrators cannot change club details.'], 403);
+        }
+
+        if (!$this->canManageClub($user, $club)) {
+            return response()->json(['message' => 'Only club executives can edit club details.'], 403);
         }
 
         $data = $request->validated();
 
         if ($request->hasFile('logo')) {
-            $data['logo_path'] = $request->file('logo')->store('logos', 'public');
+            if ($club->logo_path) {
+                Storage::disk('public')->delete($club->logo_path);
+            }
+            $data['logo_path'] = $request->file('logo')->store('clubs/logos', 'public');
         }
 
-        unset($data['logo']);
+        if ($request->hasFile('banner')) {
+            if ($club->banner_path) {
+                Storage::disk('public')->delete($club->banner_path);
+            }
+            $data['banner_path'] = $request->file('banner')->store('clubs/banners', 'public');
+        }
+
+        unset($data['logo'], $data['banner']);
+
+        $dirty = $data;
+        $original = [];
+        foreach (array_keys($dirty) as $field) {
+            $original[$field] = $club->getOriginal($field);
+        }
 
         $club->update($data);
 
-        AuditService::log('club.updated', $club);
+        CacheInvalidationService::club($club->id);
+
+        AuditService::log('club.updated', $club, [
+            'changed'        => array_intersect_key($club->getChanges(), $dirty),
+            'previous'       => $original,
+            'changed_fields' => array_keys($dirty),
+        ]);
 
         NotificationService::notifyClubMembers(
             $club->id,
@@ -221,19 +294,80 @@ class ClubController extends Controller
     }
 
     // Admin only — suspend a club
-    public function suspend(Club $club)
+    public function suspend(Request $request, Club $club)
     {
+        $request->validate([
+            'suspension_reason' => 'required|string|max:1000',
+        ]);
+
         if ($club->status !== 'approved') {
             return response()->json(['message' => 'Only approved clubs can be suspended.'], 422);
         }
 
-        $club->update(['status' => 'suspended']);
-
-        AuditService::log('club.suspended', $club, [
-            'previous_status' => 'approved',
+        $club->update([
+            'status'            => 'suspended',
+            'suspension_reason' => $request->suspension_reason,
         ]);
 
-        return response()->json(['message' => 'Club suspended.']);
+        // Auto-cancel active events belonging to this suspended club
+        Event::where('club_id', $club->id)
+            ->whereIn('status', ['draft', 'published', 'upcoming', 'ongoing'])
+            ->update(['status' => 'cancelled']);
+
+        AuditService::log('club.suspended', $club, [
+            'previous_status'   => 'approved',
+            'suspension_reason' => $request->suspension_reason,
+        ]);
+
+        NotificationService::notifyClubExecutives(
+            $club->id,
+            'club_suspended',
+            'Club Suspended',
+            "The club '{$club->name}' has been suspended by an administrator. Reason: {$request->suspension_reason}",
+            Club::class,
+            $club->id
+        );
+
+        CacheInvalidationService::club($club->id);
+        CacheInvalidationService::event($club->id);
+
+        return response()->json([
+            'message' => 'Club suspended.',
+            'club'    => $club->fresh(),
+        ]);
+    }
+
+    // Admin only — activate a suspended club
+    public function activate(Club $club)
+    {
+        if ($club->status !== 'suspended') {
+            return response()->json(['message' => 'Only suspended clubs can be activated.'], 422);
+        }
+
+        $club->update([
+            'status'            => 'approved',
+            'suspension_reason' => null,
+        ]);
+
+        AuditService::log('club.activated', $club, [
+            'previous_status' => 'suspended',
+        ]);
+
+        CacheInvalidationService::club($club->id);
+
+        NotificationService::notifyClubMembers(
+            $club->id,
+            'club_reactivated',
+            'Club Reactivated',
+            "The club '{$club->name}' has been reactivated by an administrator.",
+            Club::class,
+            $club->id
+        );
+
+        return response()->json([
+            'message' => 'Club activated successfully.',
+            'club'    => $club->fresh(),
+        ]);
     }
 
     // Authenticated user leaves a club
@@ -282,8 +416,14 @@ class ClubController extends Controller
         $user = $request->user();
         $q = trim($request->input('q', ''));
 
-        $membersQuery = ClubMember::where('status', 'active')
-            ->with(['user:id,name,student_id,email,department', 'club:id,name']);
+        $membersQuery = ClubMember::where(function ($q) {
+                $q->where('status', 'active')->orWhereNull('status');
+            })
+            ->with([
+                'user:id,name,student_id,email,department,phone,session',
+                'club:id,name',
+                'positions.position:id,title,is_executive'
+            ]);
 
         if ($q !== '') {
             $escaped = '%' . addcslashes($q, '%_\\') . '%';
@@ -304,6 +444,36 @@ class ClubController extends Controller
 
         $members = $membersQuery->get();
 
+        // Attach joining details (recruitment application / membership request info) for executives/admins
+        $isExecOrAdmin = $user && ($user->is_admin || ClubMember::where('club_id', $club->id)->where('user_id', $user->id)->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer'])->exists());
+
+        if ($isExecOrAdmin) {
+            $userIds = $members->pluck('user_id')->unique();
+
+            // Fetch recruitment applications for this club's notices
+            $recruitmentNoticeIds = \App\Models\RecruitmentNotice::where('club_id', $club->id)->pluck('id');
+            $recruitmentApps = \App\Models\RecruitmentApplication::whereIn('recruitment_notice_id', $recruitmentNoticeIds)
+                ->whereIn('user_id', $userIds)
+                ->with('recruitmentNotice:id,title,session')
+                ->latest()
+                ->get()
+                ->keyBy('user_id');
+
+            // Fetch direct membership requests
+            $membershipReqs = \App\Models\MembershipRequest::where('club_id', $club->id)
+                ->whereIn('user_id', $userIds)
+                ->latest()
+                ->get()
+                ->keyBy('user_id');
+
+            $members->transform(function ($member) use ($recruitmentApps, $membershipReqs) {
+                $memberArray = $member->toArray();
+                $memberArray['recruitment_application'] = $recruitmentApps->get($member->user_id);
+                $memberArray['membership_request'] = $membershipReqs->get($member->user_id);
+                return $memberArray;
+            });
+        }
+
         return response()->json($members);
     }
 
@@ -323,7 +493,7 @@ class ClubController extends Controller
         }
 
         $request->validate([
-            'role' => ['required', 'string', 'in:president,vice_president,secretary,treasurer,member'],
+            'role' => ['required', 'string', 'in:president,vice_president,secretary,treasurer,executive,member'],
         ]);
 
         $newRole = $request->input('role');
@@ -360,22 +530,240 @@ class ClubController extends Controller
             ], 403);
         }
 
+        // Single President slot rule: If assigning president, check if one already exists
+        if ($newRole === 'president' && $membership->role !== 'president') {
+            $presidentExists = ClubMember::where('club_id', $club->id)
+                ->where('role', 'president')
+                ->where('user_id', '!=', $user->id)
+                ->exists();
+
+            if ($presidentExists) {
+                return response()->json([
+                    'message' => 'A president already exists for this club. Only one president is allowed.',
+                ], 422);
+            }
+        }
+
+        // Orphan Executive protection: Cannot demote the last executive left in the club
+        $isExecRole = in_array($membership->role, ['president', 'vice_president', 'secretary', 'treasurer', 'executive']);
+        if ($isExecRole && $newRole === 'member') {
+            $execCount = ClubMember::where('club_id', $club->id)
+                ->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
+                ->count();
+
+            if ($execCount <= 1) {
+                return response()->json([
+                    'message' => 'Cannot demote the last remaining executive of the club.',
+                ], 422);
+            }
+        }
+
         $oldRole = $membership->role;
 
         $membership->update([
             'role' => $newRole,
         ]);
 
+        CacheInvalidationService::club($club->id);
+
+        if ($newRole === 'member') {
+            \App\Models\ClubMemberPosition::where('club_member_id', $membership->id)
+                ->where(function ($q) {
+                    $q->whereNull('ends_at')->orWhere('ends_at', '>', now());
+                })
+                ->update(['ends_at' => now()]);
+        }
+
         AuditService::log('club.member_role_updated', $club, [
-            'target_user_id' => $user->id,
-            'old_role'       => $oldRole,
-            'new_role'       => $newRole,
-            'updated_by'     => $authUser->id,
+            'target_user_id'   => $user->id,
+            'target_user_name' => $user->name,
+            'previous_role'    => $oldRole,
+            'new_role'         => $newRole,
+            'previous'         => ['role' => $oldRole],
+            'changed'          => ['role' => $newRole],
+            'updated_by'       => $authUser->id,
         ]);
+
+        if ($oldRole !== $newRole) {
+            $roleLabels = [
+                'president'      => 'President',
+                'vice_president' => 'Vice President',
+                'secretary'      => 'Secretary',
+                'treasurer'      => 'Treasurer',
+                'executive'      => 'Executive Member',
+                'member'         => 'General Member',
+            ];
+
+            $oldRoleLabel = $roleLabels[$oldRole] ?? ucfirst(str_replace('_', ' ', $oldRole));
+            $newRoleLabel = $roleLabels[$newRole] ?? ucfirst(str_replace('_', ' ', $newRole));
+
+            NotificationService::notifyUser(
+                $user->id,
+                'club_role_updated',
+                'Official Position Update',
+                "Your official position in '{$club->name}' has been updated from {$oldRoleLabel} to {$newRoleLabel}.",
+                Club::class,
+                $club->id
+            );
+        }
 
         return response()->json([
             'message'    => "Member role updated to '{$newRole}'.",
             'membership' => $membership->fresh()->load('user:id,name,student_id,email,department'),
+        ]);
+    }
+
+    /**
+     * PUT /api/clubs/{club}/advisor
+     *
+     * President, Secretary, or Admin action to update club advisor info.
+     */
+    public function updateAdvisor(Request $request, Club $club): JsonResponse
+    {
+        $authUser = $request->user();
+
+        $isPresidentOrSecretary = ClubMember::where('club_id', $club->id)
+            ->where('user_id', $authUser->id)
+            ->whereIn('role', ['president', 'secretary'])
+            ->exists();
+
+        if (!$authUser->is_admin && !$isPresidentOrSecretary) {
+            return response()->json([
+                'message' => 'Only the President, Secretary, or System Admin can manage advisor information.',
+            ], 403);
+        }
+
+        if ($request->has('advisors')) {
+            $request->validate([
+                'advisors'                 => 'present|array',
+                'advisors.*.name'          => 'required|string|max:255',
+                'advisors.*.title'         => 'nullable|string|max:255',
+                'advisors.*.department'    => 'nullable|string|max:255',
+                'advisors.*.contact_email' => 'nullable|email|max:255',
+            ]);
+            $advisorData = $request->input('advisors');
+        } else {
+            $request->validate([
+                'name'          => 'required|string|max:255',
+                'title'         => 'nullable|string|max:255',
+                'department'    => 'nullable|string|max:255',
+                'contact_email' => 'nullable|email|max:255',
+            ]);
+            $advisorData = [$request->only(['name', 'title', 'department', 'contact_email'])];
+        }
+
+        $club->update(['advisor' => $advisorData]);
+
+        CacheInvalidationService::club($club->id);
+
+        AuditService::log('club.advisor_updated', $club, [
+            'updated_by' => $authUser->id,
+            'advisor'    => $advisorData,
+        ]);
+
+        $freshClub = $club->fresh();
+
+        return response()->json([
+            'message'  => 'Club advisor details updated successfully.',
+            'advisor'  => $freshClub->advisor,
+            'advisors' => $freshClub->advisors,
+        ]);
+    }
+
+    /**
+     * POST /api/clubs/{club}/transfer-presidency
+     *
+     * President or Admin action to transfer presidency to another active member.
+     */
+    public function transferPresidency(Request $request, Club $club): JsonResponse
+    {
+        $authUser = $request->user();
+
+        $currentPresMembership = ClubMember::where('club_id', $club->id)
+            ->where('role', 'president')
+            ->where('status', 'active')
+            ->first();
+
+        $isCurrentPresident = $currentPresMembership && $currentPresMembership->user_id === $authUser->id;
+        if (!$isCurrentPresident) {
+            return response()->json([
+                'message' => 'Only the current President of the club can transfer presidency.',
+            ], 403);
+        }
+
+        $request->validate([
+            'target_user_id' => 'required|exists:users,id',
+            'former_role'    => 'nullable|string|in:vice_president,secretary,treasurer,member',
+        ]);
+
+        $targetUserId = (int) $request->input('target_user_id');
+        $formerRole = $request->input('former_role', 'member');
+
+        if ($currentPresMembership && $currentPresMembership->user_id === $targetUserId) {
+            return response()->json([
+                'message' => 'This user is already the President of the club.',
+            ], 422);
+        }
+
+        $targetMembership = ClubMember::where('club_id', $club->id)
+            ->where('user_id', $targetUserId)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$targetMembership) {
+            return response()->json([
+                'message' => 'The selected target user is not an active member of this club.',
+            ], 404);
+        }
+
+        $roleLabels = [
+            'president'      => 'President',
+            'vice_president' => 'Vice President',
+            'secretary'      => 'Secretary',
+            'treasurer'      => 'Treasurer',
+            'executive'      => 'Executive Member',
+            'member'         => 'General Member',
+        ];
+
+        // 1. Reassign former president role
+        if ($currentPresMembership) {
+            $currentPresMembership->update(['role' => $formerRole]);
+            $formerRoleLabel = $roleLabels[$formerRole] ?? 'General Member';
+
+            NotificationService::notifyUser(
+                $currentPresMembership->user_id,
+                'club_role_updated',
+                'Official Position Update',
+                "Your official position in '{$club->name}' has been updated from President to {$formerRoleLabel}.",
+                Club::class,
+                $club->id
+            );
+        }
+
+        // 2. Promote target member to president
+        $targetOldRoleLabel = $roleLabels[$targetMembership->role] ?? 'General Member';
+        $targetMembership->update(['role' => 'president']);
+
+        AuditService::log('club.presidency_transferred', $club, [
+            'transferred_by'      => $authUser->id,
+            'new_president_id'    => $targetUserId,
+            'former_president_id' => $currentPresMembership ? $currentPresMembership->user_id : null,
+            'former_role'         => $formerRole,
+        ]);
+
+        NotificationService::notifyUser(
+            $targetUserId,
+            'presidency_transferred',
+            'Official Position Update',
+            "Your official position in '{$club->name}' has been updated from {$targetOldRoleLabel} to President.",
+            Club::class,
+            $club->id
+        );
+
+        CacheInvalidationService::club($club->id);
+
+        return response()->json([
+            'message' => 'Presidency successfully transferred.',
         ]);
     }
 
@@ -426,7 +814,23 @@ class ClubController extends Controller
             ], 422);
         }
 
+        // Orphan Executive protection: Cannot remove the last executive left in the club
+        $isExecRole = in_array($membership->role, ['president', 'vice_president', 'secretary', 'treasurer', 'executive']);
+        if ($isExecRole) {
+            $execCount = ClubMember::where('club_id', $club->id)
+                ->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
+                ->count();
+
+            if ($execCount <= 1) {
+                return response()->json([
+                    'message' => 'Cannot remove the last remaining executive of the club.',
+                ], 422);
+            }
+        }
+
         $membership->delete();
+
+        CacheInvalidationService::club($club->id);
 
         AuditService::log('club.member_removed', $club, [
             'target_user_id' => $user->id,
@@ -440,8 +844,8 @@ class ClubController extends Controller
 
     /**
      * GET /api/clubs/{club}/audit-logs
-     *
-     * Exec-only read-only activity logs scoped strictly to this club.
+     * Exec-only read-only activity feed scoped strictly to this club.
+     * Excludes authentication logs and system admin overrides.
      */
     public function auditLogs(Request $request, Club $club): JsonResponse
     {
@@ -453,39 +857,57 @@ class ClubController extends Controller
             ], 403);
         }
 
-        $logs = AuditLog::with('user:id,name,email')
-            ->where(function ($query) use ($club) {
-                $query->where(function ($q) use ($club) {
-                    $q->where('target_type', 'Club')
-                      ->where('target_id', $club->id);
-                })
-                ->orWhere(function ($q) use ($club) {
-                    $q->where('target_type', 'Event')
-                      ->whereIn('target_id', function ($sub) use ($club) {
-                          $sub->select('id')->from('events')->where('club_id', $club->id);
-                      });
-                })
-                ->orWhereRaw("JSON_EXTRACT(metadata, '$.club_id') = ?", [$club->id]);
+        $hasClubIdColumn = Schema::hasColumn('audit_logs', 'club_id');
+
+        $query = AuditLog::with(['user:id,name,email', 'target'])
+            ->where(function ($query) use ($club, $hasClubIdColumn) {
+                if ($hasClubIdColumn) {
+                    $query->where('club_id', $club->id)
+                          ->orWhere(function ($q) use ($club) {
+                              $q->where('target_type', 'Club')
+                                ->where('target_id', $club->id);
+                          });
+                } else {
+                    $query->where(function ($q) use ($club) {
+                        $q->where('target_type', 'Club')
+                          ->where('target_id', $club->id);
+                    })
+                    ->orWhere(function ($q) use ($club) {
+                        $q->where('target_type', 'Event')
+                          ->whereIn('target_id', function ($sub) use ($club) {
+                              $sub->select('id')->from('events')->where('club_id', $club->id);
+                          });
+                    })
+                    ->orWhereRaw("JSON_EXTRACT(metadata, '$.club_id') = ?", [$club->id]);
+                }
             })
-            ->latest('id')
-            ->paginate(30);
+            // Exclude authentication and system admin override logs
+            ->where('action', 'not like', 'auth.%')
+            ->where('action', 'not like', 'admin.%');
+
+        // Optional date range filtering for executives (read-only activity feed)
+        if ($request->filled('from')) {
+            $query->where('created_at', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $query->where('created_at', '<=', $request->input('to'));
+        }
+
+        $logs = $query->latest('id')->paginate(30);
 
         return response()->json($logs);
     }
 
     /**
-     * Helper to check if user is admin or executive of club.
+     * Helper to check if user is an executive of club.
      */
     private function canManageClub($user, Club $club): bool
     {
-        if ($user->is_admin) {
-            return true;
-        }
-
-        return ClubMember::where('club_id', $club->id)
-            ->where('user_id', $user->id)
-            ->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer'])
-            ->exists();
+        return $user->hasClubPermission($club, 'can_manage_members') ||
+            ClubMember::where('club_id', $club->id)
+                ->where('user_id', $user->id)
+                ->whereIn('role', ['president', 'vice_president', 'secretary', 'treasurer', 'executive'])
+                ->exists();
     }
 
     /**
@@ -511,7 +933,20 @@ class ClubController extends Controller
             'club_name'  => $club->name,
         ]);
 
+        if ($club->logo_path) {
+            Storage::disk('public')->delete($club->logo_path);
+        }
+        if ($club->banner_path) {
+            Storage::disk('public')->delete($club->banner_path);
+        }
+        if ($club->permission_doc_path) {
+            Storage::disk('public')->delete($club->permission_doc_path);
+        }
+
+        $clubId = $club->id;
         $club->delete();
+
+        CacheInvalidationService::club($clubId);
 
         return response()->json(['message' => 'Club deleted successfully.']);
     }

@@ -3,9 +3,14 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import eventService from '../../services/eventService';
 import EventModal from '../../components/Events/EventModal';
-import MarkAttendanceModal from '../../components/Events/MarkAttendanceModal';
 import AttendanceReportModal from '../../components/Events/AttendanceReportModal';
-import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, Ban, Trash2, ArrowLeft, Building2, CheckCircle } from 'lucide-react';
+import ViewResponsesModal from '../../components/Events/ViewResponsesModal';
+import EventFeedbackModal from '../../components/Events/EventFeedbackModal';
+import FeedbackListModal from '../../components/Events/FeedbackListModal';
+import Modal from '../../components/ui/Modal';
+import { Edit, ClipboardList, BarChart2, Rocket, Play, CheckSquare, CheckCircle2, Ban, Trash2, ArrowLeft, Building2, CheckCircle, FileText, Paperclip, Star, MessageSquare, Bell, Users, Shield, Clock } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const statusBadgeStyles = {
     upcoming: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -16,12 +21,28 @@ const statusBadgeStyles = {
     cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
 };
 
+const formatDate = (isoStr) => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
 const EventDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
     const [event, setEvent] = useState(null);
+    usePageTitle(event ? event.title : 'Event Details');
     const [isRegistered, setIsRegistered] = useState(false);
+    const [userRegistration, setUserRegistration] = useState(null);
     const [canManage, setCanManage] = useState(false);
     const [spotsRemaining, setSpotsRemaining] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -32,8 +53,41 @@ const EventDetailPage = () => {
 
     // Executive management modal states
     const [isEditOpen, setIsEditOpen] = useState(false);
-    const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
     const [isReportOpen, setIsReportOpen] = useState(false);
+    const [isResponsesOpen, setIsResponsesOpen] = useState(false);
+    const [isReminderOpen, setIsReminderOpen] = useState(false);
+    const [reminderMsg, setReminderMsg] = useState('');
+    const [sendingReminder, setSendingReminder] = useState(false);
+
+    // Registration custom fields modal state
+    const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+    const [customTextAnswers, setCustomTextAnswers] = useState({});
+    const [customFileAnswers, setCustomFileAnswers] = useState({});
+
+    // Feedback states
+    const [feedbackSummary, setFeedbackSummary] = useState(null);
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+    const [isFeedbackListOpen, setIsFeedbackListOpen] = useState(false);
+
+    const handleSendReminder = async () => {
+        setSendingReminder(true);
+        try {
+            await eventService.sendReminder(id, reminderMsg);
+            setToast({ type: 'success', message: 'Event reminder successfully sent to all registered attendees!' });
+            setIsReminderOpen(false);
+            setReminderMsg('');
+        } catch (err) {
+            setToast({ type: 'error', message: err.response?.data?.message || 'Failed to send event reminder.' });
+        } finally {
+            setSendingReminder(false);
+        }
+    };
+
+    const loadFeedbackSummary = () => {
+        eventService.getFeedbackSummary(id)
+            .then(res => setFeedbackSummary(res.data))
+            .catch(() => { });
+    };
 
     useEffect(() => {
         setLoading(true);
@@ -44,8 +98,10 @@ const EventDetailPage = () => {
                 const data = res.data;
                 setEvent(data.event);
                 setIsRegistered(data.is_registered || false);
+                setUserRegistration(data.user_registration || null);
                 setCanManage(data.can_manage || false);
                 setSpotsRemaining(data.spots_remaining);
+                loadFeedbackSummary();
             })
             .catch(err => {
                 if (err.response?.status === 404) {
@@ -64,13 +120,49 @@ const EventDetailPage = () => {
             .finally(() => setLoading(false));
     }, [id, navigate]);
 
-    const handleRegister = async () => {
+    const handleRegisterClick = () => {
+        if (Array.isArray(event?.custom_fields) && event.custom_fields.length > 0) {
+            setCustomTextAnswers({});
+            setCustomFileAnswers({});
+            setIsRegisterModalOpen(true);
+        } else {
+            handleRegisterSubmit();
+        }
+    };
+
+    const handleRegisterSubmit = async (e) => {
+        if (e) e.preventDefault();
         setSubmitting(true);
         setToast(null);
 
         try {
-            const res = await eventService.registerEvent(id);
+            let payload;
+            const hasFiles = Object.keys(customFileAnswers).length > 0;
+            if (hasFiles) {
+                payload = new FormData();
+                Object.entries(customTextAnswers).forEach(([key, val]) => {
+                    payload.append(`answers[custom_text][${key}]`, val);
+                });
+                Object.entries(customFileAnswers).forEach(([key, file]) => {
+                    payload.append(`answers_files[${key}]`, file);
+                });
+            } else if (Object.keys(customTextAnswers).length > 0) {
+                payload = {
+                    answers: {
+                        custom_text: customTextAnswers,
+                    }
+                };
+            }
+
+            const res = await eventService.registerEvent(id, payload);
             setIsRegistered(true);
+            setIsRegisterModalOpen(false);
+            setUserRegistration(res.data?.user_registration || {
+                answers: {
+                    custom_text: customTextAnswers,
+                    custom_files: customFileAnswers,
+                }
+            });
             setEvent(prev => ({
                 ...prev,
                 registrations_count: (prev.registrations_count || 0) + 1,
@@ -100,6 +192,7 @@ const EventDetailPage = () => {
         try {
             const res = await eventService.cancelRegistration(id);
             setIsRegistered(false);
+            setUserRegistration(null);
             setEvent(prev => ({
                 ...prev,
                 registrations_count: Math.max(0, (prev.registrations_count || 0) - 1),
@@ -172,19 +265,6 @@ const EventDetailPage = () => {
         });
     };
 
-    const formatDate = (isoStr) => {
-        if (!isoStr) return '';
-        const d = new Date(isoStr);
-        return d.toLocaleDateString(undefined, {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    };
-
     if (loading) {
         return (
             <MainLayout>
@@ -249,11 +329,10 @@ const EventDetailPage = () => {
             {/* Notification Toast Banner */}
             {toast && (
                 <div
-                    className={`mb-6 p-4 rounded-xl text-sm border flex items-center justify-between ${
-                        toast.type === 'success'
+                    className={`mb-6 p-4 rounded-xl text-sm border flex items-center justify-between ${toast.type === 'success'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             : 'bg-rose-50 text-rose-800 border-rose-200'
-                    }`}
+                        }`}
                 >
                     <span>{toast.message}</span>
                     <button
@@ -280,28 +359,40 @@ const EventDetailPage = () => {
 
                         {/* Control Actions */}
                         <div className="flex flex-wrap items-center gap-2">
-                            {/* Edit Event */}
+                            {/* Attendance Control (Merged Roster & Attendance Analytics) */}
                             <button
-                                onClick={() => setIsEditOpen(true)}
-                                className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors border border-white/15 flex items-center gap-1.5"
-                            >
-                                <Edit className="w-4 h-4" /> Edit Event
-                            </button>
-
-                            {/* Mark Attendance */}
-                            <button
-                                onClick={() => setIsAttendanceOpen(true)}
+                                onClick={() => setIsResponsesOpen(true)}
                                 className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                             >
-                                <ClipboardList className="w-4 h-4" /> Check-in Roster
+                                <Users className="w-4 h-4" /> Attendance Control ({event.registrations_count || 0})
                             </button>
 
-                            {/* Attendance Report */}
+                            {/* Edit Event */}
+                            {!isCompletedOrPast && (
+                                <button
+                                    onClick={() => setIsEditOpen(true)}
+                                    className="px-3.5 py-2 bg-slate-700/80 hover:bg-slate-600 text-white rounded-xl text-xs font-semibold transition-colors border border-slate-600 flex items-center gap-1.5"
+                                >
+                                    <Edit className="w-4 h-4" /> Edit Event
+                                </button>
+                            )}
+
+                            {/* Send Reminder to Attendees */}
+                            {['published', 'ongoing'].includes(event.status) && (
+                                <button
+                                    onClick={() => setIsReminderOpen(true)}
+                                    className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
+                                >
+                                    <Bell className="w-4 h-4" /> Send Reminder
+                                </button>
+                            )}
+
+                            {/* View Feedback Responses */}
                             <button
-                                onClick={() => setIsReportOpen(true)}
-                                className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
+                                onClick={() => setIsFeedbackListOpen(true)}
+                                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                             >
-                                <BarChart2 className="w-4 h-4" /> Attendance Report
+                                <MessageSquare className="w-4 h-4" /> Feedback ({feedbackSummary?.total_reviews || 0})
                             </button>
 
                             {/* Status Transitions */}
@@ -309,7 +400,7 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('published')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-[#eab308] text-slate-900 font-bold hover:bg-amber-400 rounded-xl text-xs transition-colors shadow-xs flex items-center gap-1"
+                                    className="px-3.5 py-2 bg-[#eab308] text-slate-900 font-bold hover:bg-amber-400 rounded-xl text-xs transition-colors shadow-xs flex items-center gap-1.5"
                                 >
                                     <Rocket className="w-4 h-4" /> Publish Event
                                 </button>
@@ -319,7 +410,7 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('ongoing')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1"
+                                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                                 >
                                     <Play className="w-4 h-4" /> Mark Ongoing
                                 </button>
@@ -329,9 +420,9 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('completed')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1"
+                                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                                 >
-                                    <CheckSquare className="w-4 h-4" /> Mark Completed
+                                    <CheckCircle2 className="w-4 h-4" /> Mark Completed
                                 </button>
                             )}
 
@@ -339,7 +430,7 @@ const EventDetailPage = () => {
                                 <button
                                     onClick={() => handleStatusTransition('cancelled')}
                                     disabled={submitting}
-                                    className="px-3.5 py-2 bg-rose-600/80 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold transition-colors border border-rose-500/30 flex items-center gap-1"
+                                    className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
                                 >
                                     <Ban className="w-4 h-4" /> Cancel Event
                                 </button>
@@ -361,7 +452,16 @@ const EventDetailPage = () => {
             )}
 
             {/* Detailed Event Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs overflow-hidden">
+                {getImageUrl(event.banner_url || event.banner_path) && (
+                    <div className="mb-6 h-56 sm:h-72 -mx-6 sm:-mx-8 -mt-6 sm:-mt-8 overflow-hidden bg-slate-100 border-b border-slate-200">
+                        <img
+                            src={getImageUrl(event.banner_url || event.banner_path)}
+                            alt={event.title}
+                            className="w-full h-full object-cover"
+                        />
+                    </div>
+                )}
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     {/* Club link */}
                     <Link
@@ -376,6 +476,11 @@ const EventDetailPage = () => {
                         {canManage && (
                             <span className="text-xs font-semibold px-2.5 py-1 bg-[#ffdf9a]/40 text-[#5a4300] border border-[#eab308]/40 rounded-full">
                                 Executive Access
+                            </span>
+                        )}
+                        {event.requires_approval && (
+                            <span className="text-xs font-semibold px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" /> Moderated Mode
                             </span>
                         )}
                         <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${statusBadgeStyles[event.status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
@@ -432,21 +537,239 @@ const EventDetailPage = () => {
                     </p>
                 </div>
 
+                {/* Custom Registration Questions & User Submitted Answers Section */}
+                {Array.isArray(event.custom_fields) && event.custom_fields.length > 0 && (
+                    <div className="mb-8 p-6 bg-[#f8f9ff] border border-blue-200/80 rounded-2xl space-y-4">
+                        <div className="flex items-center justify-between gap-2 border-b border-blue-100 pb-3">
+                            <div>
+                                <h3 className="text-base font-bold text-[#0b1c30] flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-[#2563eb]" />
+                                    Registration Requirements & Custom Questions
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    The hosting club requires attendees to respond to the following custom questions.
+                                </p>
+                            </div>
+                            {canManage && (
+                                <button
+                                    onClick={() => setIsResponsesOpen(true)}
+                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                                >
+                                    <ClipboardList className="w-3.5 h-3.5" /> View Responses
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                            {(() => {
+                                const parseUserAnswers = (raw) => {
+                                    if (!raw) return { textMap: {}, fileMap: {} };
+                                    let obj = raw;
+                                    if (typeof raw === 'string') {
+                                        try { obj = JSON.parse(raw); } catch { return { textMap: {}, fileMap: {} }; }
+                                    }
+                                    if (typeof obj !== 'object' || obj === null) return { textMap: {}, fileMap: {} };
+                                    let textMap = obj.custom_text && typeof obj.custom_text === 'object' ? { ...obj.custom_text } : {};
+                                    let fileMap = obj.custom_files && typeof obj.custom_files === 'object' ? { ...obj.custom_files } : {};
+                                    if (!obj.custom_text && !obj.custom_files) {
+                                        Object.entries(obj).forEach(([k, v]) => {
+                                            if (v && typeof v === 'object' && (v.url || v.path || v.name)) { fileMap[k] = v; }
+                                            else if (v !== null && v !== undefined) { textMap[k] = String(v); }
+                                        });
+                                    }
+                                    return { textMap, fileMap };
+                                };
+                                const { textMap, fileMap } = parseUserAnswers(userRegistration?.answers);
+
+                                return (Array.isArray(event.custom_fields) ? event.custom_fields : []).map((field, idx) => {
+                                    const fieldLabel = field.label || field.name || `Question ${idx + 1}`;
+                                    const userTextAns = textMap[fieldLabel];
+                                    const userFileAns = fileMap[fieldLabel];
+                                    const hasUserSubmitted = isRegistered && (userTextAns !== undefined || userFileAns !== undefined);
+
+                                    return (
+                                        <div key={field.id || idx} className="p-4 bg-white border border-slate-200 rounded-xl space-y-2 text-xs">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="font-bold text-[#0b1c30] text-sm">
+                                                    #{idx + 1}. {fieldLabel}
+                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="capitalize bg-slate-100 px-2 py-0.5 border border-slate-200 rounded text-[10px] text-slate-600 font-medium">
+                                                        {field.type || 'text'}
+                                                    </span>
+                                                    {field.required ? (
+                                                        <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded font-semibold text-[10px]">
+                                                            Required *
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-medium text-[10px]">
+                                                            Optional
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {field.type === 'select' && field.options && (
+                                                <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap pt-0.5">
+                                                    <span className="font-semibold text-slate-600">Options:</span>
+                                                    {(Array.isArray(field.options) ? field.options : (field.options || '').split(',')).map((opt, oIdx) => (
+                                                        <span key={oIdx} className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[10px] text-slate-700">
+                                                            {typeof opt === 'string' ? opt.trim() : opt}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Submission Status or Preview */}
+                                            {isRegistered ? (
+                                                <div className="mt-2 pt-2 border-t border-slate-100">
+                                                    <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1">
+                                                        Your Submitted Answer
+                                                    </span>
+                                                    {userTextAns !== undefined ? (
+                                                        <p className="text-xs text-slate-800 font-medium bg-emerald-50/60 p-2 rounded border border-emerald-200/60">
+                                                            {userTextAns || 'N/A'}
+                                                        </p>
+                                                    ) : userFileAns ? (
+                                                        <a
+                                                            href={getImageUrl(userFileAns.url || userFileAns.path)}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold rounded border border-emerald-200 transition-colors text-xs"
+                                                        >
+                                                            <Paperclip className="w-3.5 h-3.5 text-emerald-600" />
+                                                            {userFileAns.name || 'View Uploaded File'}
+                                                        </a>
+                                                    ) : (
+                                                        <p className="text-xs text-slate-400 italic">No answer recorded.</p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="mt-1 pt-1 text-[11px] text-slate-400 italic">
+                                                    Prompted during event registration
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+                    </div>
+                )}
+
+                {/* Event Feedback & Ratings Section */}
+                {(event.status === 'completed' || event.status === 'cancelled' || (feedbackSummary && feedbackSummary.total_reviews > 0)) && (
+                    <div className="mt-8 p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    ★ Event Feedback & Ratings
+                                    {feedbackSummary && feedbackSummary.total_reviews > 0 && (
+                                        <span className="px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
+                                            {feedbackSummary.average_rating} / 5.0
+                                        </span>
+                                    )}
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    {feedbackSummary && feedbackSummary.total_reviews > 0
+                                        ? `Based on ${feedbackSummary.total_reviews} review${feedbackSummary.total_reviews === 1 ? '' : 's'}.`
+                                        : 'Feedback is collected after event completion.'}{' '}
+                                    {((event.feedback_policy || feedbackSummary?.feedback_policy) === 'open_to_all' ||
+                                      (event.feedback_policy || feedbackSummary?.feedback_policy) === 'registered_only') && (
+                                        <span className="font-medium text-slate-600">
+                                            {' '}({(event.feedback_policy || feedbackSummary?.feedback_policy) === 'open_to_all'
+                                                ? 'Policy: Open to All Students'
+                                                : 'Policy: All Registered Attendees'})
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                {feedbackSummary?.my_feedback ? (
+                                    <button
+                                        onClick={() => setIsFeedbackModalOpen(true)}
+                                        className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+                                    >
+                                        <MessageSquare className="w-4 h-4 text-indigo-600" />
+                                        Edit Your Feedback
+                                    </button>
+                                ) : feedbackSummary?.can_submit ? (
+                                    <button
+                                        onClick={() => setIsFeedbackModalOpen(true)}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+                                    >
+                                        <MessageSquare className="w-4 h-4" />
+                                        Submit Event Feedback
+                                    </button>
+                                ) : null}
+
+                                {canManage && (
+                                    <button
+                                        onClick={() => setIsFeedbackListOpen(true)}
+                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+                                    >
+                                        <MessageSquare className="w-4 h-4" />
+                                        View All Responses ({feedbackSummary?.total_reviews || 0})
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* User's existing feedback preview */}
+                        {feedbackSummary?.my_feedback && (
+                            <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-1.5 text-xs">
+                                <div className="flex items-center justify-between text-slate-700">
+                                    <span className="font-semibold text-slate-900">Your Submitted Review:</span>
+                                    <div className="flex items-center gap-1">
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <Star
+                                                key={s}
+                                                className={`w-3.5 h-3.5 ${s <= feedbackSummary.my_feedback.rating
+                                                        ? 'fill-amber-400 text-amber-400'
+                                                        : 'text-slate-200'
+                                                    }`}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                                {feedbackSummary.my_feedback.comment && (
+                                    <p className="text-slate-600 italic bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-1">
+                                        "{feedbackSummary.my_feedback.comment}"
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Action / Participation Button Section */}
                 <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="text-sm text-slate-500">
-                        {isRegistered ? (
+                        {userRegistration?.status === 'pending' ? (
+                            <span className="flex items-center gap-1.5 text-amber-800 font-semibold">
+                                <Clock className="w-5 h-5 text-amber-600" />
+                                Registration request submitted &bull; Awaiting executive approval
+                            </span>
+                        ) : isRegistered && (userRegistration?.status === 'approved' || userRegistration?.status === 'registered' || !userRegistration?.status) ? (
                             <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
                                 <CheckCircle className="w-5 h-5 text-emerald-600" />
                                 You are registered for this event
+                            </span>
+                        ) : userRegistration?.status === 'rejected' ? (
+                            <span className="flex items-center gap-1.5 text-rose-700 font-semibold">
+                                <Ban className="w-5 h-5 text-rose-600" />
+                                Previous registration request was rejected by an executive
                             </span>
                         ) : (
                             <span>
                                 {isCompletedOrPast
                                     ? 'Registration has closed.'
                                     : isFull
-                                    ? 'Capacity limit reached.'
-                                    : 'Registration is open for all authenticated members.'}
+                                        ? 'Capacity limit reached.'
+                                        : event.requires_approval
+                                            ? 'Registration is open (Requires Executive Approval).'
+                                            : 'Registration is open for all authenticated members.'}
                             </span>
                         )}
                     </div>
@@ -460,6 +783,19 @@ const EventDetailPage = () => {
                             >
                                 This event has ended
                             </button>
+                        ) : userRegistration?.status === 'pending' ? (
+                            <div className="flex flex-col sm:flex-row items-center gap-2">
+                                <span className="text-xs px-3 py-1.5 bg-amber-50 text-amber-800 rounded-lg border border-amber-200 font-medium flex items-center gap-1">
+                                    <Clock className="w-3.5 h-3.5 text-amber-600" /> Awaiting Approval
+                                </span>
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={submitting}
+                                    className="w-full sm:w-auto px-4 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 font-semibold rounded-xl text-xs border border-rose-200 transition-colors disabled:opacity-50"
+                                >
+                                    {submitting ? 'Cancelling...' : 'Cancel Application'}
+                                </button>
+                            </div>
                         ) : isRegistered ? (
                             <button
                                 onClick={handleCancel}
@@ -477,16 +813,111 @@ const EventDetailPage = () => {
                             </button>
                         ) : (
                             <button
-                                onClick={handleRegister}
+                                onClick={handleRegisterClick}
                                 disabled={submitting}
                                 className="w-full sm:w-auto px-6 py-3 bg-[#2563eb] hover:bg-[#0051d5] text-white font-semibold rounded-xl text-sm shadow-xs transition-colors disabled:opacity-50"
                             >
-                                {submitting ? 'Processing...' : 'Register for Event'}
+                                {submitting ? 'Processing...' : userRegistration?.status === 'rejected' ? 'Re-apply for Event' : 'Register for Event'}
                             </button>
                         )}
                     </div>
                 </div>
             </div>
+
+            {/* Event Registration Custom Questions Modal */}
+            {isRegisterModalOpen && (
+                <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0f172a]/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full p-6 relative animate-in fade-in zoom-in duration-150">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-[#0b1c30]">Event Registration Form</h3>
+                                <p className="text-xs text-slate-500">Please answer the following required custom questions for this event.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsRegisterModalOpen(false)}
+                                className="text-slate-400 hover:text-slate-600 font-bold text-lg p-1"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                            {(Array.isArray(event?.custom_fields) ? event.custom_fields : []).map((field, idx) => {
+                                const fieldKey = field.label || field.name || `Field ${idx + 1}`;
+                                return (
+                                    <div key={field.id || idx} className="space-y-1">
+                                        <label className="block text-xs font-semibold text-[#0b1c30]">
+                                            {field.label || field.name || `Question ${idx + 1}`} {field.required && <span className="text-rose-500">*</span>}
+                                        </label>
+
+                                        {field.type === 'textarea' ? (
+                                            <textarea
+                                                rows={3}
+                                                required={Boolean(field.required)}
+                                                value={customTextAnswers[fieldKey] || ''}
+                                                onChange={(e) => setCustomTextAnswers(prev => ({ ...prev, [fieldKey]: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:border-blue-500"
+                                                placeholder="Enter your response..."
+                                            />
+                                        ) : field.type === 'select' ? (
+                                            <select
+                                                required={Boolean(field.required)}
+                                                value={customTextAnswers[fieldKey] || ''}
+                                                onChange={(e) => setCustomTextAnswers(prev => ({ ...prev, [fieldKey]: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:border-blue-500 bg-white"
+                                            >
+                                                <option value="">-- Select Option --</option>
+                                                {(Array.isArray(field.options) ? field.options : (field.options || '').split(',')).map((opt, oIdx) => {
+                                                    const val = typeof opt === 'string' ? opt.trim() : opt;
+                                                    return <option key={oIdx} value={val}>{val}</option>;
+                                                })}
+                                            </select>
+                                        ) : field.type === 'checkbox' ? (
+                                            <label className="flex items-center gap-2 text-xs text-slate-700 font-medium cursor-pointer pt-1">
+                                                <input
+                                                    type="checkbox"
+                                                    required={Boolean(field.required)}
+                                                    checked={customTextAnswers[fieldKey] === 'Yes'}
+                                                    onChange={(e) => setCustomTextAnswers(prev => ({ ...prev, [fieldKey]: e.target.checked ? 'Yes' : 'No' }))}
+                                                    className="rounded text-blue-600 focus:ring-blue-500"
+                                                />
+                                                <span>I confirm / agree</span>
+                                            </label>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                required={Boolean(field.required)}
+                                                value={customTextAnswers[fieldKey] || ''}
+                                                onChange={(e) => setCustomTextAnswers(prev => ({ ...prev, [fieldKey]: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:border-blue-500"
+                                                placeholder="Enter response..."
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
+
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsRegisterModalOpen(false)}
+                                    className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={submitting}
+                                    className="px-5 py-2 bg-[#2563eb] hover:bg-[#0051d5] text-white font-semibold rounded-lg text-xs transition-colors disabled:opacity-50"
+                                >
+                                    {submitting ? 'Submitting Registration...' : 'Complete Registration'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Modals */}
             <EventModal
@@ -496,17 +927,79 @@ const EventDetailPage = () => {
                 onSuccess={handleEventUpdated}
             />
 
-            <MarkAttendanceModal
-                isOpen={isAttendanceOpen}
-                onClose={() => setIsAttendanceOpen(false)}
-                event={event}
-            />
-
             <AttendanceReportModal
                 isOpen={isReportOpen}
                 onClose={() => setIsReportOpen(false)}
                 event={event}
             />
+
+            <ViewResponsesModal
+                isOpen={isResponsesOpen}
+                onClose={() => setIsResponsesOpen(false)}
+                event={event}
+            />
+
+            <EventFeedbackModal
+                isOpen={isFeedbackModalOpen}
+                onClose={() => setIsFeedbackModalOpen(false)}
+                eventId={event.id}
+                eventTitle={event.title}
+                existingFeedback={feedbackSummary?.my_feedback}
+                onSuccess={(msg) => {
+                    setToast({ type: 'success', message: msg });
+                    loadFeedbackSummary();
+                }}
+            />
+
+            <FeedbackListModal
+                isOpen={isFeedbackListOpen}
+                onClose={() => setIsFeedbackListOpen(false)}
+                eventId={event.id}
+                eventTitle={event.title}
+            />
+
+            {/* Send Reminder Modal */}
+            <Modal
+                isOpen={isReminderOpen}
+                onClose={() => setIsReminderOpen(false)}
+                title="Send Event Reminder"
+            >
+                <div className="space-y-4">
+                    <p className="text-xs text-slate-600">
+                        Broadcast an in-app reminder notification to all registered attendees for <strong className="text-slate-800">{event.title}</strong>.
+                    </p>
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Custom Reminder Message (Optional)
+                        </label>
+                        <textarea
+                            value={reminderMsg}
+                            onChange={(e) => setReminderMsg(e.target.value)}
+                            rows={3}
+                            placeholder="e.g., Don't forget to bring your student ID card! Room 302."
+                            className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsReminderOpen(false)}
+                            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleSendReminder}
+                            disabled={sendingReminder}
+                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+                        >
+                            <Bell className="w-3.5 h-3.5" />
+                            {sendingReminder ? 'Sending...' : 'Send Reminder'}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </MainLayout>
     );
 };

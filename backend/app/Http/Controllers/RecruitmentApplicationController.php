@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreRecruitmentApplicationRequest;
-use App\Models\Club;
 use App\Models\Notification;
 use App\Models\RecruitmentApplication;
 use App\Models\RecruitmentNotice;
+use App\Services\CacheInvalidationService;
 use App\Services\ClubMembershipService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
@@ -39,6 +39,16 @@ class RecruitmentApplicationController extends Controller
             return response()->json(['message' => 'You are already an active member of this club. Recruitment is reserved for new applicants.'], 422);
         }
 
+        // Validate student session eligibility against campaign target_sessions
+        if (!empty($recruitmentNotice->target_sessions) && is_array($recruitmentNotice->target_sessions)) {
+            $userSession = $user->session;
+            if ($userSession === null || !in_array((int)$userSession, array_map('intval', $recruitmentNotice->target_sessions), true)) {
+                return response()->json([
+                    'message' => 'Your academic session is not eligible to apply for this recruitment campaign.'
+                ], 422);
+            }
+        }
+
         $answers = $request->input('answers', []);
         if (is_string($answers)) {
             $answers = json_decode($answers, true) ?? [];
@@ -48,17 +58,28 @@ class RecruitmentApplicationController extends Controller
             $answers = [];
         }
 
+        $allowedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'];
+
+        // Validate uploaded files
+        $request->validate([
+            'answers_files.*' => 'file|max:5120|mimes:pdf,doc,docx,jpg,jpeg,png,webp',
+        ]);
+
         // Process any uploaded custom files
         if ($request->hasFile('answers_files')) {
             $uploadedFiles = $request->file('answers_files');
             if (is_array($uploadedFiles)) {
                 foreach ($uploadedFiles as $key => $file) {
                     if ($file && $file->isValid()) {
+                        $ext = strtolower($file->getClientOriginalExtension());
+                        if (!in_array($ext, $allowedExtensions, true)) {
+                            return response()->json(['message' => 'Invalid file format uploaded.'], 422);
+                        }
                         $path = $file->store('recruitment_applications', 'public');
                         $answers['custom_files'][$key] = [
                             'name' => $file->getClientOriginalName(),
                             'path' => $path,
-                            'url'  => '/storage/' . $path,
+                            'url'  => asset('storage/' . $path),
                         ];
                     }
                 }
@@ -67,11 +88,15 @@ class RecruitmentApplicationController extends Controller
 
         foreach ($request->allFiles() as $key => $file) {
             if ($key !== 'answers_files' && !is_array($file) && $file->isValid()) {
+                $ext = strtolower($file->getClientOriginalExtension());
+                if (!in_array($ext, $allowedExtensions, true) || $file->getSize() > 5242880) {
+                    return response()->json(['message' => 'Invalid file format or file size exceeded (max 5MB).'], 422);
+                }
                 $path = $file->store('recruitment_applications', 'public');
                 $answers['custom_files'][$key] = [
                     'name' => $file->getClientOriginalName(),
                     'path' => $path,
-                    'url'  => '/storage/' . $path,
+                    'url'  => asset('storage/' . $path),
                 ];
             }
         }
@@ -80,7 +105,7 @@ class RecruitmentApplicationController extends Controller
             'recruitment_notice_id' => $recruitmentNotice->id,
             'user_id'               => $user->id,
             'answers'               => $answers,
-            'status'                => 'pending',
+            'status'                => $recruitmentNotice->getInitialStage(),
         ]);
 
         NotificationService::notifyUser(
@@ -88,8 +113,8 @@ class RecruitmentApplicationController extends Controller
             'recruitment_application_submitted',
             'Application Submitted',
             "Your recruitment application for '{$recruitmentNotice->title}' has been submitted successfully.",
-            Club::class,
-            $recruitmentNotice->club_id
+            RecruitmentNotice::class,
+            $recruitmentNotice->id
         );
 
         NotificationService::notifyClubExecutives(
@@ -97,12 +122,12 @@ class RecruitmentApplicationController extends Controller
             'recruitment_application_submitted',
             'New Recruitment Application',
             "{$user->name} submitted a recruitment application for '{$recruitmentNotice->title}'.",
-            Club::class,
-            $recruitmentNotice->club_id,
+            RecruitmentNotice::class,
+            $recruitmentNotice->id,
             $user->id
         );
 
-        \App\Services\AuditService::log('recruitment_application_submitted', $application, ['title' => $recruitmentNotice->title], $user->id);
+        \App\Services\AuditService::log('recruitment.application_submitted', $application, ['title' => $recruitmentNotice->title], $user->id);
 
         return response()->json($application, 201);
     }
@@ -126,8 +151,11 @@ class RecruitmentApplicationController extends Controller
     {
         $this->authorize('review', $application);
 
+        $notice = $application->recruitmentNotice;
+        $validStatuses = $notice->getAllValidStatuses();
+
         $request->validate([
-            'status' => 'required|in:interview,accepted,rejected',
+            'status' => 'required|string|in:' . implode(',', $validStatuses),
         ]);
 
         $status = $request->input('status');
@@ -140,23 +168,31 @@ class RecruitmentApplicationController extends Controller
         ]);
 
         if ($status === 'accepted') {
-            $membershipService->admitUser($application->recruitmentNotice->club, $application->user);
+            $membershipService->admitUser($notice->club, $application->user);
+            CacheInvalidationService::club($notice->club_id);
         }
 
-        $message = $status === 'interview'
-            ? "Your recruitment application for '{$application->recruitmentNotice->club->name}' has advanced to the Interview phase."
-            : "Your recruitment application for '{$application->recruitmentNotice->club->name}' has been {$status}.";
+        $stageLabel = $notice->getStageLabelFor($status);
+        $message = in_array($status, ['accepted', 'rejected'], true)
+            ? "Your recruitment application for '{$notice->club->name}' has been {$status}."
+            : "Your recruitment application for '{$notice->club->name}' has advanced to: {$stageLabel}.";
 
         Notification::create([
             'user_id'      => $application->user_id,
             'type'         => 'recruitment_application_' . $status,
-            'title'        => 'Recruitment Application ' . ucfirst($status),
+            'title'        => 'Recruitment Application Update',
             'message'      => $message,
-            'related_type' => Club::class,
-            'related_id'   => $application->recruitmentNotice->club_id,
+            'related_type' => RecruitmentNotice::class,
+            'related_id'   => $application->recruitment_notice_id,
         ]);
 
-        \App\Services\AuditService::log('recruitment_application_' . $status, $application, ['status' => $status], $user->id);
+        if (in_array($status, ['accepted', 'rejected'], true)) {
+            \App\Services\AuditService::log('recruitment.application_' . $status, $application, [
+                'status'         => $status,
+                'applicant_name' => $application->user?->name,
+                'notice_title'   => $notice->title,
+            ], $user->id);
+        }
 
         return response()->json($application->load(['user', 'reviewer']));
     }

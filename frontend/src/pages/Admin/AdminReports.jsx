@@ -6,8 +6,10 @@ import clubService from '../../services/clubService';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorBanner from '../../components/ui/ErrorBanner';
 import { Shield, BarChart2, Building2, Users, Calendar, Award } from 'lucide-react';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const AdminReports = () => {
+    usePageTitle('Admin — Reports');
     const [reports, setReports] = useState(null);
     const [clubs, setClubs] = useState([]);
     const [selectedClubId, setSelectedClubId] = useState('');

@@ -22,17 +22,15 @@ class RecruitmentNoticeController extends Controller
 
         $user = $request->user();
         if ($club) {
-            $isExec = $user && ($user->is_admin || $user->hasClubPermission($club, 'can_manage_recruitment'));
+            $isExec = $user && $user->hasClubPermission($club, 'can_manage_recruitment');
             if (!$isExec) {
                 $query->where('status', 'open');
             }
         } else {
-            if (!$user || !$user->is_admin) {
-                $query->where('status', 'open');
-            }
+            $query->where('status', 'open');
         }
 
-        $notices = $query->with('club')->latest()->get();
+        $notices = $query->with('club:id,name,logo_path,category,department,status')->latest()->get();
 
         if ($user) {
             $userMemberClubIds = \App\Models\ClubMember::where('user_id', $user->id)
@@ -40,15 +38,14 @@ class RecruitmentNoticeController extends Controller
                 ->pluck('club_id')
                 ->toArray();
 
-            $userApps = \App\Models\RecruitmentApplication::where('user_id', $user->id)
+            $userApps = \App\Models\RecruitmentApplication::select(['id', 'recruitment_notice_id', 'user_id', 'status', 'created_at'])
+                ->where('user_id', $user->id)
                 ->get()
                 ->keyBy('recruitment_notice_id');
 
-            $notices->transform(function ($notice) use ($userMemberClubIds, $userApps) {
-                $noticeArray = $notice->toArray();
-                $noticeArray['is_member'] = in_array($notice->club_id, $userMemberClubIds);
-                $noticeArray['my_application'] = $userApps->get($notice->id);
-                return $noticeArray;
+            $notices->each(function ($notice) use ($userMemberClubIds, $userApps) {
+                $notice->setAttribute('is_member', in_array($notice->club_id, $userMemberClubIds));
+                $notice->setAttribute('my_application', $userApps->get($notice->id));
             });
         }
 
@@ -59,6 +56,23 @@ class RecruitmentNoticeController extends Controller
     {
         $this->authorize('create', [RecruitmentNotice::class, $club]);
 
+        $data = $request->validated();
+        $session = $data['session'] ?? null;
+
+        // Check 1: Enforce one recruitment per year/session per club
+        if ($session) {
+            $existingSameSession = RecruitmentNotice::where('club_id', $club->id)
+                ->where('session', (string)$session)
+                ->exists();
+
+            if ($existingSameSession) {
+                return response()->json([
+                    'message' => "A recruitment campaign for session '{$session}' already exists for '{$club->name}'. Only one recruitment campaign per year/session is allowed."
+                ], 422);
+            }
+        }
+
+        // Check 2: Active recruitment check
         $hasActiveRecruitment = RecruitmentNotice::where('club_id', $club->id)
             ->where('status', 'open')
             ->where('closes_at', '>', now())
@@ -70,7 +84,6 @@ class RecruitmentNoticeController extends Controller
             ], 422);
         }
 
-        $data = $request->validated();
         $data['club_id'] = $club->id;
         $data['created_by'] = $request->user()->id;
         $data['status'] = $data['status'] ?? 'open';
@@ -78,19 +91,42 @@ class RecruitmentNoticeController extends Controller
             $data['title'] = "{$club->name} Recruitment";
         }
 
+        // Resolve pipeline stages
+        $template = $data['pipeline_template'] ?? 'multi_stage';
+        if ($template === 'custom' && !empty($data['pipeline_stages'])) {
+            $data['pipeline_stages'] = $data['pipeline_stages'];
+        } else {
+            $templates = RecruitmentNotice::pipelineTemplates();
+            $data['pipeline_template'] = isset($templates[$template]) ? $template : 'multi_stage';
+            $data['pipeline_stages']   = $templates[$data['pipeline_template']];
+        }
+
         $notice = RecruitmentNotice::create($data);
 
-        NotificationService::notifyClubMembers(
-            $club->id,
-            'recruitment_opened',
-            'Recruitment Campaign Opened',
-            "A new recruitment campaign '{$notice->title}' has opened in '{$club->name}'!",
-            Club::class,
-            $club->id,
-            $request->user()->id
-        );
+        // Notify targeted student session users if target_sessions specified, else notify all club members
+        if (!empty($notice->target_sessions) && is_array($notice->target_sessions)) {
+            NotificationService::notifyUsersBySessions(
+                $notice->target_sessions,
+                'recruitment_opened',
+                'Recruitment Campaign Opened',
+                "Recruitment campaign '{$notice->title}' is now open for '{$club->name}' for your session!",
+                RecruitmentNotice::class,
+                $notice->id,
+                $request->user()->id
+            );
+        } else {
+            NotificationService::notifyClubMembers(
+                $club->id,
+                'recruitment_opened',
+                'Recruitment Campaign Opened',
+                "A new recruitment campaign '{$notice->title}' has opened in '{$club->name}'!",
+                RecruitmentNotice::class,
+                $notice->id,
+                $request->user()->id
+            );
+        }
 
-        \App\Services\AuditService::log('recruitment_notice_created', $notice, ['title' => $notice->title], $request->user()->id);
+        \App\Services\AuditService::log('recruitment.notice_created', $notice, ['title' => $notice->title], $request->user()->id);
 
         return response()->json($notice->load('club'), 201);
     }
@@ -123,21 +159,29 @@ class RecruitmentNoticeController extends Controller
     {
         $this->authorize('update', $recruitmentNotice);
 
-        $recruitmentNotice->update($request->validated());
+        $data = $request->validated();
 
-        if ($request->user()->is_admin) {
-            NotificationService::notifyClubExecutives(
-                $recruitmentNotice->club_id,
-                'recruitment_updated',
-                'Recruitment Campaign Updated',
-                "An admin updated the recruitment campaign '{$recruitmentNotice->title}'.",
-                Club::class,
-                $recruitmentNotice->club_id,
-                $request->user()->id
-            );
+        // Lock pipeline modifications if applications already exist
+        if (isset($data['pipeline_template']) || isset($data['pipeline_stages'])) {
+            if ($recruitmentNotice->applications()->exists()) {
+                return response()->json([
+                    'message' => 'Cannot modify the recruitment process pipeline after applications have been submitted.'
+                ], 422);
+            }
+
+            $template = $data['pipeline_template'] ?? $recruitmentNotice->pipeline_template;
+            if ($template === 'custom' && !empty($data['pipeline_stages'])) {
+                $data['pipeline_stages'] = $data['pipeline_stages'];
+            } else {
+                $templates = RecruitmentNotice::pipelineTemplates();
+                $data['pipeline_template'] = isset($templates[$template]) ? $template : 'multi_stage';
+                $data['pipeline_stages']   = $templates[$data['pipeline_template']];
+            }
         }
 
-        \App\Services\AuditService::log('recruitment_notice_updated', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
+        $recruitmentNotice->update($data);
+
+        \App\Services\AuditService::log('recruitment.notice_updated', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
 
         return response()->json($recruitmentNotice->load('club'));
     }
@@ -146,7 +190,7 @@ class RecruitmentNoticeController extends Controller
     {
         $this->authorize('delete', $recruitmentNotice);
 
-        \App\Services\AuditService::log('recruitment_notice_deleted', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
+        \App\Services\AuditService::log('recruitment.notice_deleted', $recruitmentNotice, ['title' => $recruitmentNotice->title], $request->user()->id);
 
         $recruitmentNotice->delete();
 

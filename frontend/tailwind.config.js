@@ -4,8 +4,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        heading: ['Manrope', 'sans-serif'],
-        sans: ['Work Sans', 'Inter', 'system-ui', 'sans-serif'],
+        heading: ['Urbanist', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         stitch: {
@@ -21,9 +21,9 @@ export default {
           secondary: '#615e57',
           'secondary-container': '#e8e2d9',
           'on-secondary-container': '#1d1b16',
-          tertiary: '#d95e36',
+          tertiary: '#ba3d15',
           'tertiary-container': '#3a0a00',
-          'on-tertiary-container': '#d95e36',
+          'on-tertiary-container': '#ba3d15',
           'on-surface': '#1b1c19',
           'on-surface-variant': '#444748',
           outline: '#747878',

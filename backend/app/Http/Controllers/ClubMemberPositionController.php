@@ -88,7 +88,7 @@ class ClubMemberPositionController extends Controller
     public function store(Request $request, ClubMember $member): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($member->club_id, 'can_manage_members')) {
+        if (!$user->hasClubPermission($member->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -114,6 +114,23 @@ class ClubMemberPositionController extends Controller
 
         if ($position->club_id !== $member->club_id) {
             return response()->json(['message' => 'Position does not belong to this club.'], 422);
+        }
+
+        // Single occupant position validation
+        $singleOccupantTitles = ['chief advisor', 'president', 'vice president', 'general secretary', 'treasurer'];
+        $cleanTitle = strtolower(trim($position->title));
+        if (in_array($cleanTitle, $singleOccupantTitles)) {
+            $existingCount = ClubMemberPosition::where('club_position_id', $position->id)
+                ->where(function ($q) {
+                    $q->whereNull('ends_at')->orWhere('ends_at', '>', now());
+                })
+                ->where('club_member_id', '!=', $member->id)
+                ->count();
+            if ($existingCount > 0) {
+                return response()->json([
+                    'message' => "The position '{$position->title}' can only be held by 1 person. Please revoke the current holder before assigning."
+                ], 422);
+            }
         }
 
         $newPosRank = ClubMember::calculatePositionRank($position);
@@ -147,10 +164,74 @@ class ClubMemberPositionController extends Controller
         return response()->json($memberPosition->load('position'), 201);
     }
 
+    public function storeByEmail(Request $request, Club $club): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user->hasClubPermission($club->id, 'can_manage_members')) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'position_id' => 'required|exists:club_positions,id',
+        ]);
+
+        $targetUser = \App\Models\User::where('email', $request->email)->firstOrFail();
+
+        $position = ClubPosition::findOrFail($request->position_id);
+        if ($position->club_id !== $club->id) {
+            return response()->json(['message' => 'Position does not belong to this club.'], 422);
+        }
+
+        $member = ClubMember::firstOrCreate(
+            ['club_id' => $club->id, 'user_id' => $targetUser->id],
+            ['role' => 'member', 'joined_at' => now(), 'status' => 'active']
+        );
+        if ($member->status !== 'active') {
+            $member->update(['status' => 'active']);
+        }
+
+        // Single occupant position check
+        $singleOccupantTitles = ['chief advisor', 'president', 'vice president', 'general secretary', 'treasurer'];
+        $cleanTitle = strtolower(trim($position->title));
+        if (in_array($cleanTitle, $singleOccupantTitles)) {
+            $existingCount = ClubMemberPosition::where('club_position_id', $position->id)
+                ->where(function ($q) {
+                    $q->whereNull('ends_at')->orWhere('ends_at', '>', now());
+                })
+                ->where('club_member_id', '!=', $member->id)
+                ->count();
+            if ($existingCount > 0) {
+                return response()->json([
+                    'message' => "The position '{$position->title}' can only be held by 1 person."
+                ], 422);
+            }
+        }
+
+        $memberPosition = ClubMemberPosition::create([
+            'club_member_id'   => $member->id,
+            'club_position_id' => $position->id,
+            'assigned_at'      => now(),
+        ]);
+
+        $this->syncMemberPrimaryRole($member);
+
+        NotificationService::notifyUser(
+            $member->user_id,
+            'role_changed',
+            'Role Updated',
+            "You have been assigned the position of '{$position->title}' in '{$club->name}'.",
+            Club::class,
+            $club->id
+        );
+
+        return response()->json($memberPosition->load(['position', 'member.user']), 201);
+    }
+
     public function destroy(Request $request, ClubMember $member, int $position): JsonResponse
     {
         $user = $request->user();
-        if (!$user->is_admin && !$user->hasClubPermission($member->club_id, 'can_manage_members')) {
+        if (!$user->hasClubPermission($member->club_id, 'can_manage_members')) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 

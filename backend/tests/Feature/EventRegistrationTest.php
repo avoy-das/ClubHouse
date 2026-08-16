@@ -92,7 +92,7 @@ class EventRegistrationTest extends TestCase
             ]);
     }
 
-    public function test_user_cannot_register_for_fully_booked_event()
+    public function test_user_joins_waitlist_when_event_is_fully_booked()
     {
         $this->event->update(['capacity' => 1]);
 
@@ -100,14 +100,16 @@ class EventRegistrationTest extends TestCase
         EventRegistration::create([
             'event_id' => $this->event->id,
             'user_id'  => $anotherUser->id,
+            'status'   => 'registered',
         ]);
 
         $response = $this->actingAs($this->user)
             ->postJson("/api/events/{$this->event->id}/register");
 
-        $response->assertStatus(422)
+        $response->assertStatus(201)
             ->assertJson([
-                'message' => 'This event is fully booked.',
+                'status' => 'waitlisted',
+                'message' => 'Successfully joined the waitlist.',
             ]);
     }
 
@@ -173,5 +175,327 @@ class EventRegistrationTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonFragment(['title' => $this->event->title]);
+    }
+
+    public function test_nobody_can_register_for_draft_event_before_it_is_published()
+    {
+        $execUser = $this->createUser();
+        \App\Models\ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $execUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $draftEvent = Event::create([
+            'club_id'        => $this->club->id,
+            'created_by'     => $execUser->id,
+            'title'          => 'Draft Innovation Summit',
+            'description'    => 'Unpublished draft event.',
+            'status'         => 'draft',
+            'visibility'     => 'public',
+            'location_type'  => 'physical',
+            'location_value' => 'Auditorium',
+            'starts_at'      => now()->addDays(5),
+            'ends_at'        => now()->addDays(5)->addHours(2),
+            'capacity'       => 50,
+        ]);
+
+        // Regular user attempt
+        $res1 = $this->actingAs($this->user)
+            ->postJson("/api/events/{$draftEvent->id}/register");
+        $res1->assertStatus(422)
+            ->assertJson(['message' => 'Registration is not allowed before the event is published.']);
+
+        // Executive user attempt
+        $res2 = $this->actingAs($execUser)
+            ->postJson("/api/events/{$draftEvent->id}/register");
+        $res2->assertStatus(422)
+            ->assertJson(['message' => 'Registration is not allowed before the event is published.']);
+    }
+
+    public function test_user_joins_waitlist_when_capacity_exceeded()
+    {
+        $this->event->update(['capacity' => 1]);
+
+        $user1 = $this->createUser();
+        $this->actingAs($user1)
+            ->postJson("/api/events/{$this->event->id}/register")
+            ->assertStatus(201)
+            ->assertJson(['status' => 'registered']);
+
+        $user2 = $this->createUser();
+        $this->actingAs($user2)
+            ->postJson("/api/events/{$this->event->id}/register")
+            ->assertStatus(201)
+            ->assertJson([
+                'status' => 'waitlisted',
+                'message' => 'Successfully joined the waitlist.'
+            ]);
+
+        $this->assertDatabaseHas('event_registrations', [
+            'event_id' => $this->event->id,
+            'user_id' => $user2->id,
+            'status' => 'waitlisted',
+        ]);
+    }
+
+    public function test_user_promoted_from_waitlist_on_self_cancellation()
+    {
+        $this->event->update(['capacity' => 1]);
+
+        $user1 = $this->createUser();
+        $this->actingAs($user1)->postJson("/api/events/{$this->event->id}/register");
+
+        $user2 = $this->createUser();
+        $this->actingAs($user2)->postJson("/api/events/{$this->event->id}/register");
+
+        // User 1 cancels
+        $this->actingAs($user1)
+            ->deleteJson("/api/events/{$this->event->id}/register")
+            ->assertStatus(200);
+
+        // User 2 should be promoted to registered
+        $this->assertDatabaseHas('event_registrations', [
+            'event_id' => $this->event->id,
+            'user_id' => $user2->id,
+            'status' => 'registered',
+        ]);
+        
+        $this->assertDatabaseMissing('event_registrations', [
+            'event_id' => $this->event->id,
+            'user_id' => $user1->id,
+        ]);
+    }
+
+    public function test_user_promoted_from_waitlist_on_executive_cancellation()
+    {
+        $this->event->update(['capacity' => 1]);
+
+        $execUser = $this->createUser();
+        \App\Models\ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $execUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $user1 = $this->createUser();
+        $this->actingAs($user1)->postJson("/api/events/{$this->event->id}/register");
+
+        $user2 = $this->createUser();
+        $this->actingAs($user2)->postJson("/api/events/{$this->event->id}/register");
+
+        // Exec cancels User 1
+        $this->actingAs($execUser)
+            ->deleteJson("/api/events/{$this->event->id}/registrations/{$user1->id}/cancel")
+            ->assertStatus(200)
+            ->assertJson(['message' => 'Registration cancelled by executive.']);
+
+        $this->assertDatabaseHas('event_registrations', [
+            'event_id' => $this->event->id,
+            'user_id' => $user2->id,
+            'status' => 'registered',
+        ]);
+    }
+
+    public function test_executive_can_block_registered_user_which_cancels_registration_and_promotes_next_in_waitlist()
+    {
+        $this->event->update(['capacity' => 1]);
+
+        $execUser = $this->createUser();
+        \App\Models\ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $execUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $user1 = $this->createUser();
+        $this->actingAs($user1)->postJson("/api/events/{$this->event->id}/register");
+
+        $user2 = $this->createUser();
+        $this->actingAs($user2)->postJson("/api/events/{$this->event->id}/register");
+
+        // Exec blocks User 1
+        $this->actingAs($execUser)
+            ->postJson("/api/events/{$this->event->id}/blocks", [
+                'user_id' => $user1->id,
+                'reason' => 'Spam registration',
+            ])
+            ->assertStatus(200)
+            ->assertJson(['message' => 'User successfully blocked and registration cancelled.']);
+
+        // Check user 1 blocked
+        $this->assertDatabaseHas('event_blocks', [
+            'event_id' => $this->event->id,
+            'user_id' => $user1->id,
+            'reason' => 'Spam registration',
+        ]);
+
+        // Check user 1 registration is gone
+        $this->assertDatabaseMissing('event_registrations', [
+            'event_id' => $this->event->id,
+            'user_id' => $user1->id,
+        ]);
+
+        // User 2 promoted
+        $this->assertDatabaseHas('event_registrations', [
+            'event_id' => $this->event->id,
+            'user_id' => $user2->id,
+            'status' => 'registered',
+        ]);
+    }
+
+    public function test_blocked_user_cannot_register()
+    {
+        $execUser = $this->createUser();
+        \App\Models\ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $execUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $user = $this->createUser();
+
+        // Block user
+        $this->actingAs($execUser)
+            ->postJson("/api/events/{$this->event->id}/blocks", [
+                'user_id' => $user->id,
+            ])
+            ->assertStatus(200);
+
+        // Attempt register
+        $this->actingAs($user)
+            ->postJson("/api/events/{$this->event->id}/register")
+            ->assertStatus(403)
+            ->assertJson(['message' => 'You are blocked from registering for this event.']);
+    }
+
+    public function test_executive_can_unblock_user()
+    {
+        $execUser = $this->createUser();
+        \App\Models\ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $execUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $user = $this->createUser();
+
+        // Block
+        \App\Models\EventBlock::create([
+            'event_id' => $this->event->id,
+            'user_id' => $user->id,
+            'blocked_by' => $execUser->id,
+        ]);
+
+        // Unblock
+        $this->actingAs($execUser)
+            ->deleteJson("/api/events/{$this->event->id}/blocks/{$user->id}")
+            ->assertStatus(200)
+            ->assertJson(['message' => 'User successfully unblocked.']);
+
+        $this->assertDatabaseMissing('event_blocks', [
+            'event_id' => $this->event->id,
+            'user_id' => $user->id,
+        ]);
+    }
+
+    public function test_executive_cancellation_with_reason_sends_notification_and_allows_reregistration()
+    {
+        $execUser = $this->createUser();
+        \App\Models\ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $execUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $user = $this->createUser();
+        EventRegistration::create([
+            'event_id' => $this->event->id,
+            'user_id'  => $user->id,
+            'status'   => 'registered',
+        ]);
+
+        // Exec cancels registration with reason
+        $reason = 'Incomplete registration form answers';
+        $this->actingAs($execUser)
+            ->deleteJson("/api/events/{$this->event->id}/registrations/{$user->id}/cancel", [
+                'reason' => $reason,
+            ])
+            ->assertStatus(200);
+
+        // Assert notification created with reason
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $user->id,
+            'type'    => 'event_registration_cancelled_by_exec',
+            'title'   => 'Registration Cancelled',
+        ]);
+
+        $notification = \App\Models\Notification::where('user_id', $user->id)
+            ->where('type', 'event_registration_cancelled_by_exec')
+            ->first();
+        $this->assertStringContainsString($reason, $notification->message);
+
+        // Assert user can register again
+        $this->actingAs($user)
+            ->postJson("/api/events/{$this->event->id}/register")
+            ->assertStatus(201)
+            ->assertJson([
+                'is_registered' => true,
+            ]);
+    }
+
+    public function test_executive_block_with_reason_sends_notification_and_permanently_blocks_reregistration()
+    {
+        $execUser = $this->createUser();
+        \App\Models\ClubMember::create([
+            'club_id'   => $this->club->id,
+            'user_id'   => $execUser->id,
+            'role'      => 'president',
+            'status'    => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $user = $this->createUser();
+        EventRegistration::create([
+            'event_id' => $this->event->id,
+            'user_id'  => $user->id,
+            'status'   => 'registered',
+        ]);
+
+        // Exec blocks user with reason
+        $reason = 'Violated code of conduct';
+        $this->actingAs($execUser)
+            ->postJson("/api/events/{$this->event->id}/blocks", [
+                'user_id' => $user->id,
+                'reason'  => $reason,
+            ])
+            ->assertStatus(200);
+
+        // Assert notification created with reason
+        $notification = \App\Models\Notification::where('user_id', $user->id)
+            ->where('type', 'event_user_blocked')
+            ->first();
+        $this->assertNotNull($notification);
+        $this->assertStringContainsString($reason, $notification->message);
+
+        // Assert user is permanently blocked from registering again
+        $this->actingAs($user)
+            ->postJson("/api/events/{$this->event->id}/register")
+            ->assertStatus(403)
+            ->assertJson([
+                'message' => 'You are blocked from registering for this event.',
+            ]);
     }
 }
